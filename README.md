@@ -4,8 +4,6 @@ Reza Nourafkan,
 & Andre-Marie Tremablay
 
 ## USAGE
----
-
 Train the default network with:
 `$ python deep_continuation.py`
 
@@ -22,10 +20,8 @@ Another example is of paramter setting:
 will change the learning rate. Refer to the code for more details. All such tunable parameters are also defined in `params.json`.
 
 ## RANDOM SEARCH
----
 The script `random_search.py` contains further examples of how to automatically change the parameters from a script.
 
 ## SLURM
----
 The script `submit.sh` show the correct way of using this code on Graham or Cedar (with the dataset and a virtual machine residing on the compute node).
 
