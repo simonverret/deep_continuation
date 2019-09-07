@@ -2,7 +2,7 @@
 #SBATCH --account=def-tremblay
 #SBATCH --time=0-18:59
 #SBATCH --mem-per-cpu=16000M 
-#SBATCH --job-name=deep_ctmo
+#SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
 cd $SLURM_TMPDIR
@@ -23,4 +23,4 @@ python random_search.py
 cd ..
 
 DATE=$(date -u +%Y%m%d)
-cp -r job ~/scratch/deep_ctmo_$DATE-id$SLURM_JOB_ID
+cp -r job ~/scratch/deep_continuation/deep_continuation_$DATE-id$SLURM_JOB_ID
