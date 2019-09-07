@@ -16,7 +16,7 @@ virtualenv --no-download env
 source env/bin/activate
 pip install --no-index --upgrade pip
 pip install --no-index numpy
-pip install --no-index torch-cpu
+pip install --no-index torch
 
 cd job
 python random_search.py
