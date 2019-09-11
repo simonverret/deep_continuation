@@ -1,7 +1,7 @@
 #
 #   deep_continuation
 #
-#   © Simon Verret
+#   Simon Verret
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
@@ -190,10 +190,8 @@ def train(args, device, train_loader, valid_loader):
             f.write('{}\t'.format(epoch))
             
             mlp.train()
-            train_targets = []
-            train_predicted = []
-            train_losses = []
             avg_train_loss = 0
+            train_n_iter = 0
 
             if epoch==1 and args.warmup:
                 print('   linear warm-up of learning rate')
@@ -212,27 +210,22 @@ def train(args, device, train_loader, valid_loader):
                 loss.backward()
                 optimizer.step()
 
-                avg_train_loss += loss
-                train_losses.append(loss.item())
-            
-            avg_train_loss = np.sum(train_losses)/len(train_losses)
+                avg_train_loss += loss.item()
+                train_n_iter += 1            
             print('   average training   loss: {:.9f}'.format(avg_train_loss))
             f.write('{:.9f}\t'.format(avg_train_loss))
 
             mlp.eval()
-            val_targets = []
-            val_predicted = []
-            val_losses = []
             avg_val_loss = 0
+            val_n_iter = 0
             for batch_number, (inputs, targets)  in enumerate(valid_loader):
                 inputs = inputs.float().to(device)
                 targets = targets.float().to(device)
                 outputs = mlp(inputs)
                 loss = criterion(outputs, targets.float())
                 
-                val_losses.append(loss.item())
-                avg_val_loss += loss
-            avg_val_loss = np.sum(val_losses)/len(val_losses)
+                avg_val_loss += loss.item()
+                val_n_iter += 1
             print('   average validation loss: {:.9f}'.format(avg_val_loss))
             f.write('{:.9f}\t'.format(avg_val_loss))
 

@@ -1,11 +1,12 @@
 #
 #   deep_continuation
 #
-#   © Simon Verret
+#   Simon Verret
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
 
+import os
 import deep_continuation as dcont
 import numpy as np
 import torch
@@ -37,7 +38,7 @@ args_dict = {
 search_ranges = {
     "h1": [1,150], #x10 implicit
     "h2": [1,150], #x10 implicit
-    "lr": [0.1,0.0001],
+    "lr": [0.01,0.0001],
     "batch_size": [3,50], #x10 implicit
     "factor": [0.1,1], 
     "patience": [4,20],
@@ -79,3 +80,4 @@ for i in range(72):
 
     pyctmo_train, pyctmo_val = dcont.load_data(args)
     dcont.train(args, device, pyctmo_train, pyctmo_val)
+    os.system("cp -r ./ ~/scratch/deep_continuation/running-id$SLURM_JOB_ID")

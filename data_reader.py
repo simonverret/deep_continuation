@@ -1,7 +1,7 @@
 #
 #   deep_continuation
 #
-#   © Simon Verret
+#   Simon Verret
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #

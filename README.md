@@ -1,5 +1,5 @@
 # DEEP CONTINUATION
-© Simon Verret,
+Simon Verret,
 Reza Nourafkan,
 & Andre-Marie Tremablay
 
