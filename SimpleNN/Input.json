@@ -1,0 +1,30 @@
+{"neuralNetwork": 
+    { "architecture": [
+        { "inputSize": 128,
+          "outputSize": 512,
+          "hiddenLayers": [256, 512, 256],
+          "loadNN": true
+        },
+        { "activationFunction": "ReLU",
+          "normalization": true,
+          "dropout": true
+        },
+        { "lossFunction" : "MSELoss",
+          "optimizerAlgorithm" : "Adam"
+        },
+        { "numberDataTraining": 100000,
+          "numberDataValidation": 10000,
+          "numberDataTest": 1
+        }
+    ],
+      "hyperParameter": {
+          "batchSizeTraining": 2000,
+          "batchSizeValidation": 10000,
+          "numberEpochs": 100,
+          "learningRate": 0.0001,
+          "optimizerMomentum": 0.02,
+          "dropoutProbability": 0.09},
+      "printing": {
+          "logInterval": 20}
+    }
+}
