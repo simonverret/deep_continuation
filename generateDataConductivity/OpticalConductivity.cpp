@@ -72,9 +72,8 @@ void OpticalConductivity::setNormalization(const double &wp)
     }
     for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
     {
-        norm += pow(m_strengths[j], 2.);
+        norm += 2.0*pow(m_strengths[j], 2.);
     }
-    norm *= M_PI;
     m_normalization = wp*norm;
 }
 
@@ -101,36 +100,75 @@ void OpticalConductivity::initBosonicMatsubaraFrequencyMesh(const double beta, c
 }
 
 
-double OpticalConductivity::calculateOpticalConductivity(const double &omega)
+double OpticalConductivity::calculateOpticalConductivityLorentzian(const double &omega)
 {
     double s = 0.;
     for (unsigned int i=0; i<m_numDrude; ++i)
     {
-        double n = pow(m_plasmaFrequencies[i], 2.)* m_scatteringRates[i];
+        double n = m_scatteringRates[i];
         double d = 1.+ pow(omega*m_scatteringRates[i], 2.);
-        s += n/d;
+        s += pow(m_plasmaFrequencies[i], 2.)* n/(d*M_PI);
     }
     for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
     {
-        double n = pow(omega*m_strengths[j], 2.)* m_widths[j];
+        double n = m_widths[j];
         double d = pow(m_positions[j], 2.) - pow(omega, 2.);
         d *= d;
         d += pow(omega*m_widths[j], 2.);
-        s += n/d;
+        s += 2.0*pow(omega*m_strengths[j], 2.)* n/(d*M_PI);
     }
     return s/m_normalization;
 }
 
-double OpticalConductivity::kernel(const double &omega, const double &nu)
+double OpticalConductivity::calculateOpticalConductivityGaussian(const double &omega)
+{
+    double s = 0.;
+    for (unsigned int i=0; i<m_numDrude; ++i)
+    {
+        double exponent = omega;
+        exponent *= -exponent;
+        exponent *= pow(m_scatteringRates[i],2.)/2.;
+        double result = m_scatteringRates[i]*exp(exponent)/sqrt(2. * M_PI);
+        s += pow(m_plasmaFrequencies[i], 2.)* result;
+    }
+    for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
+    {
+        double exponent = omega - m_positions[j];
+        exponent *= -exponent;
+        exponent /= 2. * pow(m_widths[j],2.);
+        double result = exp(exponent);
+        result /= m_widths[j] * sqrt(2. * M_PI);
+        s += pow(m_strengths[j], 2.)* result;
+        //
+        exponent = omega + m_positions[j];
+        exponent *= -exponent;
+        exponent /= 2. * pow(m_widths[j],2.);
+        result = exp(exponent);
+        result /= m_widths[j] * sqrt(2. * M_PI);
+        s += pow(m_strengths[j], 2.)* result;
+    }
+    return s/m_normalization;
+}
+
+double OpticalConductivity::kernelLorentzian(const double &omega, const double &nu)
 {
     double tiny = 1.e-9;
 //
-    double s = 2.* calculateOpticalConductivity(omega) / M_PI;
+    double s = 2.* calculateOpticalConductivityLorentzian(omega) / M_PI;
     s *= (omega*omega+tiny)/(omega*omega+nu*nu+tiny);
     return s;
 }
 
-void OpticalConductivity::calculateOpticalConductivity()
+double OpticalConductivity::kernelGaussian(const double &omega, const double &nu)
+{
+    double tiny = 1.e-9;
+    //
+    double s = 2.* calculateOpticalConductivityGaussian(omega) / M_PI;
+    s *= (omega*omega+tiny)/(omega*omega+nu*nu+tiny);
+    return s;
+}
+
+void OpticalConductivity::calculateOpticalConductivityLorentzian()
 {
     if (frequencyMesh.empty())
     {
@@ -142,23 +180,61 @@ void OpticalConductivity::calculateOpticalConductivity()
         double s = 0.;
         for (unsigned int i=0; i<m_numDrude; ++i)
         {
-            double n = pow(m_plasmaFrequencies[i], 2.)* m_scatteringRates[i];
+            double n = m_scatteringRates[i];
             double d = 1. + pow(omegai*m_scatteringRates[i], 2.);
-            s += n/d;
+            s += pow(m_plasmaFrequencies[i], 2.)* n/(d*M_PI);
         }
         for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
         {
-            double n = pow(omegai*m_strengths[j], 2.)* m_widths[j];
+            double n = m_widths[j];
             double d = pow(m_positions[j], 2.) - pow(omegai, 2.);
             d *= d;
             d += pow(omegai*m_widths[j], 2.);
-            s += n/d;
+            s += 2.0*pow(omegai*m_strengths[j], 2.)* n/(d*M_PI);
         }
         m_sigma.push_back(s/m_normalization);
     }
 }
 
-void OpticalConductivity::calculateOpticalPolarization( const double &bandWidth)
+void OpticalConductivity::calculateOpticalConductivityGaussian()
+{
+    if (frequencyMesh.empty())
+    {
+        return;
+    }
+    //
+    for (auto&& omegai : frequencyMesh)
+    {
+        double s = 0.;
+        for (unsigned int i=0; i<m_numDrude; ++i)
+        {
+            double exponent = omegai;
+            exponent *= -exponent;
+            exponent *= pow(m_scatteringRates[i],2.)/2.;
+            double result = m_scatteringRates[i]*exp(exponent)/sqrt(2. * M_PI);
+            s += pow(m_plasmaFrequencies[i], 2.)* result;
+        }
+        for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
+        {
+            double exponent = omegai - m_positions[j];
+            exponent *= -exponent;
+            exponent /= 2. * pow(m_widths[j],2.);
+            double result = exp(exponent);
+            result /= m_widths[j] * sqrt(2. * M_PI);
+            s += pow(m_strengths[j], 2.)* result;
+            //
+            exponent = omegai + m_positions[j];
+            exponent *= -exponent;
+            exponent /= 2. * pow(m_widths[j],2.);
+            result = exp(exponent);
+            result /= m_widths[j] * sqrt(2. * M_PI);
+            s += pow(m_strengths[j], 2.)* result;
+        }
+        m_sigma.push_back(s/m_normalization);
+    }
+}
+
+void OpticalConductivity::calculateOpticalPolarizationLorentzian( const double &bandWidth)
 {
     if (BosonicMatsubaraFrequencyMesh.empty())
     {
@@ -178,7 +254,7 @@ void OpticalConductivity::calculateOpticalPolarization( const double &bandWidth)
             double intSize = pow((double)(i+1)/(double)numIntervals, 2.);
             intSize -= pow((double)i/(double)numIntervals, 2.);
             intSize *= (b - a);
-            S += (intSize / 6.) * ( kernel(w, nui) + kernel(w+intSize, nui) + 4.* kernel((w+w+intSize)/2., nui) );
+            S += (intSize / 6.) * ( kernelLorentzian(w, nui) + kernelLorentzian(w+intSize, nui) + 4.* kernelLorentzian((w+w+intSize)/2., nui) );
             w += intSize;
         }
         // add the integration of the tail
@@ -193,16 +269,46 @@ void OpticalConductivity::calculateOpticalPolarization( const double &bandWidth)
         }
         for (unsigned int i=0; i<m_numDrude; ++i)
         {
-            tail += (2.0/M_PI)*(pow(m_plasmaFrequencies[i], 2.)/m_scatteringRates[i])*multi;
+            tail += (2.0/M_PI)*(pow(m_plasmaFrequencies[i], 2.)/m_scatteringRates[i])*multi/m_normalization;
         }
         for (unsigned int j=0; j<m_numDrudeLorentz; ++j)
         {
-            tail += (2.0/M_PI)*(pow(m_strengths[j], 2.)*m_widths[j])*multi;
+            tail += 2.0*(2.0/M_PI)*(pow(m_strengths[j], 2.)*m_widths[j])*multi/m_normalization;
         }
 //        std::cout << tail << std::endl;
         m_Pi.push_back(S+tail);
     }
 }
+
+void OpticalConductivity::calculateOpticalPolarizationGaussian( const double &bandWidth)
+{
+    if (BosonicMatsubaraFrequencyMesh.empty())
+    {
+        return;
+    }
+    //
+    unsigned int numIntervals = 1024;
+    for (auto&& nui : BosonicMatsubaraFrequencyMesh)
+    {
+        //simple Simpson integration. This should be improved!
+        double a = 0.0;
+        double b = bandWidth;
+        double S = 0.;
+        double w = a;
+        for (unsigned int i=0; i<numIntervals; ++i)
+        {
+            double intSize = pow((double)(i+1)/(double)numIntervals, 2.);
+            intSize -= pow((double)i/(double)numIntervals, 2.);
+            intSize *= (b - a);
+            S += (intSize / 6.) * ( kernelGaussian(w, nui) + kernelGaussian(w+intSize, nui) + 4.* kernelGaussian((w+w+intSize)/2., nui) );
+            w += intSize;
+        }
+        // add the integration of the tail
+        double tail = 0.0;
+        m_Pi.push_back(S+tail);
+    }
+}
+
 
 void OpticalConductivity::csvWrite()
 {

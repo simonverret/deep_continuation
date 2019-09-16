@@ -12,7 +12,7 @@
 #include <vector>
 
 class OpticalConductivity{
-friend void csvWrite(const std::vector<OpticalConductivity> &op, const unsigned int& maxNumDrude, const unsigned int& maxNumDrudeLorentz);
+    friend void csvWrite(const std::vector<OpticalConductivity> &op, const unsigned int& maxNumDrude, const unsigned int& maxNumDrudeLorentz);
 public:
     OpticalConductivity(int numDrude, std::vector<double> plasmaFrequencies, std::vector<double> scatteringRates, int numDrudeLorentz, std::vector<double> positions, std::vector<double> widths, std::vector<double> strengths);
     OpticalConductivity(const OpticalConductivity &s);
@@ -21,11 +21,15 @@ public:
     //
     static void initFrequencyMesh(const unsigned int numInterval, const double bandWidth);
     static void initBosonicMatsubaraFrequencyMesh(const double beta, const unsigned int nMax);
-    double calculateOpticalConductivity(const double &omega);
-    double kernel(const double &omega, const double &nu);
+    double calculateOpticalConductivityLorentzian(const double &omega);
+    double calculateOpticalConductivityGaussian(const double &omega);
+    double kernelLorentzian(const double &omega, const double &nu);
+    double kernelGaussian(const double &omega, const double &nu);
     void setNormalization(const double &wp);
-    void calculateOpticalConductivity();
-    void calculateOpticalPolarization(const double& bandWidth);
+    void calculateOpticalConductivityLorentzian();
+    void calculateOpticalConductivityGaussian();
+    void calculateOpticalPolarizationLorentzian(const double& bandWidth);
+    void calculateOpticalPolarizationGaussian(const double& bandWidth);
     void csvWrite();
     //
 private:

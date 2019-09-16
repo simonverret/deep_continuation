@@ -9,19 +9,20 @@
 #include <iostream>
 #include <random>
 #include <chrono>
-
+#include <string>
 
 #include "OpticalConductivity.hpp"
 
 
 int main() {
+    std::string basisFunction = "Gaussian";
     //
-    double beta = 10;
+    double beta = 20;
     unsigned int numData = 1;
     unsigned int numIntervalOmega = 512;
     double bandWidth = 20.0;
     //
-    unsigned int maxBosonicMatsubaraIndex = 12.8*beta;
+    unsigned int maxBosonicMatsubaraIndex = 128;
     bool normalization= true;
     //
     unsigned int maxNumDrude = 3;
@@ -50,8 +51,8 @@ int main() {
         std::vector<double> scatteringRates;
         for (unsigned int j=0; j<numDrude; ++j)
         {
-            double wp = dis2(gen2)*10.+1.;
-            double tau = dis2(gen2)*0.05*pow(beta, 2.)+1.0; // in FL, 1/tau scales as T^2
+            double wp = dis2(gen2)*5.+1.;
+            double tau = dis2(gen2)*0.02*pow(beta, 2.)+1.0; // in FL, 1/tau scales as T^2
 //
             plasmaFreqs.push_back(wp);
             scatteringRates.push_back(tau);
@@ -63,9 +64,9 @@ int main() {
         std::vector<double> strengths;
         for (unsigned int j=0; j<numDrudeLorentz; ++j)
         {
-            double w = dis2(gen2)*8.+1.6;
-            double gamma = dis2(gen2)*2.7+0.8;
-            double omega = dis2(gen2)*4.+0.6;
+            double w = dis2(gen2)*8.+2.3;
+            double gamma = dis2(gen2)*1.2+0.8;
+            double omega = dis2(gen2)*6.+0.6;
 //
             positions.push_back(w);
             widths.push_back(gamma);
@@ -91,12 +92,22 @@ int main() {
             double wp = 1.0/M_PI;///(1.0 + dis2(gen2)*3.);
             sigma[i].setNormalization(wp);
         }
-        sigma[i].calculateOpticalConductivity();
     }
     //
-    for (unsigned int i=0; i<numData; ++i)
+    if (basisFunction == "Lorentzian")
     {
-        sigma[i].calculateOpticalPolarization(2.*bandWidth);
+        for (unsigned int i=0; i<numData; ++i)
+        {
+            sigma[i].calculateOpticalConductivityLorentzian();
+            sigma[i].calculateOpticalPolarizationLorentzian(2.*bandWidth);
+        }
+    } else if (basisFunction == "Gaussian")
+    {
+        for (unsigned int i=0; i<numData; ++i)
+        {
+            sigma[i].calculateOpticalConductivityGaussian();
+            sigma[i].calculateOpticalPolarizationGaussian(2.*bandWidth);
+        }
     }
     // sample conductivity
     sigma[numData-1].csvWrite();
