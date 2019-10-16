@@ -1,0 +1,23 @@
+{
+    "path": "../data/",
+    "no_cuda": false,
+    "seed": 20,
+    "num_workers": 0,
+    "epochs": 800,
+    "input_size": 128,
+    "hidden": 512,
+    "out_size":512,
+    "loss":"L1Loss",
+    "lr": 0.01,
+    "batch_size": 1500,
+    "stop": 40,
+    "weight_decay": 0,
+    "dropout": 0,
+    "schedule": true,
+    "factor": 0.5,
+    "patience": 8,
+    "warmup": true,
+    "overwrite": true,
+    "save": false
+}
+
