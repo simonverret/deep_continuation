@@ -74,7 +74,7 @@ parser.add_argument('--samples', type=int, default=either_json('samples',2e6), h
 parser.add_argument('--batch_size', type=int, default=either_json('batch_size',200), help='batch size for dataloaders')
 parser.add_argument('--epochs', type=int, default=either_json('epochs',200), help='Number of epochs to train.')
 # architecture
-parser.add_argument('--in_size', type=int, default=either_json('in_size',1), help='Padding size')
+parser.add_argument('--input_size', type=int, default=either_json('input_size',1), help='Padding size')
 parser.add_argument('--hidden_size', type=int, default=either_json('hidden_size',512), help='Size of first hidden layer')
 parser.add_argument('--out_size', type=int, default=either_json('out_size',512), help='Size of second hidden layer')
 parser.add_argument('--max_grad', type=float, default=either_json('max_grad',5), help='Treshold used to clip gradient and avoid gradient explosion')
@@ -91,7 +91,7 @@ parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Ea
 parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
 parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
 # data
-parser.add_argument('--path', type=str, default=either_json('path','data/'), help='path to the SigmaRe.csv and Pi.csv files')
+parser.add_argument('--path', type=str, default=either_json('path','sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
 # hardware
 parser.add_argument('--seed', type=int, default=either_json('seed',72), help='Random seed')
 parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')
@@ -102,7 +102,7 @@ args = parser.parse_known_args()[0]
 
 def name(args):
     name = 'lstm{}-{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
-                args.in_size,
+                args.input_size,
                 args.hidden_size,
                 args.batch_size, round(args.lr,3), round(args.weight_decay,3), round(args.dropout,3),
                 '_wup' if args.warmup else '',
@@ -135,14 +135,13 @@ def load_data(args):
 class LSTM_model(nn.Module):    
     def __init__(self, args):
         super(LSTM_model, self).__init__()
-        self.input_size = args.input_size
+        self.step_dim = 1 ## args.input_size would be the sequence lenght, wich is arbitrary for the lstm module
         self.hidden_size = args.hidden_size
         self.out_size = args.out_size
         self.dropout = args.dropout
+        self.num_layer = 1
 
-        self.lstm = nn.LSTM(self.input_size,
-                            self.hidden_size,
-                            dropout=self.dropout)
+        self.lstm = nn.LSTM(self.step_dim, self.hidden_size, dropout=self.dropout)
         self.linear = nn.Linear(self.hidden_size, self.out_size)
         
     def forward(self, inputs, hidden): 
@@ -151,8 +150,8 @@ class LSTM_model(nn.Module):
         return predictions.squeeze(1), outputs, hidden
     
     def init_hidden(self, batch_size):
-        hidden = (torch.zeros(batch_size, self.hidden_size),
-                  torch.zeros(batch_size, self.hidden_size))
+        hidden = (torch.zeros(self.num_layer, batch_size, self.hidden_size),
+                  torch.zeros(self.num_layer, batch_size, self.hidden_size))
         return hidden
 
 def init_weights(module):
@@ -170,7 +169,7 @@ def train(args, device, train_loader, valid_loader):
         criterion = nn.L1Loss()
     elif args.loss == "KLDivLoss":
         criterion = nn.KLDivLoss()
-    elif args.loss == "MSELoss()":
+    elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
     else:
         print('WARNING : Unknown loss function required, taking MSELoss instead')
@@ -202,13 +201,16 @@ def train(args, device, train_loader, valid_loader):
             if epoch==1 and args.warmup:
                 print('   linear warm-up of learning rate')
             for batch_number, (inputs, targets)  in enumerate(train_loader):
+                # print('batch',batch_number)
+                this_batch_size = inputs.shape[0]
                 if epoch==1 and args.warmup:
                     tmp_lr = batch_number*args.lr/len(train_loader)
                     for g in optimizer.param_groups:
                         g['lr'] = tmp_lr
 
-                inputs = inputs.to(device).float()
-                hidden = lstm.init_hidden(args.batch_size)
+                inputs = inputs.to(device).float().view(args.input_size, this_batch_size, 1)
+                inputs = torch.flip(inputs, dims=[0])
+                hidden = lstm.init_hidden(this_batch_size)
                 targets = targets.to(device).float()
 
                 optimizer.zero_grad()
@@ -219,7 +221,8 @@ def train(args, device, train_loader, valid_loader):
                 optimizer.step()
 
                 avg_train_loss += loss.item()
-                train_n_iter += 1            
+                train_n_iter += 1
+            avg_train_loss = avg_train_loss/train_n_iter
             print('   average training   loss: {:.9f}'.format(avg_train_loss))
             f.write('{:.9f}\t'.format(avg_train_loss))
 
@@ -227,14 +230,17 @@ def train(args, device, train_loader, valid_loader):
             avg_val_loss = 0
             val_n_iter = 0
             for batch_number, (inputs, targets)  in enumerate(valid_loader):
-                inputs = inputs.to(device).float()
-                hidden = lstm.init_hidden(args.batch_size)
+                this_batch_size = inputs.shape[0]
+                inputs = inputs.to(device).float().view(args.input_size, this_batch_size, 1)
+                inputs = torch.flip(inputs, dims=[0])
+                hidden = lstm.init_hidden(this_batch_size)
                 targets = targets.to(device).float()
                 last_output, all_outputs, hidden = lstm(inputs, hidden)
                 loss = criterion(last_output, targets)
                 
                 avg_val_loss += loss.item()
                 val_n_iter += 1
+            avg_val_loss = avg_val_loss/val_n_iter
             print('   average validation loss: {:.9f}'.format(avg_val_loss))
             f.write('{:.9f}\t'.format(avg_val_loss))
 

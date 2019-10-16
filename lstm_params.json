@@ -1,5 +1,5 @@
 {
-    "path": "../data/",
+    "path": "sdata/",
     "no_cuda": false,
     "seed": 20,
     "num_workers": 0,
@@ -7,8 +7,9 @@
     "input_size": 128,
     "hidden": 512,
     "out_size":512,
-    "loss":"L1Loss",
-    "lr": 0.01,
+    "max_grad":5,
+    "loss":"MSELoss",
+    "lr": 0.001,
     "batch_size": 1500,
     "stop": 40,
     "weight_decay": 0,
