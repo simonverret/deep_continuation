@@ -164,7 +164,7 @@ def train(args, device, train_loader, valid_loader):
         criterion = nn.L1Loss()
     elif args.loss == "KLDivLoss":
         criterion = nn.KLDivLoss()
-    elif args.loss == "MSELoss()":
+    elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
     else:
         print('WARNING : Unknown loss function required, taking MSELoss instead')
@@ -211,7 +211,8 @@ def train(args, device, train_loader, valid_loader):
                 optimizer.step()
 
                 avg_train_loss += loss.item()
-                train_n_iter += 1            
+                train_n_iter += 1
+            avg_train_loss = avg_train_loss/train_n_iter
             print('   average training   loss: {:.9f}'.format(avg_train_loss))
             f.write('{:.9f}\t'.format(avg_train_loss))
 
@@ -226,6 +227,7 @@ def train(args, device, train_loader, valid_loader):
                 
                 avg_val_loss += loss.item()
                 val_n_iter += 1
+            avg_val_loss = avg_val_loss/val_n_iter
             print('   average validation loss: {:.9f}'.format(avg_val_loss))
             f.write('{:.9f}\t'.format(avg_val_loss))
 
