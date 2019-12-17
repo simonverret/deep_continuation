@@ -7,7 +7,6 @@
 #
 '''
 TODO:
-3. make the loss function name in the all_best filename
 4. launch experiments
 '''
 #%% INITIALIZATION
@@ -114,9 +113,8 @@ def name(args):
     return name
 
 def dump_params(args):
-    with open("results/params_"+name(args)+".json", 'w') as f:
+    with open("results/params_"+f'_{args.loss}_'+name(args)+".json", 'w') as f:
         json.dump(vars(args), f, indent=4)
-
 
 
 
@@ -163,9 +161,17 @@ def weightedL1Loss(outputs, targets):
     if not hasattr(weightedL1Loss, 'weights'):
         output_size = outputs.shape[1]
         weightedL1Loss.weights = torch.exp(-torch.arange(output_size, dtype=torch.float)/100)
-        # weightedL1Loss.weights = 1/torch.arange(1,output_size+1, dtype=torch.float)
         print('loss weights =', weightedL1Loss.weights)
     out = torch.abs(outputs-targets) * weightedL1Loss.weights
+    out = torch.mean(out)
+    return out
+
+def weightedMSELoss(outputs, targets):
+    if not hasattr(weightedMSELoss, 'weights'):
+        output_size = outputs.shape[1]
+        weightedMSELoss.weights = torch.exp(-torch.arange(output_size, dtype=torch.float)/100)
+        print('loss weights =', weightedMSELoss.weights)
+    out = (outputs-targets)**2 * weightedMSELoss.weights
     out = torch.mean(out)
     return out
 
@@ -181,11 +187,17 @@ def train(args, device, train_loader, valid_loader):
         criterion = nn.KLDivLoss()
     elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
-    elif args.loss == "customLoss":
+    elif args.loss == "expWeightL1Loss":
         criterion = weightedL1Loss
+    elif args.loss == "invWeightL1Loss":
+        criterion = weightedL1Loss
+        weightedL1Loss.weights = 1/torch.arange(1,args.out_size+1, dtype=torch.float)
+    elif args.loss == "invWeightMSELoss":
+        criterion = weightedMSELoss
+        weightedMSELoss.weights = 1/torch.arange(1,args.out_size+1, dtype=torch.float)
     else:
         raise ValueError('Unknown loss function "'+args.loss+'"')
-            
+    
     if args.schedule:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                     factor=args.factor, patience=args.patience, verbose=True, min_lr=1e-6)
@@ -193,7 +205,7 @@ def train(args, device, train_loader, valid_loader):
     best_val_loss = 1e6
     last_epoch = 0
 
-    with open('results/training_'+name(args)+'.csv', 'w' if args.overwrite else 'a') as f:
+    with open('results/training_'+f'{args.loss}_'+name(args)+'.csv', 'w' if args.overwrite else 'a') as f:
         f.write('\nepoch')
         f.write('\ttrain_loss')
         f.write('\tval_loss')
@@ -262,16 +274,16 @@ def train(args, device, train_loader, valid_loader):
                 best_train_loss = avg_train_loss
                 best_epoch = epoch
                 early_stop_count = args.stop
-                for filename in glob('results/BEST_loss*_epoch*'+name(args)+'*'):
+                for filename in glob('results/BEST_'+args.loss+'*_epoch*'+name(args)+'*'):
                     os.remove(filename)
-                torch.save(mlp.state_dict(), 'results/BEST_loss{:.9f}_epoch{}_'.format(avg_val_loss,epoch)+name(args)+'.pt')
+                torch.save(mlp.state_dict(), 'results/BEST_{}{:.9f}_epoch{}_'.format(args.loss,avg_val_loss,epoch)+name(args)+'.pt')
             else: 
                 early_stop_count -= 1
             if early_stop_count==0:
                 print('early stopping limit reached!!')
                 break
 
-    results_filename = 'results/all_bests.csv'
+    results_filename = f'results/all_bests_{args.loss}.csv'
     if not os.path.exists(results_filename):
         with open(results_filename,'w') as f:
             f.write('\t'.join([s for s in [

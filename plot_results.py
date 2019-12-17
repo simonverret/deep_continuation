@@ -14,6 +14,9 @@ import json
 from deep_continuation import MLP
 from data_reader import RezaDataset
 
+np.random.seed(72)
+
+
 ## READ THE PARAMS USED
 class ObjectView():
     def __init__(self,dict):
