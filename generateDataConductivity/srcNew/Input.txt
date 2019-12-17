@@ -1,0 +1,10 @@
+
+numData                   10
+beta                      20.0
+bandWidth                 20.
+numIntervalOmega          512
+maxBosonicMatsubaraIndex  128
+maxNumLowFreqPeaks        3
+maxNumMidInfraredPeaks    16
+GLorder                   5
+noiseLevel                0.000
