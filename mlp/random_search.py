@@ -36,12 +36,15 @@ args_dict = {
     "save": False
 }
 search_ranges = {
-    "h1": [1,150], #x10 implicit
-    "h2": [1,150], #x10 implicit
-    "lr": [0.01,0.0001],
-    "batch_size": [3,50], #x10 implicit
+    "h1": [2,80], #x10 implicit
+    "h2": [2,80], #x10 implicit
+    "lr": [0.001,0.0001],
+    "batch_size": [5,200], #x10 implicit
     "factor": [0.1,1], 
     "patience": [4,20],
+    "stop": [20,40],
+    "weight_decay": [0.0,4.5],
+    "dropout": [0.0,0.8],
 }
 
 class ObjectView():
