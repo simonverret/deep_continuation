@@ -8,7 +8,7 @@
     "h1": 512,
     "h2": 512,
     "out_size":512,
-    "loss":"L1Loss",
+    "loss":"customLoss",
     "lr": 0.01,
     "batch_size": 1500,
     "stop": 40,

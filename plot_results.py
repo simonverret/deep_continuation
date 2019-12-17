@@ -18,13 +18,13 @@ from data_reader import RezaDataset
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
-with open('params_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.json') as f:
+with open('results/params_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.json') as f:
     params = json.load(f)
 args = ObjectView(params)
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
-mlp.load_state_dict(torch.load('BEST_loss0.142099187_epoch8_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.pt'))
+mlp.load_state_dict(torch.load('results/BEST_loss0.063989654_epoch774_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.pt'))
 
 ## RELOAD THE DATA
 dataset = RezaDataset(args.path)

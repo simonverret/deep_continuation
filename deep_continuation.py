@@ -7,8 +7,6 @@
 #
 '''
 TODO:
-1. generate data on mammouth
-2. custom loss function
 3. make the loss function name in the all_best filename
 4. launch experiments
 '''
@@ -16,6 +14,7 @@ TODO:
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 import os
@@ -160,6 +159,16 @@ def init_weights(module):
         torch.nn.init.xavier_uniform_(module.weight)
         module.bias.data.fill_(0.01)
 
+def weightedL1Loss(outputs, targets):
+    if not hasattr(weightedL1Loss, 'weights'):
+        output_size = outputs.shape[1]
+        weightedL1Loss.weights = torch.exp(-torch.arange(output_size, dtype=torch.float)/100)
+        # weightedL1Loss.weights = 1/torch.arange(1,output_size+1, dtype=torch.float)
+        print('loss weights =', weightedL1Loss.weights)
+    out = torch.abs(outputs-targets) * weightedL1Loss.weights
+    out = torch.mean(out)
+    return out
+
 def train(args, device, train_loader, valid_loader): 
     mlp = MLP(args).to(device)
     mlp.apply(init_weights)
@@ -172,9 +181,10 @@ def train(args, device, train_loader, valid_loader):
         criterion = nn.KLDivLoss()
     elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
+    elif args.loss == "customLoss":
+        criterion = weightedL1Loss
     else:
-        print('WARNING : Unknown loss function required, taking MSELoss instead')
-        criterion = nn.MSELoss()
+        raise ValueError('Unknown loss function "'+args.loss+'"')
             
     if args.schedule:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
@@ -219,7 +229,7 @@ def train(args, device, train_loader, valid_loader):
                 avg_train_loss += loss.item()
                 train_n_iter += 1
             avg_train_loss = avg_train_loss/train_n_iter
-            print('   average training   loss: {:.9f}'.format(avg_train_loss))
+            print('   training   loss: {:.9f}'.format(avg_train_loss))
             f.write('{:.9f}\t'.format(avg_train_loss))
 
             mlp.eval()
@@ -234,7 +244,7 @@ def train(args, device, train_loader, valid_loader):
                 avg_val_loss += loss.item()
                 val_n_iter += 1
             avg_val_loss = avg_val_loss/val_n_iter
-            print('   average validation loss: {:.9f}'.format(avg_val_loss))
+            print('   validation loss: {:.9f}'.format(avg_val_loss))
             f.write('{:.9f}\t'.format(avg_val_loss))
 
             f.write('{:.9f}\t'.format(optimizer.param_groups[0]['lr']))
