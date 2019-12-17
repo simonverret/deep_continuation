@@ -17,17 +17,19 @@ from data_reader import RezaDataset
 np.random.seed(72)
 
 
+name = 'mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8'
+
 ## READ THE PARAMS USED
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
-with open('results/params_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.json') as f:
+with open('results/params_'+name+'.json') as f:
     params = json.load(f)
 args = ObjectView(params)
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
-mlp.load_state_dict(torch.load('results/BEST_loss0.063989654_epoch774_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.pt'))
+mlp.load_state_dict(torch.load('results/BEST_loss0.063989654_epoch774_'+name+'.pt'))
 
 ## RELOAD THE DATA
 dataset = RezaDataset(args.path)
@@ -59,4 +61,4 @@ for ii in range(start,end):
     ax4.set_title('difference',loc='right', pad=(-15),)
     ax1.set_xlabel('w')
 
-plt.savefig('results.pdf')
+plt.savefig('results/plot_'+name+'.pdf')
