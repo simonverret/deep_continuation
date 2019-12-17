@@ -183,7 +183,7 @@ def train(args, device, train_loader, valid_loader):
     best_val_loss = 1e6
     last_epoch = 0
 
-    with open('training_'+name(args)+'.csv', 'w' if args.overwrite else 'a') as f:
+    with open('results/training_'+name(args)+'.csv', 'w' if args.overwrite else 'a') as f:
         f.write('\nepoch')
         f.write('\ttrain_loss')
         f.write('\tval_loss')
