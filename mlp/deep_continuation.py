@@ -7,7 +7,6 @@
 #
 '''
 TODO:
-4. launch experiments
 '''
 #%% INITIALIZATION
 import numpy as np
@@ -95,7 +94,7 @@ parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Ea
 parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
 parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
 # data
-parser.add_argument('--path', type=str, default=either_json('path','sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
+parser.add_argument('--path', type=str, default=either_json('path','../sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
 # hardware
 parser.add_argument('--seed', type=int, default=either_json('seed',72), help='Random seed')
 parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')

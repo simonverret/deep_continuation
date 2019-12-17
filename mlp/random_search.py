@@ -13,11 +13,11 @@ import torch
 import random
 
 args_dict = {
-    "path": "../data/",
+    "path": "../sdata/",
     "no_cuda": False,
-    "seed": 20,
+    "seed": 132,
     "num_workers": 0,
-    "epochs": 1000,
+    "epochs": 30,
     "in_size": 128,
     "h1": 512,
     "h2": 512,
@@ -48,7 +48,7 @@ class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
 
-for i in range(72):
+for i in range(10):
     print()
     for key, ran in search_ranges.items():
         if len(ran)>2:
@@ -59,7 +59,8 @@ for i in range(72):
             value = random.uniform(ran[0],ran[1])
         args_dict[key] = value   
         print(key, value)
-        
+    
+
     args = ObjectView(args_dict)
     args.h1 = 10*args.h1
     args.h2 = 10*args.h2
@@ -78,6 +79,7 @@ for i in range(72):
         device = torch.device("cpu")
         print('no GPU available')
 
-    pyctmo_train, pyctmo_val = dcont.load_data(args)
-    dcont.train(args, device, pyctmo_train, pyctmo_val)
-    os.system("cp -r ./ ~/scratch/deep_continuation/running-id$SLURM_JOB_ID")
+    train, val = dcont.load_data(args)
+    dcont.train(args, device, train, val)
+    
+    os.system("cp -r ./ ~/scratch/deep_cont/running-id$SLURM_JOB_ID")
