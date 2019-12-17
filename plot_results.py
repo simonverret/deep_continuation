@@ -16,20 +16,17 @@ from data_reader import RezaDataset
 
 np.random.seed(72)
 
-
-name = 'mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8'
-
 ## READ THE PARAMS USED
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
-with open('results/params_'+name+'.json') as f:
+with open('results/params_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.json') as f:
     params = json.load(f)
 args = ObjectView(params)
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
-mlp.load_state_dict(torch.load('results/BEST_loss0.063989654_epoch774_'+name+'.pt'))
+mlp.load_state_dict(torch.load('results/BEST_customLoss0.059348080_epoch9_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8'))
 
 ## RELOAD THE DATA
 dataset = RezaDataset(args.path)
@@ -45,20 +42,20 @@ end=start+5
 for ii in range(start,end):
     x = torch.tensor(dataset[ii][0]).float()
     ax1.plot(x.detach().numpy())
-    ax1.set_title('input (matsubara freqs)',loc='right', pad=-15)
+    ax1.set_title('input (matsubara freqs)',loc='right', pad=-12)
     ax1.set_xlabel('iwn')
 
     t = torch.tensor(dataset[ii][1]).float()
     ax2.plot(t.detach().numpy())
-    ax2.set_title('target (real freqs)',loc='right', pad=-15)
+    ax2.set_title('target (real freqs)',loc='right', pad=-12)
 
     y = mlp(x)
     ax3.plot(y.detach().numpy())
-    ax3.set_title('NN output (real freqs)',loc='right', pad=-15)
+    ax3.set_title('NN output (real freqs)',loc='right', pad=-12)
 
     e = y-t
     ax4.plot(e.detach().numpy())
-    ax4.set_title('difference',loc='right', pad=(-15),)
+    ax4.set_title('difference',loc='right', pad=(-12),)
     ax1.set_xlabel('w')
 
-plt.savefig('results/plot_'+name+'.pdf')
+plt.savefig('results/last_plot.pdf')
