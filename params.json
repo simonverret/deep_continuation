@@ -1,5 +1,5 @@
 {
-    "path": "../data/",
+    "path": "sdata/",
     "no_cuda": false,
     "seed": 20,
     "num_workers": 0,

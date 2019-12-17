@@ -5,7 +5,13 @@
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
-
+'''
+TODO:
+1. generate data on mammouth
+2. custom loss function
+3. make the loss function name in the all_best filename
+4. launch experiments
+'''
 #%% INITIALIZATION
 import numpy as np
 import torch
@@ -91,7 +97,7 @@ parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Ea
 parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
 parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
 # data
-parser.add_argument('--path', type=str, default=either_json('path','data/'), help='path to the SigmaRe.csv and Pi.csv files')
+parser.add_argument('--path', type=str, default=either_json('path','sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
 # hardware
 parser.add_argument('--seed', type=int, default=either_json('seed',72), help='Random seed')
 parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')
@@ -109,7 +115,7 @@ def name(args):
     return name
 
 def dump_params(args):
-    with open("params_"+name(args)+".json", 'w') as f:
+    with open("results/params_"+name(args)+".json", 'w') as f:
         json.dump(vars(args), f, indent=4)
 
 
@@ -246,16 +252,16 @@ def train(args, device, train_loader, valid_loader):
                 best_train_loss = avg_train_loss
                 best_epoch = epoch
                 early_stop_count = args.stop
-                for filename in glob('BEST_loss*_epoch*'+name(args)+'*'):
+                for filename in glob('results/BEST_loss*_epoch*'+name(args)+'*'):
                     os.remove(filename)
-                torch.save(mlp.state_dict(), 'BEST_loss{:.9f}_epoch{}_'.format(avg_val_loss,epoch)+name(args)+'.pt')
+                torch.save(mlp.state_dict(), 'results/BEST_loss{:.9f}_epoch{}_'.format(avg_val_loss,epoch)+name(args)+'.pt')
             else: 
                 early_stop_count -= 1
             if early_stop_count==0:
                 print('early stopping limit reached!!')
                 break
 
-    results_filename = 'all_bests.csv'
+    results_filename = 'results/all_bests.csv'
     if not os.path.exists(results_filename):
         with open(results_filename,'w') as f:
             f.write('\t'.join([s for s in [
@@ -291,6 +297,8 @@ if __name__=="__main__":
         device = torch.device("cpu")
         print('no GPU available')
 
+    if not os.path.exists('results'):
+        os.mkdir('results')
     dump_params(args)
     train_loader, valid_loader = load_data(args)
     mlp = train(args, device, train_loader, valid_loader)
