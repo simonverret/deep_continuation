@@ -1,5 +1,5 @@
 #
-#   deep_continuation
+#   lstm_continuation
 #
 #   Simon Verret
 #   Reza Nourafkan
@@ -23,15 +23,15 @@ from data_reader import RezaDataset
 '''
 You can use this python script to define hyperparameters in three ways:
     - Through argparse style arguments 
-        ex: python mlp_ctmo.py --weight_decay 10
-    - Trhough a json file named 'params.json' or custom name
-        ex: python mlp_ctmo.py
-        with: 'params.json' containing
+        ex: python lstm_contiuation.py --weight_decay 10
+    - Trhough a json file named 'lstm_params.json' or custom name
+        ex: python lstm_contiuation.py
+        with: 'lstm_params.json' containing
             {
                 "weight_decay":10,
                 ...
             }
-        or: python mlp_ctmo.py --file anyname.json
+        or: python lstm_contiuation.py --file anyname.json
         with: 'anyname.json' containing
             {
                 "weight_decay":10,
@@ -51,11 +51,11 @@ You can use this python script to define hyperparameters in three ways:
             args = ObjectView(args_dict)
             dac.load_data(args)
             ...
-    See the the example 'params.json' for a list of all options, see 'random_search.py' for a script like use.
+    See the the example 'lstm_params.json' for a list of all options, see 'random_search.py' for a script like use.
 '''
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--file', type=str, default='params.json', help='defines default parameters from a .json file')
+parser.add_argument('--file', type=str, default='lstm_params.json', help='defines default parameters from a .json file')
 
 json_path = parser.parse_known_args()[0].file
 if os.path.exists(json_path):
@@ -74,10 +74,10 @@ parser.add_argument('--samples', type=int, default=either_json('samples',2e6), h
 parser.add_argument('--batch_size', type=int, default=either_json('batch_size',200), help='batch size for dataloaders')
 parser.add_argument('--epochs', type=int, default=either_json('epochs',200), help='Number of epochs to train.')
 # architecture
-parser.add_argument('--in_size', type=int, default=either_json('in_size',128), help='Padding size')
-parser.add_argument('--h1', type=int, default=either_json('h1',40), help='Size of first hidden layer')
-parser.add_argument('--h2', type=int, default=either_json('h2',20), help='Size of second hidden layer')
+parser.add_argument('--input_size', type=int, default=either_json('input_size',1), help='Padding size')
+parser.add_argument('--hidden_size', type=int, default=either_json('hidden_size',512), help='Size of first hidden layer')
 parser.add_argument('--out_size', type=int, default=either_json('out_size',512), help='Size of second hidden layer')
+parser.add_argument('--max_grad', type=float, default=either_json('max_grad',5), help='Treshold used to clip gradient and avoid gradient explosion')
 # loss
 parser.add_argument('--loss', type=str, default=either_json('loss','MSELoss'), help='path to the SigmaRe.csv and Pi.csv files')
 # optimization
@@ -91,7 +91,7 @@ parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Ea
 parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
 parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
 # data
-parser.add_argument('--path', type=str, default=either_json('path','data/'), help='path to the SigmaRe.csv and Pi.csv files')
+parser.add_argument('--path', type=str, default=either_json('path','sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
 # hardware
 parser.add_argument('--seed', type=int, default=either_json('seed',72), help='Random seed')
 parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')
@@ -101,18 +101,17 @@ parser.add_argument('--save', action='store_true', default=either_json('save',Fa
 args = parser.parse_known_args()[0]
 
 def name(args):
-    name = 'mlp{}-{}-{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
-                args.in_size, args.h1, args.h2,
+    name = 'lstm{}-{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
+                args.input_size,
+                args.hidden_size,
                 args.batch_size, round(args.lr,3), round(args.weight_decay,3), round(args.dropout,3),
                 '_wup' if args.warmup else '',
                 '_scheduled{}-{}'.format(round(args.factor,3), round(args.patience,3)) if args.schedule else '')
     return name
 
 def dump_params(args):
-    with open("params_"+name(args)+".json", 'w') as f:
+    with open("lstm_params_"+name(args)+".json", 'w') as f:
         json.dump(vars(args), f, indent=4)
-
-
 
 
 # FUNCTIONS
@@ -133,21 +132,27 @@ def load_data(args):
     valid_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, sampler=validation_sampler)
     return train_loader,valid_loader
 
-class MLP(nn.Module):
+class LSTM_model(nn.Module):    
     def __init__(self, args):
-        super(MLP, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(args.in_size,  args.h1),
-            nn.Dropout(args.dropout),
-            nn.ReLU(),
-            nn.Linear(args.h1, args.h2),
-            nn.Dropout(args.dropout),
-            nn.ReLU(),
-            nn.Linear(args.h2, args.out_size)
-        )
+        super(LSTM_model, self).__init__()
+        self.step_dim = 1 ## args.input_size would be the sequence lenght, wich is arbitrary for the lstm module
+        self.hidden_size = args.hidden_size
+        self.out_size = args.out_size
+        self.dropout = args.dropout
+        self.num_layer = 1
 
-    def forward(self, x):
-        return self.layers(x)
+        self.lstm = nn.LSTM(self.step_dim, self.hidden_size, dropout=self.dropout)
+        self.linear = nn.Linear(self.hidden_size, self.out_size)
+        
+    def forward(self, inputs, hidden): 
+        outputs, hidden = self.lstm(inputs, hidden)
+        predictions = self.linear(outputs[-1])
+        return predictions.squeeze(1), outputs, hidden
+    
+    def init_hidden(self, batch_size):
+        hidden = (torch.zeros(self.num_layer, batch_size, self.hidden_size),
+                  torch.zeros(self.num_layer, batch_size, self.hidden_size))
+        return hidden
 
 def init_weights(module):
     if type(module) == nn.Linear:
@@ -155,16 +160,16 @@ def init_weights(module):
         module.bias.data.fill_(0.01)
 
 def train(args, device, train_loader, valid_loader): 
-    mlp = MLP(args).to(device)
-    mlp.apply(init_weights)
+    lstm = LSTM_model(args).to(device)
+    lstm.apply(init_weights)
 
-    optimizer = torch.optim.Adam(mlp.parameters(), lr = args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(lstm.parameters(), lr = args.lr, weight_decay=args.weight_decay)
     
     if args.loss == "L1Loss":
         criterion = nn.L1Loss()
     elif args.loss == "KLDivLoss":
         criterion = nn.KLDivLoss()
-    elif args.loss == "MSELoss()":
+    elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
     else:
         print('WARNING : Unknown loss function required, taking MSELoss instead')
@@ -189,43 +194,53 @@ def train(args, device, train_loader, valid_loader):
             print(' epoch', epoch)
             f.write('{}\t'.format(epoch))
             
-            mlp.train()
+            lstm.train()
             avg_train_loss = 0
             train_n_iter = 0
 
             if epoch==1 and args.warmup:
                 print('   linear warm-up of learning rate')
             for batch_number, (inputs, targets)  in enumerate(train_loader):
+                # print('batch',batch_number)
+                this_batch_size = inputs.shape[0]
                 if epoch==1 and args.warmup:
                     tmp_lr = batch_number*args.lr/len(train_loader)
                     for g in optimizer.param_groups:
                         g['lr'] = tmp_lr
 
-                inputs = inputs.to(device).float()
+                inputs = inputs.to(device).float().view(args.input_size, this_batch_size, 1)
+                inputs = torch.flip(inputs, dims=[0])
+                hidden = lstm.init_hidden(this_batch_size)
                 targets = targets.to(device).float()
 
                 optimizer.zero_grad()
-                outputs = mlp(inputs)
-                loss = criterion(outputs, targets)
+                last_output, all_outputs, hidden = lstm(inputs, hidden)
+                loss = criterion(last_output, targets)
                 loss.backward()
+                nn.utils.clip_grad_norm_(lstm.parameters(), args.max_grad)
                 optimizer.step()
 
                 avg_train_loss += loss.item()
-                train_n_iter += 1            
+                train_n_iter += 1
+            avg_train_loss = avg_train_loss/train_n_iter
             print('   average training   loss: {:.9f}'.format(avg_train_loss))
             f.write('{:.9f}\t'.format(avg_train_loss))
 
-            mlp.eval()
+            lstm.eval()
             avg_val_loss = 0
             val_n_iter = 0
             for batch_number, (inputs, targets)  in enumerate(valid_loader):
-                inputs = inputs.float().to(device)
-                targets = targets.float().to(device)
-                outputs = mlp(inputs)
-                loss = criterion(outputs, targets.float())
+                this_batch_size = inputs.shape[0]
+                inputs = inputs.to(device).float().view(args.input_size, this_batch_size, 1)
+                inputs = torch.flip(inputs, dims=[0])
+                hidden = lstm.init_hidden(this_batch_size)
+                targets = targets.to(device).float()
+                last_output, all_outputs, hidden = lstm(inputs, hidden)
+                loss = criterion(last_output, targets)
                 
                 avg_val_loss += loss.item()
                 val_n_iter += 1
+            avg_val_loss = avg_val_loss/val_n_iter
             print('   average validation loss: {:.9f}'.format(avg_val_loss))
             f.write('{:.9f}\t'.format(avg_val_loss))
 
@@ -234,7 +249,7 @@ def train(args, device, train_loader, valid_loader):
             f.flush()
 
             if args.save:
-                torch.save(mlp.state_dict(), 'state_dict_'+name(args)+'_epoch{}_loss{:.9f}.pt'.format(epoch, avg_val_loss))
+                torch.save(lstm.state_dict(), 'state_dict_'+name(args)+'_epoch{}_loss{:.9f}.pt'.format(epoch, avg_val_loss))
             
             if args.schedule:
                 scheduler.step(avg_train_loss)
@@ -246,7 +261,7 @@ def train(args, device, train_loader, valid_loader):
                 early_stop_count = args.stop
                 for filename in glob('BEST_loss*_epoch*'+name(args)+'*'):
                     os.remove(filename)
-                torch.save(mlp.state_dict(), 'BEST_loss{:.9f}_epoch{}_'.format(avg_val_loss,epoch)+name(args)+'.pt')
+                torch.save(lstm.state_dict(), 'BEST_loss{:.9f}_epoch{}_'.format(avg_val_loss,epoch)+name(args)+'.pt')
             else: 
                 early_stop_count -= 1
             if early_stop_count==0:
@@ -274,7 +289,7 @@ def train(args, device, train_loader, valid_loader):
         f.write('\t'.join([str(val) for val in vars(args).values()]))
         f.write('\n')
     
-    return mlp
+    return lstm
 
 if __name__=="__main__":
     np.random.seed(args.seed)
@@ -291,5 +306,5 @@ if __name__=="__main__":
 
     dump_params(args)
     train_loader, valid_loader = load_data(args)
-    mlp = train(args, device, train_loader, valid_loader)
+    lstm = train(args, device, train_loader, valid_loader)
     

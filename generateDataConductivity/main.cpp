@@ -18,7 +18,7 @@ int main() {
     std::string basisFunction = "Gaussian";
     //
     double beta = 20;
-    unsigned int numData = 1;
+    unsigned int numData = 50000;
     unsigned int numIntervalOmega = 512;
     double bandWidth = 20.0;
     //

@@ -7,17 +7,18 @@
 #
 
 import os
+import time
 import deep_continuation as dcont
 import numpy as np
 import torch
 import random
 
 args_dict = {
-    "path": "../data/",
+    "path": "../sdata/",
     "no_cuda": False,
-    "seed": 20,
+    "seed": int(time.time()),
     "num_workers": 0,
-    "epochs": 1000,
+    "epochs": 100,
     "in_size": 128,
     "h1": 512,
     "h2": 512,
@@ -36,19 +37,21 @@ args_dict = {
     "save": False
 }
 search_ranges = {
-    "h1": [1,150], #x10 implicit
-    "h2": [1,150], #x10 implicit
-    "lr": [0.01,0.0001],
-    "batch_size": [3,50], #x10 implicit
-    "factor": [0.1,1], 
-    "patience": [4,20],
+    "h1": [2,5], #x10 implicit
+    "h2": [2,5], #x10 implicit
+    "lr": [0.001,0.00001],
+    "batch_size": [5,200], #x10 implicit
+    "factor": [0.05,1], 
+    "patience": [4,10],
+    "weight_decay": [0.0,0.8],
+    "dropout": [0.0,0.8],
 }
 
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
 
-for i in range(72):
+for i in range(2):
     print()
     for key, ran in search_ranges.items():
         if len(ran)>2:
@@ -59,7 +62,8 @@ for i in range(72):
             value = random.uniform(ran[0],ran[1])
         args_dict[key] = value   
         print(key, value)
-        
+    
+
     args = ObjectView(args_dict)
     args.h1 = 10*args.h1
     args.h2 = 10*args.h2
@@ -78,6 +82,7 @@ for i in range(72):
         device = torch.device("cpu")
         print('no GPU available')
 
-    pyctmo_train, pyctmo_val = dcont.load_data(args)
-    dcont.train(args, device, pyctmo_train, pyctmo_val)
-    os.system("cp -r ./ ~/scratch/deep_continuation/running-id$SLURM_JOB_ID")
+    train, val = dcont.load_data(args)
+    dcont.train(args, device, train, val)
+    
+    os.system("cp -r ./ ~/scratch/deep_cont/running-id$SLURM_JOB_ID")
