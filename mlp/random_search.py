@@ -40,10 +40,10 @@ search_ranges = {
     "h1": [2,5], #x10 implicit
     "h2": [2,5], #x10 implicit
     "lr": [0.001,0.00001],
-    "batch_size": [50,200], #x10 implicit
-    "factor": [0.1,1], 
-    "patience": [4,20],
-    "weight_decay": [0.0,4.5],
+    "batch_size": [5,200], #x10 implicit
+    "factor": [0.05,1], 
+    "patience": [4,10],
+    "weight_decay": [0.0,0.8],
     "dropout": [0.0,0.8],
 }
 
