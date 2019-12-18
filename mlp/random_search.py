@@ -17,7 +17,7 @@ args_dict = {
     "no_cuda": False,
     "seed": 132,
     "num_workers": 0,
-    "epochs": 2000,
+    "epochs": 100,
     "in_size": 128,
     "h1": 512,
     "h2": 512,
