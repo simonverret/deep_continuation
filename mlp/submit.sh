@@ -24,6 +24,7 @@ pip install --no-index numpy
 pip install --no-index torch
 
 cd job
+mkdir results
 python random_search.py
 cd ..
 

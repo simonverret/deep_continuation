@@ -16,7 +16,6 @@
     "weight_decay": 0,
     "dropout": 0,
     "no_cuda": false,
-    "seed": 20,
     "num_workers": 0,
     "overwrite": true,
     "save": false

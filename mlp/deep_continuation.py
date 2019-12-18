@@ -7,21 +7,24 @@
 #
 '''
 TODO:
-refactor (make the train function smaller)
+2. refactor (make the train function smaller)
 '''
 #%% INITIALIZATION
+import os
+import time
+import json
+import argparse
+from glob import glob
+from copy import deepcopy
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-import os
-from glob import glob
-import json
-import argparse
+
 from data_reader import RezaDataset
-from copy import deepcopy
 
 # PARSING ARGUMENTS AND PARAMETERS FILE
 '''
@@ -95,7 +98,7 @@ parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Ea
 parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
 parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
 # hardware
-parser.add_argument('--seed', type=int, default=either_json('seed',72), help='Random seed')
+parser.add_argument('--seed', type=int, default=either_json('seed',int(time.time())), help='Random seed')
 parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')
 parser.add_argument('--no-cuda', action='store_true', default=either_json('no-cuda',False), help='Disables CUDA')
 parser.add_argument('--overwrite', action='store_true', default=either_json('overwrite',False), help='overwrite results file, otherwise appends new results')

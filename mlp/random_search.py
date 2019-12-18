@@ -7,6 +7,7 @@
 #
 
 import os
+import time
 import deep_continuation as dcont
 import numpy as np
 import torch
@@ -15,7 +16,7 @@ import random
 args_dict = {
     "path": "../sdata/",
     "no_cuda": False,
-    "seed": 132,
+    "seed": int(time.time()),
     "num_workers": 0,
     "epochs": 100,
     "in_size": 128,
@@ -36,10 +37,10 @@ args_dict = {
     "save": False
 }
 search_ranges = {
-    "h1": [2,80], #x10 implicit
-    "h2": [2,80], #x10 implicit
+    "h1": [2,5], #x10 implicit
+    "h2": [2,5], #x10 implicit
     "lr": [0.001,0.00001],
-    "batch_size": [5,200], #x10 implicit
+    "batch_size": [50,200], #x10 implicit
     "factor": [0.1,1], 
     "patience": [4,20],
     "weight_decay": [0.0,4.5],
@@ -50,7 +51,7 @@ class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
 
-for i in range(10):
+for i in range(2):
     print()
     for key, ran in search_ranges.items():
         if len(ran)>2:
