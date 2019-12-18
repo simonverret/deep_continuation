@@ -184,8 +184,14 @@ def dc_error(outputs, targets):
 def save_best(criteria_str, model, args):
     for filename in glob(f'results/BEST_{criteria_str}*_epoch*{name(args)}*'): 
         os.remove(filename)
-    torch.save(model.state_dict(), f'results/BEST_{criteria_str}{model.avg_val_loss:.9f}_epoch{model.epoch}_{name(args)}.pt')
-            
+
+    if criteria_str == 'mse':
+        score = model.avg_mse
+    elif criteria_str == 'dc_error':
+        score = model.avg_dc_error
+    else:
+        score = model.avg_val_loss
+    torch.save(model.state_dict(), f'results/BEST_{criteria_str}{score:.9f}_epoch{model.epoch}_{name(args)}.pt')
 
 def train(args, device, train_loader, valid_loader): 
     model = MLP(args).to(device)

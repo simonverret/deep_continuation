@@ -18,7 +18,7 @@ args_dict = {
     "no_cuda": False,
     "seed": int(time.time()),
     "num_workers": 0,
-    "epochs": 100,
+    "epochs": 20,
     "in_size": 128,
     "h1": 512,
     "h2": 512,
@@ -37,8 +37,8 @@ args_dict = {
     "save": False
 }
 search_ranges = {
-    "h1": [2,5], #x10 implicit
-    "h2": [2,5], #x10 implicit
+    "h1": [2,20], #x10 implicit
+    "h2": [2,20], #x10 implicit
     "lr": [0.001,0.00001],
     "batch_size": [5,200], #x10 implicit
     "factor": [0.05,1], 
@@ -85,4 +85,8 @@ for i in range(2):
     train, val = dcont.load_data(args)
     dcont.train(args, device, train, val)
     
-    os.system("cp -r ./ ~/scratch/deep_cont/running-id$SLURM_JOB_ID")
+    if os.environ.get('SLURM_SUBMIT_DIR') is not None:
+        os.system('''
+                DATE=$(date -u +%Y%m%d)
+                cp -r ./ $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
+                ''')

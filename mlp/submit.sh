@@ -29,4 +29,4 @@ python random_search.py
 cd ..
 
 DATE=$(date -u +%Y%m%d)
-cp -r job ~/scratch/deep_cont/deep_continuation_$DATE-id$SLURM_JOB_ID
+cp -r job $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
