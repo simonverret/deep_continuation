@@ -17,7 +17,7 @@ args_dict = {
     "no_cuda": False,
     "seed": 132,
     "num_workers": 0,
-    "epochs": 30,
+    "epochs": 2000,
     "in_size": 128,
     "h1": 512,
     "h2": 512,
@@ -38,11 +38,10 @@ args_dict = {
 search_ranges = {
     "h1": [2,80], #x10 implicit
     "h2": [2,80], #x10 implicit
-    "lr": [0.001,0.0001],
+    "lr": [0.001,0.00001],
     "batch_size": [5,200], #x10 implicit
     "factor": [0.1,1], 
     "patience": [4,20],
-    "stop": [20,40],
     "weight_decay": [0.0,4.5],
     "dropout": [0.0,0.8],
 }
