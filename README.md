@@ -11,7 +11,7 @@ Train the default fully connected neural network (MLP) with:
     cd mlp
     python deep_continuation.py
 
-The default dataset location is a `../sdata/` directory relative to the `mlp` directory. The training and validation data are splitted automatically. The name of datafiles, from the mlp directory, are: `../data/Pi.csv` (input) `../data/SigmaRe.csv` (target output).
+The default dataset location is `../sdata/`, relative to the `mlp` directory. The training and validation data are splitted automatically. Files containing the data must be added and named `../data/Pi.csv` (input) and `../data/SigmaRe.csv` (target output).
 
 You can pass arguments to the python script. For example:
 
@@ -73,8 +73,10 @@ the implicit factor of 10 are implemented below in the script. One may want to e
 
 Note at the end of each command training, the command
 
-## RUNNING ON CLUSTER
+## RUNNING ON A CLUSTER
 The script `submit.sh` show the correct way of using this code on compute clusters (cedar, graham, mammouth, etc.).
+
+specifies the compute node requirements, and where the terminal output will go
 
     #!/bin/bash
     #SBATCH --account=def-tremblay
@@ -83,11 +85,11 @@ The script `submit.sh` show the correct way of using this code on compute cluste
     #SBATCH --job-name=deep_continuation
     #SBATCH --output=%x-%j.out  ### %x=job-name, %j=job-ID
 
-specifies the compute node requirements, and where the terminal output will go
+relocate in the local directory (fastest access to memory, faster than $scratch):
 
     cd $SLURM_TMPDIR
 
-relocate in the local directory (fastest access to memory, faster than $scratch)
+brings all the relevant code and data:
 
     mkdir job
     mkdir sdata
@@ -95,7 +97,7 @@ relocate in the local directory (fastest access to memory, faster than $scratch)
     cp ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/Pi.csv sdata/
     cp ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/SigmaRe.csv sdata/
 
-brings all the relevant code and data
+setup all local python executable
 
     # create a local virtual environnement (on the compute node)
     module load python/3.7
@@ -107,23 +109,25 @@ brings all the relevant code and data
     pip install --no-index numpy
     pip install --no-index torch
 
-setup all local python executable
+run the script `random_search.py` on the cluster:
 
     cd job
     mkdir results
     python random_search.py
     cd ..
 
-run the script `random_search.py` on the cluster
+copy the job folder back to the submit directory once it is over:
 
     DATE=$(date -u +%Y%m%d)
-    cp -r job ~/scratch/deep_cont/deep_continuation_$DATE-id$SLURM_JOB_ID
+    cp -r job $SLURM_SUBMIT_DIR/running-id$SLURM_JOB_ID
 
-copy the job folder back to scratch.
-
-Note that the `random_search.py` script also copies the job folder periodically, thanks to the lines:
+Note that `random_search.py` also copies the directory periodically, thanks to the lines:
 
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:
         os.system("cp -r ./ $SLURM_SUBMIT_DIR/running-id$SLURM_JOB_ID")
 
+So every time one training is done the folder comes back.
 
+## TODO
+
+-  
