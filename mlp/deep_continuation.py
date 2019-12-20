@@ -35,7 +35,7 @@ default_parameters = {
     "batch_size"    : 1500,
     "epochs"        : 20,
     "layers"        : [128,512,512,512],
-    "loss"          :"L1Loss",
+    "loss"          : "L1Loss",
     "lr"            : 0.01,
     "weight_decay"  : 0.0,
     "stop"          : 40,
@@ -47,28 +47,26 @@ default_parameters = {
     "seed"          : int(time.time()),
     "num_workers"   : 0,
     "no_cuda"       : False,
-    "overwrite"     : True,
 }
 
 help_str = {
     'file'         : 'defines the name of the .json file from which to take the default parameters',
     'path'         : 'path to the SigmaRe.csv and Pi.csv files',
     'batch_size'   : 'batch size for dataloaders',
-    'epochs'       : 'Number of epochs to train.',
-    "layers"       : 'Sequence of dimension for the neural net, e.g. --layers 128 400 600 512',
-    'loss'         : 'path to the SigmaRe.csv and Pi.csv files',
-    'lr'           : 'Initial learning rate',
+    'epochs'       : 'number of epochs to train.',
+    "layers"       : 'sequence of dimension for the neural net, e.g. --layers 128 400 600 512',
+    'loss'         : 'loss function to be used',
+    'lr'           : 'initial learning rate',
     'weight_decay' : 'L2 regularizer factor of the Adam optimizer',
-    'stop'         : 'Early stopping limit',
-    'warmup'       : 'linear increase of the learning rate in the first epoch', 
+    'stop'         : 'early stopping limit (number of epochs allowed without improvement)',
+    'warmup'       : 'activate linear increase of the learning rate in the first epoch', 
     'schedule'     : 'Turn on the learning rate scheduler (plateau,',
-    'factor'       : 'scheduler factor',
-    'patience'     : 'scheduler plateau size',
-    'dropout'      : 'Dropout factor on every layer',
-    'seed'         : 'Random seed',
-    'num_workers'  : 'number of workers in the dataloaders',
-    'no_cuda'      : 'Disables CUDA',
-    'overwrite'    : 'overwrite results file, otherwise appends new results'
+    'factor'       : 'scheduler factor at plateau',
+    'patience'     : 'scheduler plateau (number of epochs without improvement triggering reduction of lr)',
+    'dropout'      : 'dropout probability on all layer',
+    'seed'         : 'seed for the random generator number (time.time() if unspecified)',
+    'num_workers'  : 'number of workers used in the dataloaders',
+    'no_cuda'      : 'disables CUDA',
 }
 
 def get_json_dict(argv=None):
@@ -233,7 +231,7 @@ def train(args, device, train_loader, valid_loader):
     best_mse = 1e6
     best_dc_error = 1e6
 
-    with open('results/training_'+f'{args.loss}_'+name(args)+'.csv', 'w' if args.overwrite else 'a') as f:
+    with open('results/training_'+f'{args.loss}_'+name(args)+'.csv', 'w') as f:
         f.write('epoch')
         f.write('\ttrain_loss')
         f.write('\tval_loss')
@@ -289,6 +287,7 @@ def train(args, device, train_loader, valid_loader):
                 model.avg_mse      += mse(outputs,targets).item()
                 model.avg_dc_error += dc_error(outputs,targets).item()
                 val_n_iter += 1
+                
             model.avg_val_loss = model.avg_val_loss/val_n_iter
             model.avg_mse      = model.avg_mse     /val_n_iter
             model.avg_dc_error = model.avg_dc_error/val_n_iter
