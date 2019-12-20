@@ -6,7 +6,7 @@ Reza Nourafkan,
 Research project on analytical continuation of the conductivity with neural networks.
 
 ## USAGE
-Train the default fully connected neural network (MLP) with:
+Train the default neural network with:
 
     cd mlp
     python deep_continuation.py
@@ -17,22 +17,36 @@ You can pass arguments to the python script. For example:
 
     python deep_continuation.py --path ./Database/
 
-will fetch the dataset from `./Database/` instead of the default `../sdata/`. However, the filenames still have to be `Pi.csv` and `SigmaRe.csv`. Other examples of paramters you can would be:
+will fetch the dataset from `./Database/` instead of the default `../sdata/`. However, the filenames still have to be `Pi.csv` and `SigmaRe.csv`.
 
-    python deep_continuation.py --lr 0.03 --seed 120
+Many other arguments can be passed, for example: 
 
-which will change the learning rate and the seed determining random number. Refer to the code for more details. All such tunable are also be defined in `params.json`.
+    $ deep_continutation.py --no_cuda --layers 128 256 256 512 -lr 0.001 --no_schedule
+
+To see all possibilities:
+
+    $ deep_continutation.py --help
+
+or see the `default_parameters` dictionary at the beginning of the script. This dictionary serves as a template for the parser. When possible, the latter will:
+
+1. replace the default value with the one found in `params.json`, then
+2. replace this value with the one specified by command arguments.
+
+Note that for every bool parameters `--flag`, an additional `--no_flag` allows to turn it off.
 
 ## OUTPUTS
-Each time the training is launched, a (very long but very explicit) name is given to the current run, for example:
+Each time the training is launched, a very long but very explicit name is given to the current run, for example:
 
-    NAME = mlp128-512-1024_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8
+    NAME = mlp128-512-1024-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8
 
-which can be read as follow: MLP with input size 128, two hidden layers of size 512 `--h1 512` and 512 `--h2 1024`, batch size used was 1500 `--batch_size 1500`, learning rate 0.01 `--lr 0.01`, no weight decay `--weight_decay 0`, no dropout `--dropout 0`, with a learning rate warmup `--warmup` and scheduler that multiply the learning rate by 0.5 `--factor 0.5` every time the training loss does not reduces for 8 epoch (`--patience 8`). Note that other parameters are not included in the name, for simplicity. These parameter are saved in the file
+which can be read as follow: fully connected neural network (MLP, _multi-layer perceptron_) with input size 128, two hidden layers of size 512 and 1024 and default ouput size of 512, (corresponding to option `--layers 128 512 1024 512`), batch size 1500 (`--batch_size 1500`), learning rate 0.01 (`--lr 0.01`), no weight decay (`--weight_decay 0`), no dropout (`--dropout 0`), a learning rate warmup (a linear increase of the learning rate during the first epoch, `--warmup`) and a scheduler (`--schedule`) which multiply the learning rate by 0.5 `--factor 0.5` every time the training loss does not reduces for 8 epoch (`--patience 8`). Note that some parameters are not included in the name, for simplicity, but these are all saved in the file `params_NAME.jason`.
 
-    params_NAME.jason
+While `deep_continuation.py` runs, it continually updates a save of the best models for three performance measures: 
+1. the cost function used during training, for example `L1loss`.
+2. the means square error `mse`.
+3. the DC error `dc_error`, i.e. the error at frequency=0.
 
-While `deep_continuation.py` runs, it continually updates a save of the model that performed the best according to three measures, the loss function used for training, for example the L1 loss, specified with `--loss L1Loss`, the means square error for all outputs `mse`, and the DC error `dc_error`, i.e. the error at frequency=0. Including the value of these score and the epoch at which they were obtained in the file name ensure that the code output unique files for each training:
+The name of these performance measure and the according value are included in the name of the `.pt` saved.
 
     BEST_L1Loss0.0642937_epochN_NAME.pt
     BEST_mse0.0812230_epochN_NAME.pt
@@ -56,27 +70,29 @@ The script `random_search.py` will train many neural networks randomly picking p
 `random_search.py`
 
     ...
+    # the random pick is recursive:
+    #   a list of (lists/tuples) will return a list of random picks
+    #   a tuple of (lists/tuples) will pick one list/tuple to choose from
+    # at the end level
+    # a list defines a range
+    # a tuple defines a set to random.choice from
+    # a standalone value will be returned
 
-    search_ranges = {
-        "h1": [2,5],                #x10 implicit
-        "h2": [2,5],                #x10 implicit
+    search_space = {
+        "layers": [128, [30,200], [40,800], 512],
         "lr": [0.001,0.00001],
-        "batch_size": [5,200],      #x10 implicit
+        "batch_size": [5,200],
         "factor": [0.05,1], 
         "patience": [4,10],
-        "weight_decay": [0.0,0.8],
-        "dropout": [0.0,0.8],
+        "weight_decay": (0, [0.0,0.8]),
+        "dropout": (0, [0.0,0.8]),
     }
     ...
-
-the implicit factor of 10 are implemented below in the script. One may want to explicitely modify this script.
-
-Note at the end of each command training, the command
 
 ## RUNNING ON A CLUSTER
 The script `submit.sh` show the correct way of using this code on compute clusters (cedar, graham, mammouth, etc.).
 
-specifies the compute node requirements, and where the terminal output will go
+First it specifies the compute node requirements, and where the terminal output will go:
 
     #!/bin/bash
     #SBATCH --account=def-tremblay
@@ -85,7 +101,7 @@ specifies the compute node requirements, and where the terminal output will go
     #SBATCH --job-name=deep_continuation
     #SBATCH --output=%x-%j.out  ### %x=job-name, %j=job-ID
 
-relocate in the local directory (fastest access to memory, faster than $scratch):
+then it changes to directory (fastest access to memory, faster than $scratch):
 
     cd $SLURM_TMPDIR
 

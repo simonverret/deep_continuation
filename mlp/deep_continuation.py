@@ -6,15 +6,10 @@
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
-'''
-TODO:
-2. refactor (make the train function smaller)
-'''
-#%% INITIALIZATION
+
 import os
-import time
 import json
-import argparse
+import time
 from glob import glob
 from copy import deepcopy
 
@@ -26,11 +21,13 @@ from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
 from data_reader import RezaDataset
+from utils import parse_file_and_command
 
-# PARSING ARGUMENTS AND PARAMETERS FILE
+
+
+# GLOBAL PARAMETERS & PARSING
 
 default_parameters = {
-    "file"          : "params.json",
     "path"          : "../sdata/",
     "batch_size"    : 1500,
     "epochs"        : 20,
@@ -42,22 +39,22 @@ default_parameters = {
     "warmup"        : True,
     "schedule"      : True,
     "factor"        : 0.5,
-    "patience"      : 8,
+    "patience"      : 12,
     "dropout"       : 0.0,
     "seed"          : int(time.time()),
     "num_workers"   : 0,
-    "no_cuda"       : False,
+    "cuda"          : False,
 }
 
-help_str = {
+help_strings = {
     'file'         : 'defines the name of the .json file from which to take the default parameters',
     'path'         : 'path to the SigmaRe.csv and Pi.csv files',
     'batch_size'   : 'batch size for dataloaders',
     'epochs'       : 'number of epochs to train.',
-    "layers"       : 'sequence of dimension for the neural net, e.g. --layers 128 400 600 512',
-    'loss'         : 'loss function to be used',
+    "layers"       : 'sequence of dimensions for the neural net, includes input and output, e.g. --layers 128 400 600 512',
+    'loss'         : 'loss function to be used (see the code to find all possibilities)',
     'lr'           : 'initial learning rate',
-    'weight_decay' : 'L2 regularizer factor of the Adam optimizer',
+    'weight_decay' : 'L2 regularization factor passed to the Adam optimizer',
     'stop'         : 'early stopping limit (number of epochs allowed without improvement)',
     'warmup'       : 'activate linear increase of the learning rate in the first epoch', 
     'schedule'     : 'Turn on the learning rate scheduler (plateau,',
@@ -66,34 +63,36 @@ help_str = {
     'dropout'      : 'dropout probability on all layer',
     'seed'         : 'seed for the random generator number (time.time() if unspecified)',
     'num_workers'  : 'number of workers used in the dataloaders',
-    'no_cuda'      : 'disables CUDA',
+    'cuda'         : 'enables CUDA',
 }
 
-def get_json_dict(argv=None):
-    parser = argparse.ArgumentParser(argv)
-    parser.add_argument('--file', type=str, default=default_parameters['file'], help=help_str['file'])
-    
-    json_filename = parser.parse_known_args()[0].file
-    if os.path.exists(json_filename):
-        with open(json_filename) as f:
-            json_dict = json.load(f)
-    else:
-        print("warning: input file '"+json_filename+"' not found") 
-        json_dict = {}
-    return json_dict
+'''
+The next function allows to call the current script with arguments and fills the
+help option. In other words, this will work:
+    $ deep_continutation.py --no_cuda --layers 128 256 256 512 -lr 0.001
+    $ deep_continutation.py --help
+The default_parameters dictionary above serves as a template, so you can add
+parameters (float, int, str, bool, or [int]) and the parsing should adapt.
+The function, when possible, will:
+    1. replace the default value with the one found in 'params.json', then
+    2. replace this value with the one specified by command arguments, and then 
+    3. return an argparse.Namespace object (argparse is standard, see its doc)
+'''
+args = parse_file_and_command(default_parameters, help_strings)
+'''
+Thus, from here, all parameters should be accessed as:
+    args.parameter
 
-def get_args(default_dict, json_dict={}, argv=None):
-    parser = argparse.ArgumentParser(argv)
-    for name, default in default_parameters.items():
-        try: default = json_dict['name']
-        except KeyError: pass
-        if type(default) is list:
-            parser.add_argument('--'+name, nargs='+', type=type(default[0]), default=default, help=help_str[name])
-        else:
-            parser.add_argument('--'+name, type=type(default), default=default, help=help_str[name])
-    return parser.parse_known_args()[0]
+IMPORTANT !!! DO NOT USE default_parameters DIRECTLY 
 
-args = get_args(default_parameters, get_json_dict())
+note: for every bool flag, an additional --no_flag is defined to turn it off.
+'''
+
+
+# TODO: 
+# move these two function out to utils.py and have a more general treatment 
+# ideas: 
+#   name(args, naming_dict)  # where naming dict specifies parameters to use 
 
 def name(args):
     layers_str = str(args.layers[0])
@@ -102,7 +101,7 @@ def name(args):
 
     name = 'mlp{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
                 layers_str,
-                args.batch_size, round(args.lr,3), round(args.weight_decay,3), round(args.dropout,3),
+                args.batch_size, round(args.lr,5), round(args.weight_decay,3), round(args.dropout,3),
                 '_wup' if args.warmup else '',
                 '_scheduled{}-{}'.format(round(args.factor,3), round(args.patience,3)) if args.schedule else '')
     return name
@@ -111,7 +110,9 @@ def dump_params(args):
     with open(f'results/params_{args.loss}_{name(args)}.json', 'w') as f:
         json.dump(vars(args), f, indent=4)
 
-# FUNCTIONS
+
+
+# DATA
 
 def load_data(args):
     print("Loading data")
@@ -128,6 +129,10 @@ def load_data(args):
     train_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, sampler=train_sampler)
     valid_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, sampler=validation_sampler)
     return train_loader,valid_loader
+
+
+
+# MODEL
 
 class MLP(nn.Module):
     def __init__(self, args):
@@ -152,6 +157,10 @@ def init_weights(module):
         torch.nn.init.xavier_uniform_(module.weight)
         module.bias.data.fill_(0.01)
 
+
+
+# CUSTOM LOSS FUNCTIONS
+
 def weightedL1Loss(outputs, targets):
     if not hasattr(weightedL1Loss, 'weights'):
         output_size = outputs.shape[1]
@@ -170,6 +179,10 @@ def weightedMSELoss(outputs, targets):
     out = torch.mean(out)
     return out
 
+
+
+# CUSTOM SCORES & SAVING TOOLS
+
 def mse(outputs, targets):
     ''' mean square error '''
     return torch.mean((outputs-targets)**2)
@@ -181,7 +194,6 @@ def dc_error(outputs, targets):
 def save_best(criteria_str, model, args):
     for filename in glob(f'results/BEST_{criteria_str}*_epoch*{name(args)}*'): 
         os.remove(filename)
-
     if criteria_str == 'mse':
         score = model.avg_mse
     elif criteria_str == 'dc_error':
@@ -190,11 +202,13 @@ def save_best(criteria_str, model, args):
         score = model.avg_val_loss
     torch.save(model.state_dict(), f'results/BEST_{criteria_str}{score:.9f}_epoch{model.epoch}_{name(args)}.pt')
 
+
+
+
+
 def train(args, device, train_loader, valid_loader): 
     model = MLP(args).to(device)
-    print(model)
     model.apply(init_weights)
-
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
 
     ## standard loss functions
@@ -359,10 +373,14 @@ def train(args, device, train_loader, valid_loader):
 
     return model
 
+
+
+
+
 if __name__=="__main__":
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    args.cuda = args.cuda and torch.cuda.is_available()
     if args.cuda: 
         torch.cuda.manual_seed(args.seed)
         device = torch.device("cuda") 

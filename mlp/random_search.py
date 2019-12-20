@@ -9,72 +9,86 @@
 
 import os
 import time
-import deep_continuation as dcont
+import random
 import numpy as np
 import torch
-import random
 
-args_dict = {
-    "path": "../sdata/",
-    "no_cuda": False,
-    "seed": int(time.time()),
-    "num_workers": 0,
-    "epochs": 20,
-    "in_size": 128,
-    "h1": 512,
-    "h2": 512,
-    "out_size":512,
-    "loss":"L1Loss",
-    "lr": 0.01,
-    "batch_size": 1500,
-    "stop": 40,
-    "weight_decay": 0,
-    "dropout": 0,
-    "schedule": True,
-    "factor": 0.5,
-    "patience": 8,
-    "warmup": True,
-    "overwrite": True,
-    "save": False
+from utils import ObjectView
+import deep_continuation as model
+
+default_dict = {
+    "path"          : "../sdata/",
+    "batch_size"    : 1500,
+    "epochs"        : 1,
+    "layers"        : [128,512,512,512],
+    "loss"          : "L1Loss",
+    "lr"            : 0.01,
+    "weight_decay"  : 0.0,
+    "stop"          : 40,
+    "warmup"        : True,
+    "schedule"      : True,
+    "factor"        : 0.5,
+    "patience"      : 12,
+    "dropout"       : 0.0,
+    "seed"          : int(time.time()),
+    "num_workers"   : 0,
+    "cuda"          : False,
 }
-search_ranges = {
-    "h1": [2,20], #x10 implicit
-    "h2": [2,20], #x10 implicit
+
+# the random pick is recursive:
+#   a list of (lists/tuples) will return a list of random picks
+#   a tuple of (lists/tuples) will pick one list/tuple to choose from
+# at the end level
+# a list defines a range
+# a tuple defines a set to random.choice from
+# a standalone value will be returned
+
+search_space = {
+    "layers": [128, [30,200], [40,800], 512], # x10 implicit
     "lr": [0.001,0.00001],
-    "batch_size": [5,200], #x10 implicit
+    "batch_size": [5,200], # x10 implicit
     "factor": [0.05,1], 
     "patience": [4,10],
-    "weight_decay": [0.0,0.8],
-    "dropout": [0.0,0.8],
+    "weight_decay": (0, [0.0,0.8]),
+    "dropout": (0, [0.0,0.8]),
 }
 
-class ObjectView():
-    def __init__(self,dict):
-        self.__dict__.update(dict)
-
-for i in range(2):
-    print()
-    for key, ran in search_ranges.items():
-        if len(ran)>2:
-            value = random.choice(ran)
-        elif type(ran[0])==int and type(ran[1])==int:
-            value = random.randint(ran[0],ran[1])
-        else:
-            value = random.uniform(ran[0],ran[1])
-        args_dict[key] = value   
-        print(key, value)
+def pick_from(entity):
+    is_list  = type(entity) is list
+    is_tuple = type(entity) is tuple
+    if not (is_list or is_tuple):
+        return entity # because then it is the desired value itself
     
+    is_nested = any([(type(item) is list or type(item) is tuple) for item in entity])
+    if is_tuple and is_nested:
+        return pick_from( random.choice(entity) )
+    elif is_tuple:
+        return random.choice(entity)
+    if is_list and is_nested:
+        return [ pick_from(nested) for nested in entity ]
+    else:
+        a = entity[0]
+        b = entity[1]
+        if type(a) is int and type(b) is int:
+            return random.randint(a,b)
+        else :
+            return random.uniform(a,b)
 
-    args = ObjectView(args_dict)
-    args.h1 = 10*args.h1
-    args.h2 = 10*args.h2
-    args.batch_size = 10*args.batch_size
-    print(dcont.name(args))
+def new_args_dict_from(search_space, template_dict = default_dict):
+    new_args_dict = template_dict
+    for parameter, range_def in search_space.items():
+        value = pick_from(range_def)
+        new_args_dict[parameter] = value   
+    return new_args_dict
+    
+for i in range(10):
 
+    new_args_dict = new_args_dict_from(search_space, default_dict)
+    args = ObjectView(new_args_dict)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
-    if args.cuda: 
+    cuda = args.cuda and torch.cuda.is_available()
+    if cuda: 
         torch.cuda.manual_seed(args.seed)
         device = torch.device("cuda") 
         print('using GPU')
@@ -83,8 +97,8 @@ for i in range(2):
         device = torch.device("cpu")
         print('no GPU available')
 
-    train, val = dcont.load_data(args)
-    dcont.train(args, device, train, val)
+    train, val = model.load_data(args)
+    model.train(args, device, train, val)
     
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:
         os.system('''

@@ -1,6 +1,6 @@
 {
     "path": "../sdata/",
-    "epochs": 800,
+    "epochs": 2,
     "batch_size": 1500,
     "in_size": 128,
     "h1": 512,
