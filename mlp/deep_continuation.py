@@ -28,86 +28,82 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from data_reader import RezaDataset
 
 # PARSING ARGUMENTS AND PARAMETERS FILE
-'''
-You can use this python script to define hyperparameters in three ways:
-    - Through argparse style arguments 
-        ex: python mlp_ctmo.py --weight_decay 10
-    - Trhough a json file named 'params.json' or custom name
-        ex: python mlp_ctmo.py
-        with: 'params.json' containing
-            {
-                "weight_decay":10,
-                ...
-            }
-        or: python mlp_ctmo.py --file anyname.json
-        with: 'anyname.json' containing
-            {
-                "weight_decay":10,
-                ...
-            }
-    - By passing the parameters as an object containing the arguments as its members:
-        ex: python script.py
-        with: 'script.py' containing
-            import deepContinuation as dac
-            args_dict = {
-                "weight_decay": 0,
-                ...
-            }
-            class ObjectView():
-                def __init__(self,dict):
-                    self.__dict__.update(dict)
-            args = ObjectView(args_dict)
-            dac.load_data(args)
-            ...
-    See the the example 'params.json' for a list of all options, see 'random_search.py' for a script like use.
-'''
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--file', type=str, default='params.json', help='defines default parameters from a .json file')
+default_parameters = {
+    "file"          : "params.json",
+    "path"          : "../sdata/",
+    "batch_size"    : 1500,
+    "epochs"        : 20,
+    "layers"        : [128,512,512,512],
+    "loss"          :"L1Loss",
+    "lr"            : 0.01,
+    "weight_decay"  : 0.0,
+    "stop"          : 40,
+    "warmup"        : True,
+    "schedule"      : True,
+    "factor"        : 0.5,
+    "patience"      : 8,
+    "dropout"       : 0.0,
+    "seed"          : int(time.time()),
+    "num_workers"   : 0,
+    "no_cuda"       : False,
+    "overwrite"     : True,
+}
 
-json_path = parser.parse_known_args()[0].file
-if os.path.exists(json_path):
-     with open(json_path) as f:
-        params = json.load(f)
-else:
-    print("warning: input file '"+json_path+"' not found") 
-    params = {}
+help_str = {
+    'file'         : 'defines the name of the .json file from which to take the default parameters',
+    'path'         : 'path to the SigmaRe.csv and Pi.csv files',
+    'batch_size'   : 'batch size for dataloaders',
+    'epochs'       : 'Number of epochs to train.',
+    "layers"       : 'Sequence of dimension for the neural net, e.g. --layers 128 400 600 512',
+    'loss'         : 'path to the SigmaRe.csv and Pi.csv files',
+    'lr'           : 'Initial learning rate',
+    'weight_decay' : 'L2 regularizer factor of the Adam optimizer',
+    'stop'         : 'Early stopping limit',
+    'warmup'       : 'linear increase of the learning rate in the first epoch', 
+    'schedule'     : 'Turn on the learning rate scheduler (plateau,',
+    'factor'       : 'scheduler factor',
+    'patience'     : 'scheduler plateau size',
+    'dropout'      : 'Dropout factor on every layer',
+    'seed'         : 'Random seed',
+    'num_workers'  : 'number of workers in the dataloaders',
+    'no_cuda'      : 'Disables CUDA',
+    'overwrite'    : 'overwrite results file, otherwise appends new results'
+}
 
-def either_json(key, or_default):
-    try: return params[key]
-    except KeyError: return or_default
+def get_json_dict(argv=None):
+    parser = argparse.ArgumentParser(argv)
+    parser.add_argument('--file', type=str, default=default_parameters['file'], help=help_str['file'])
+    
+    json_filename = parser.parse_known_args()[0].file
+    if os.path.exists(json_filename):
+        with open(json_filename) as f:
+            json_dict = json.load(f)
+    else:
+        print("warning: input file '"+json_filename+"' not found") 
+        json_dict = {}
+    return json_dict
 
-# data
-parser.add_argument('--path', type=str, default=either_json('path','../sdata/'), help='path to the SigmaRe.csv and Pi.csv files')
-# training
-parser.add_argument('--batch_size', type=int, default=either_json('batch_size',200), help='batch size for dataloaders')
-parser.add_argument('--epochs', type=int, default=either_json('epochs',200), help='Number of epochs to train.')
-# architecture
-parser.add_argument('--in_size', type=int, default=either_json('in_size',128), help='Padding size')
-parser.add_argument('--h1', type=int, default=either_json('h1',40), help='Size of first hidden layer')
-parser.add_argument('--h2', type=int, default=either_json('h2',20), help='Size of second hidden layer')
-parser.add_argument('--out_size', type=int, default=either_json('out_size',512), help='Size of second hidden layer')
-# optimization
-parser.add_argument('--loss', type=str, default=either_json('loss','MSELoss'), help='path to the SigmaRe.csv and Pi.csv files')
-parser.add_argument('--lr', type=float, default=either_json('lr',0.01), help='Initial learning rate')
-parser.add_argument('--warmup', action='store_true', default=either_json('warmup',False), help='linear increase of the learning rate in the first epoch') 
-parser.add_argument('--schedule', action='store_true', default=either_json('schedule',False), help='Turn on the learning rate scheduler (plateau)')
-parser.add_argument('--factor', type=float, default=either_json('factor',0.5), help='scheduler factor')
-parser.add_argument('--patience', type=int, default=either_json('patience',4), help='scheduler plateau size')
-# regularization
-parser.add_argument('--stop', type=int, default=either_json('stop',16), help='Early stopping limit')
-parser.add_argument('--weight_decay', type=float, default=either_json('weight_decay',0), help='L2 regularizer factor of the Adam optimizer')
-parser.add_argument('--dropout', type=float, default=either_json('dropout',0), help='Dropout factor on each layer')
-# hardware
-parser.add_argument('--seed', type=int, default=either_json('seed',int(time.time())), help='Random seed')
-parser.add_argument('--num_workers', type=int, default=either_json('num_workers',1), help='number of workers in the dataloaders')
-parser.add_argument('--no-cuda', action='store_true', default=either_json('no-cuda',False), help='Disables CUDA')
-parser.add_argument('--overwrite', action='store_true', default=either_json('overwrite',False), help='overwrite results file, otherwise appends new results')
-args = parser.parse_known_args()[0]
+def get_args(default_dict, json_dict={}, argv=None):
+    parser = argparse.ArgumentParser(argv)
+    for name, default in default_parameters.items():
+        try: default = json_dict['name']
+        except KeyError: pass
+        if type(default) is list:
+            parser.add_argument('--'+name, nargs='+', type=type(default[0]), default=default, help=help_str[name])
+        else:
+            parser.add_argument('--'+name, type=type(default), default=default, help=help_str[name])
+    return parser.parse_known_args()[0]
+
+args = get_args(default_parameters, get_json_dict())
 
 def name(args):
-    name = 'mlp{}-{}-{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
-                args.in_size, args.h1, args.h2,
+    layers_str = str(args.layers[0])
+    for size in args.layers[1:]:
+        layers_str = layers_str + '-' + str(size)
+
+    name = 'mlp{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
+                layers_str,
                 args.batch_size, round(args.lr,3), round(args.weight_decay,3), round(args.dropout,3),
                 '_wup' if args.warmup else '',
                 '_scheduled{}-{}'.format(round(args.factor,3), round(args.patience,3)) if args.schedule else '')
@@ -138,18 +134,20 @@ def load_data(args):
 class MLP(nn.Module):
     def __init__(self, args):
         super(MLP, self).__init__()
-        self.layers = nn.Sequential(
-            nn.Linear(args.in_size,  args.h1),
-            nn.Dropout(args.dropout),
-            nn.ReLU(),
-            nn.Linear(args.h1, args.h2),
-            nn.Dropout(args.dropout),
-            nn.ReLU(),
-            nn.Linear(args.h2, args.out_size)
-        )
+        self.layers = nn.ModuleList()
+        sizeA = args.layers[0]
+        for sizeB in args.layers[1:]:
+            self.layers.append( nn.Linear(sizeA, sizeB) )
+            if args.dropout > 0:
+                self.layers.append( nn.Dropout(args.dropout) )
+            self.layers.append( nn.ReLU() )
+            sizeA = sizeB
 
     def forward(self, x):
-        return self.layers(x)
+        out = x
+        for layer in self.layers:
+            out = layer(out)
+        return out
 
 def init_weights(module):
     if type(module) == nn.Linear:
@@ -196,7 +194,7 @@ def save_best(criteria_str, model, args):
 
 def train(args, device, train_loader, valid_loader): 
     model = MLP(args).to(device)
-    
+    print(model)
     model.apply(init_weights)
 
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
