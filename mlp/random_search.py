@@ -14,13 +14,15 @@ import numpy as np
 import torch
 
 from utils import ObjectView
+from data import make_loaders
 import deep_continuation as model
 
 default_dict = {
     "path"          : "../sdata/",
     "batch_size"    : 1500,
-    "epochs"        : 1,
-    "layers"        : [128,512,512,512],
+    "epochs"        : 2,
+    "layers"        : [128,1024,1024,1024,1024,512],
+    "out_unit"      : "ReLU",
     "loss"          : "L1Loss",
     "lr"            : 0.01,
     "weight_decay"  : 0.0,
@@ -30,6 +32,7 @@ default_dict = {
     "factor"        : 0.5,
     "patience"      : 12,
     "dropout"       : 0.0,
+    "batchnorm"     : True,
     "seed"          : int(time.time()),
     "num_workers"   : 0,
     "cuda"          : False,
@@ -42,7 +45,6 @@ default_dict = {
 # a list defines a range
 # a tuple defines a set to random.choice from
 # a standalone value will be returned
-
 search_space = {
     "layers": [128, [30,200], [40,800], 512], # x10 implicit
     "lr": [0.001,0.00001],
@@ -51,6 +53,8 @@ search_space = {
     "patience": [4,10],
     "weight_decay": (0, [0.0,0.8]),
     "dropout": (0, [0.0,0.8]),
+    "batchnorm": (True,False),
+    "out_unit": ('ReLU','None')
 }
 
 def pick_from(entity):
@@ -80,7 +84,8 @@ def new_args_dict_from(search_space, template_dict = default_dict):
         value = pick_from(range_def)
         new_args_dict[parameter] = value   
     return new_args_dict
-    
+
+previous_batch_size = 0
 for i in range(10):
 
     new_args_dict = new_args_dict_from(search_space, default_dict)
@@ -97,7 +102,9 @@ for i in range(10):
         device = torch.device("cpu")
         print('no GPU available')
 
-    train, val = model.load_data(args)
+    if previous_batch_size != args.batch_size: 
+        train, val = make_loaders(args.path, args.batch_size, args.num_workers)
+        previous_batch_size = args.batch_size
     model.train(args, device, train, val)
     
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:

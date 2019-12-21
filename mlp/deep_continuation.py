@@ -7,20 +7,17 @@
 #   Andre-Marie Tremablay
 #
 
+import time
 import os
 import json
-import time
 from glob import glob
 from copy import deepcopy
 
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
 
-from data_reader import RezaDataset
+from data import make_loaders
 from utils import parse_file_and_command
 
 
@@ -30,8 +27,9 @@ from utils import parse_file_and_command
 default_parameters = {
     "path"          : "../sdata/",
     "batch_size"    : 1500,
-    "epochs"        : 20,
-    "layers"        : [128,512,512,512],
+    "epochs"        : 2,
+    "layers"        : [128,1024,1024,1024,1024,512],
+    "out_unit"      : "ReLU",
     "loss"          : "L1Loss",
     "lr"            : 0.01,
     "weight_decay"  : 0.0,
@@ -41,29 +39,32 @@ default_parameters = {
     "factor"        : 0.5,
     "patience"      : 12,
     "dropout"       : 0.0,
+    "batchnorm"     : True,
     "seed"          : int(time.time()),
     "num_workers"   : 0,
     "cuda"          : False,
 }
 
 help_strings = {
-    'file'         : 'defines the name of the .json file from which to take the default parameters',
-    'path'         : 'path to the SigmaRe.csv and Pi.csv files',
-    'batch_size'   : 'batch size for dataloaders',
-    'epochs'       : 'number of epochs to train.',
-    "layers"       : 'sequence of dimensions for the neural net, includes input and output, e.g. --layers 128 400 600 512',
-    'loss'         : 'loss function to be used (see the code to find all possibilities)',
-    'lr'           : 'initial learning rate',
-    'weight_decay' : 'L2 regularization factor passed to the Adam optimizer',
-    'stop'         : 'early stopping limit (number of epochs allowed without improvement)',
-    'warmup'       : 'activate linear increase of the learning rate in the first epoch', 
-    'schedule'     : 'Turn on the learning rate scheduler (plateau,',
-    'factor'       : 'scheduler factor at plateau',
-    'patience'     : 'scheduler plateau (number of epochs without improvement triggering reduction of lr)',
-    'dropout'      : 'dropout probability on all layer',
-    'seed'         : 'seed for the random generator number (time.time() if unspecified)',
-    'num_workers'  : 'number of workers used in the dataloaders',
-    'cuda'         : 'enables CUDA',
+    'file'          : 'defines the name of the .json file from which to take the default parameters',
+    'path'          : 'path to the SigmaRe.csv and Pi.csv files',
+    'batch_size'    : 'batch size for dataloaders',
+    'epochs'        : 'number of epochs to train.',
+    'layers'        : 'sequence of dimensions for the neural net, includes input and output, e.g. --layers 128 400 600 512',
+    'out_unit'      : 'select the output unit; "None", "ReLU"',
+    'loss'          : 'loss function to be used (see the code to find all possibilities)',
+    'lr'            : 'initial learning rate',
+    'weight_decay'  : 'L2 regularization factor passed to the Adam optimizer',
+    'stop'          : 'early stopping limit (number of epochs allowed without improvement)',
+    'warmup'        : 'activate linear increase of the learning rate in the first epoch', 
+    'schedule'      : 'Turn on the learning rate scheduler (plateau,',
+    'factor'        : 'scheduler factor at plateau',
+    'patience'      : 'scheduler plateau (number of epochs without improvement triggering reduction of lr)',
+    'dropout'       : 'dropout probability on all layers but the last one',
+    'batchnorm'     : 'apply batchnorm (after ReLU) on all layers but the last one',
+    'seed'          : 'seed for the random generator number (time.time() if unspecified)',
+    'num_workers'   : 'number of workers used in the dataloaders',
+    'cuda'          : 'enables CUDA',
 }
 
 '''
@@ -77,16 +78,11 @@ The function, when possible, will:
     1. replace the default value with the one found in 'params.json', then
     2. replace this value with the one specified by command arguments, and then 
     3. return an argparse.Namespace object (argparse is standard, see its doc)
-'''
-args = parse_file_and_command(default_parameters, help_strings)
-'''
 Thus, from here, all parameters should be accessed as:
     args.parameter
-
-IMPORTANT !!! DO NOT USE default_parameters DIRECTLY 
-
 note: for every bool flag, an additional --no_flag is defined to turn it off.
 '''
+args = parse_file_and_command(default_parameters, help_strings)
 
 
 # TODO: 
@@ -99,9 +95,11 @@ def name(args):
     for size in args.layers[1:]:
         layers_str = layers_str + '-' + str(size)
 
-    name = 'mlp{}_bs{}_lr{}_wd{}_drop{}{}{}'.format(
+    name = 'mlp{}_bs{}_lr{}_wd{}_drop{}{}{}{}{}'.format(
                 layers_str,
                 args.batch_size, round(args.lr,5), round(args.weight_decay,3), round(args.dropout,3),
+                f'_{args.out_unit}',
+                '_bn' if args.batchnorm else '',
                 '_wup' if args.warmup else '',
                 '_scheduled{}-{}'.format(round(args.factor,3), round(args.patience,3)) if args.schedule else '')
     return name
@@ -109,27 +107,6 @@ def name(args):
 def dump_params(args):
     with open(f'results/params_{args.loss}_{name(args)}.json', 'w') as f:
         json.dump(vars(args), f, indent=4)
-
-
-
-# DATA
-
-def load_data(args):
-    print("Loading data")
-    dataset = RezaDataset(args.path)
-
-    validation_split = .1
-    indices = list(range(len(dataset)))
-    split = int(np.floor(validation_split*len(dataset)))
-    np.random.shuffle(indices)
-    train_indices, val_indices = indices[split:], indices[:split]
-    train_sampler = SubsetRandomSampler(train_indices)
-    validation_sampler = SubsetRandomSampler(val_indices)
-
-    train_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, sampler=train_sampler)
-    valid_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers, sampler=validation_sampler)
-    return train_loader,valid_loader
-
 
 
 # MODEL
@@ -143,8 +120,17 @@ class MLP(nn.Module):
             self.layers.append( nn.Linear(sizeA, sizeB) )
             if args.dropout > 0:
                 self.layers.append( nn.Dropout(args.dropout) )
+            if args.batchnorm:
+                self.layers.append( nn.BatchNorm1d(sizeB) )
             self.layers.append( nn.ReLU() )
             sizeA = sizeB
+        
+        # last layer
+        self.layers.append( nn.Linear( sizeA, args.layers[-1] ) )
+        if args.out_unit == 'ReLU': 
+            self.layers.append( nn.ReLU() )
+        elif args.out_unit == 'None': pass
+        else: raise ValueError('out_unit unknown')
 
     def forward(self, x):
         out = x
@@ -155,7 +141,7 @@ class MLP(nn.Module):
 def init_weights(module):
     if type(module) == nn.Linear:
         torch.nn.init.xavier_uniform_(module.weight)
-        module.bias.data.fill_(0.01)
+        torch.nn.init.zeros_(module.bias)
 
 
 
@@ -204,8 +190,6 @@ def save_best(criteria_str, model, args):
 
 
 
-
-
 def train(args, device, train_loader, valid_loader): 
     model = MLP(args).to(device)
     model.apply(init_weights)
@@ -238,8 +222,10 @@ def train(args, device, train_loader, valid_loader):
         raise ValueError('Unknown loss function "'+args.loss+'"')
     
     if args.schedule:
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,
-                    factor=args.factor, patience=args.patience, verbose=True, min_lr=1e-6)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, factor=args.factor, patience=args.patience, 
+                verbose=True, min_lr=1e-6
+            )
 
     best_val_loss = 1e6
     best_mse = 1e6
@@ -255,6 +241,7 @@ def train(args, device, train_loader, valid_loader):
 
         print('training',name(args))
         for epoch in range(1,args.epochs+1):
+            
             print(f' epoch {epoch}')
             f.write(f'{epoch}\t')
             model.epoch = epoch
@@ -283,7 +270,7 @@ def train(args, device, train_loader, valid_loader):
                 model.avg_train_loss += loss.item()
                 train_n_iter += 1
             model.avg_train_loss = model.avg_train_loss/train_n_iter
-            print(f'   training   loss: {model.avg_train_loss:.9f}')
+            print(f'   train loss: {model.avg_train_loss:.9f}')
             f.write(f'{model.avg_train_loss:.9f}\t')
 
             model.eval()
@@ -305,9 +292,9 @@ def train(args, device, train_loader, valid_loader):
             model.avg_val_loss = model.avg_val_loss/val_n_iter
             model.avg_mse      = model.avg_mse     /val_n_iter
             model.avg_dc_error = model.avg_dc_error/val_n_iter
-            print(f'   validation loss: {model.avg_val_loss:.9f}')
-            print(f'               MSE: {model.avg_mse:.9f}')
-            print(f'          DC error: {model.avg_dc_error:.9f}')
+            print(f'   valid loss: {model.avg_val_loss:.9f}')
+            print(f'          MSE: {model.avg_mse:.9f}')
+            print(f'     DC error: {model.avg_dc_error:.9f}')
             
             f.write(f'{model.avg_val_loss:.9f}\t')
             f.write(f'{model.avg_mse:.9f}\t')
@@ -319,9 +306,10 @@ def train(args, device, train_loader, valid_loader):
             if args.schedule:
                 scheduler.step(model.avg_train_loss)
             
-            is_best_loss = model.avg_val_loss < best_val_loss
-            is_best_mse = model.avg_mse < best_mse
+            is_best_loss     = model.avg_val_loss < best_val_loss
+            is_best_mse      = model.avg_mse      < best_mse
             is_best_dc_error = model.avg_dc_error < best_dc_error
+            
             if is_best_loss:
                 best_loss_model = deepcopy(model)
                 save_best(args.loss, model, args)
@@ -393,6 +381,6 @@ if __name__=="__main__":
     if not os.path.exists('results'):
         os.mkdir('results')
     dump_params(args)
-    train_loader, valid_loader = load_data(args)
+    train_loader, valid_loader = make_loaders(args.path, args.batch_size, args.num_workers)
     model = train(args, device, train_loader, valid_loader)
     
