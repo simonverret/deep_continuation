@@ -16,6 +16,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from data import make_loaders
 from utils import parse_file_and_command
@@ -108,6 +109,15 @@ def dump_params(args):
     with open(f'results/params_{args.loss}_{name(args)}.json', 'w') as f:
         json.dump(vars(args), f, indent=4)
 
+class Normalizer(nn.Module):
+    def __init__(self, dim=-1, maxnorm=1, p=1):
+        super(Normalizer, self).__init__()
+        self.dim = dim
+        self.maxnorm = maxnorm
+        self.p = p #power of the norm
+    def forward(self, x):
+        return torch.renorm(x, self.dim, self.maxnorm, self.p)
+
 
 # MODEL
 
@@ -127,10 +137,17 @@ class MLP(nn.Module):
         
         # last layer
         self.layers.append( nn.Linear( sizeA, args.layers[-1] ) )
-        if args.out_unit == 'ReLU': 
+        
+        if args.out_unit == 'direct' or args.out_unit == 'None':
+            pass
+        elif args.out_unit == 'ReLU': 
             self.layers.append( nn.ReLU() )
-        elif args.out_unit == 'None': pass
-        else: raise ValueError('out_unit unknown')
+        elif args.out_unit == 'Normalize': 
+            self.layers.append( Normalizer() )
+        elif args.out_unit == 'Softmax':
+            self.layers.append( nn.Softmax(dim=-1) )
+        else: 
+            raise ValueError('out_unit unknown')
 
     def forward(self, x):
         out = x
