@@ -1,34 +1,14 @@
-#!/usr/local/bin/python3
 #%%
+#!/usr/local/bin/python3
 import numpy as np
 from scipy import integrate
 import random
 import matplotlib.pyplot as plt
 np.set_printoptions(precision=4)
 np.random.seed(139874)
+EPS = 1e-10
 
-def lorentzian(omega, height=1, width=1, center=0):
-    return (1/np.pi)*height * width/( (omega-center)**2 + width**2 )
-
-def integrand(omega, z=0, height=1, width=1, center=0):
-    return omega * lorentzian(omega, height, width, center)/ ( omega-z)
-
-def gridIntegrand(wGrid, wnGrid, height=1, width=1, center=0):
-    return wGrid * lorentzian(wGrid, height, width, center)/ (wGrid-1j*wnGrid)
-
-# def complex_quad(func, a, b, fargs=None, **kwargs):
-#     def real_func(x, *args):
-#         return np.real(func(x, *fargs))
-#     def imag_func(x, *args):
-#         return np.imag(func(x, *fargs))
-#     real_integral = integrate.quad(real_func, a, b, **kwargs)
-#     imag_integral = integrate.quad(imag_func, a, b, **kwargs)
-#     return real_integral[0] + 1j*imag_integral[0]
-
-# def spectralIntegral(z, height=1, width=1, center=0):
-#     return complex_quad(integrand, -np.inf, np.inf, fargs=(z, height, width, center) )
-
-N_sample = 500
+N_sample = 10
 
 eta = 0.001
 beta = 10
@@ -36,86 +16,122 @@ wn_max = 15*beta
 N_limit = wn_max*beta/(2*np.pi) ## necessary number of frequency wn = (2n+1)pi/beta to reach wn_max
 N_wn = int(2**np.ceil(np.log(N_limit)/np.log(2))) ## closest power of two from above
 
-N_w = 2048
+N_w = 1024
 w_min = -10
 w_max = 10
 
 realFreqs = np.arange(w_min,w_max,(w_max-w_min)/N_w)
 matsFreqs = np.arange(0,wn_max,wn_max/N_wn)
 
-N_tail=128
-realFreqsDense = np.concatenate((
-                    -np.flip(np.logspace(1,5,N_tail))[:-1],
-                    realFreqs,
-                    np.logspace(1,5,N_tail)
-                ))
-wGrid, wnGrid = np.meshgrid(realFreqsDense,matsFreqs)
+N_tail = 128
+tail = np.logspace(1,24,N_tail)
+neg_tail = -np.flip(tail)[:-1]
+realFreqsDense = np.concatenate((neg_tail,realFreqs,tail))
 N_wGrid = N_w+2*N_tail-1
 
-spectralWeightArr = np.zeros([N_sample,N_w] )
-matsubaraRepreArr = np.zeros([N_sample,N_wn], dtype='complex128' )
-# matsubaraRepreArr2 = np.zeros([N_sample,N_wn], dtype='complex128' )
+wGrid, wnGrid = np.meshgrid(realFreqsDense,matsFreqs)
 
+
+spectralWeightArr  = np.zeros( [N_sample, N_w ] )
+matsubaraRepreArr  = np.zeros( [N_sample, N_wn] , dtype='complex128' )
+matsubaraRepreGrid = np.zeros( [N_sample, N_wn, N_wGrid], dtype='complex128' )
+
+
+# peaks parameters
+min_w         = 2.0
+max_w         = 6.0
+maxNumPeaks   = 8
+maxNumDrude   = 4
+maxDrudeWeightFrac = 0.50
+maxDrudeWidth = 0.5
+minDrudeWidth = 0.01
+maxPeakWidth  = 1.0
+minPeakWidth  = 0.2
+
+# initialize
+widths  = np.random.uniform( 0.001, 1.000, size=[N_sample, maxNumPeaks] )
+centers = np.random.uniform( min_w, max_w, size=[N_sample, maxNumPeaks] )
+heights = np.random.uniform( 0.001, 1.000, size=[N_sample, maxNumPeaks] )
+
+# adjust
 for i in range(N_sample):
-    # print('sample',i+1,'of',N_sample)
+    numDrude    = np.random.randint(     0, maxNumDrude)
+    numPeak     = np.random.randint(     5, maxNumPeaks)
+    DrudeWeight = np.random.uniform( 0.001, maxDrudeWeightFrac)
 
-    matsubaraRepreGrid = np.zeros([N_wn,N_wGrid], dtype='complex128' )
+    heights[i, numPeak: ]  *= 0.0
+    widths [i, numPeak: ]  *= 0.0
+    centers[i, numPeak: ]  *= 0.0
 
-    # running tracking of the normalization    
-    accumWeight=0
-    maxFracInPeak = np.random.uniform(0,0.15)
-
-    numDrudePeaks = np.random.randint(1, 3)
-    for j in range(numDrudePeaks): # drude peaks
-        width = np.random.uniform(0.001,0.5)
-        center = 0        
-        height = np.random.uniform(0,maxFracInPeak-accumWeight) 
-        accumWeight += height
-        
-        spectralWeightArr[i] += lorentzian(realFreqs, height, width+eta, center)
-        matsubaraRepreGrid += gridIntegrand(wGrid, wnGrid, height, width+eta, center)
-
-        ### QUADRATURE INTEGRATION (SLOWER)
-        # for k, wn in enumerate(matsFreqs):
-        #     matsubaraRepreArr2[i][k] += spectralIntegral(1j*wn, height, width+eta, center)
+    # Drude peaks
+    heights[i, :numDrude ] *= DrudeWeight/( heights[i, :numDrude].sum() + EPS )
+    widths [i, :numDrude ] *= maxDrudeWidth 
+    widths [i, :numDrude ] += minDrudeWidth
+    centers[i, :numDrude ] *= 0
     
-    numFiniteFreqPeaks = np.random.randint(1, 20)
-    for j in range(numFiniteFreqPeaks): # finite freq peaks
-        
-        width = np.random.uniform(0,4) + .6
-        center = np.random.uniform(-6,6)        
-        if j+1 < numFiniteFreqPeaks:
-            height = np.random.uniform(0,1-accumWeight)
-            accumWeight += height
-        else:
-            height = 1 - accumWeight
-        
-        spectralWeightArr[i] += lorentzian(realFreqs, height, width+eta, center)
-        matsubaraRepreGrid += gridIntegrand(wGrid, wnGrid, height, width+eta, center)
-        
-        ### QUADRATURE INTEGRATION (SLOWER)
-        # for k, wn in enumerate(matsFreqs):
-        #     matsubaraRepreArr2[i][k] += spectralIntegral(1j*wn, height, width+eta, center)
+    # other peaks
+    heights[i, numDrude: ] *= (1-DrudeWeight)/( heights[i, numDrude:].sum() + EPS )
+    widths [i, numDrude: ] *= maxPeakWidth
+    widths [i, numDrude: ] += minPeakWidth
 
-    matsubaraRepreArr[i] = integrate.simps( matsubaraRepreGrid, wGrid, axis=1)
+#symmetrize
+widths  = np.hstack([widths,widths])
+heights = np.hstack([heights,heights])
+centers = np.hstack([centers,-centers])
 
+#normalize
+heights *= 1/heights.sum(axis=-1,keepdims=True)
 
-print('done.')
+def lorentzian(omega, height=1, width=1, center=0):
+    return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
+    # return (height/np.pi) * width/( (omega-center)**2 + width**2 )
 
+def integrand(omega, z=0, height=1, width=1, center=0):
+    return omega * lorentzian(omega, height, width, center)/ ( omega-z)
+
+def gridIntegrand(wGrid, wnGrid, height=1, width=1, center=0):
+    return wGrid * lorentzian(wGrid, height, width, center)/ (wGrid-1j*wnGrid)
+
+h = heights[:, :, np.newaxis, np.newaxis]
+w = widths[ :, :, np.newaxis, np.newaxis]
+c = centers[:, :, np.newaxis, np.newaxis]
+
+# spectral function as a sum of lorentzian
+spectralw = lorentzian( wGrid, h, w, c ).sum(axis=1)
+
+# full plot
+# strt =  N_tail-1
+# stop = -N_tail
 # for i in range(N_sample):
-#     plt.plot(realFreqs, spectralWeightArr[i])
+#     plt.plot( wGrid[0, strt:stop], spectralw[ i, 0, strt:stop ])
 # plt.show()
 
+# half
+# strt = (N_tail-1+N_w//2)
+# stop = -N_tail
 # for i in range(N_sample):
-#     plt.plot(matsFreqs, np.real(matsubaraRepreArr[i]))
+#     plt.plot( wGrid[0, strt:stop], spectralw[ i, 0, strt:stop ])
 # plt.show()
 
-# COMPARE THE TWO INTEGRALS
-# for i in range(N_sample):
-#     plt.plot(matsFreqs, np.real(matsubaraRepreArr2[i]))
-# plt.show()
+# normalization = integrate.simps( spectralw[:,0,:], wGrid[0,:], axis=-1)
+# print(normalization)
+
+
+def fullGridIntegrand(wGrid, wnGrid, height, width, center):
+    h = heights[:, :, np.newaxis, np.newaxis]
+    w = widths [:, :, np.newaxis, np.newaxis]
+    c = centers[:, :, np.newaxis, np.newaxis]
+    spectralw = lorentzian(wGrid, h, w, c).sum(axis=1)
+    return wGrid * spectralw/ (wGrid-1j*wnGrid)
+
+matsubaraGridIntegrand = fullGridIntegrand( wGrid, wnGrid+1e-50, heights, widths, centers )
+matsubaraArray = integrate.simps( matsubaraGridIntegrand, wGrid[np.newaxis,:,:], axis=-1)
 
 # for i in range(N_sample):
-#     plt.plot(matsFreqs, np.real(matsubaraRepreArr[i] - matsubaraRepreArr2[i]))
+#     plt.plot(wnGrid[:,0],matsubaraArray[i,:])
 # plt.show()
+
+print(matsubaraArray[:,0])
+
+
 
