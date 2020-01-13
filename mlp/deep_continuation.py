@@ -6,6 +6,7 @@
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
+#%%
 
 import time
 import os
@@ -18,10 +19,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from data import make_loaders
-from utils import parse_file_and_command
+import data
+import utils
 
-
+import matplotlib.pyplot as plt
 
 # GLOBAL PARAMETERS & PARSING
 
@@ -83,7 +84,7 @@ Thus, from here, all parameters should be accessed as:
     args.parameter
 note: for every bool flag, an additional --no_flag is defined to turn it off.
 '''
-args = parse_file_and_command(default_parameters, help_strings)
+args = utils.parse_file_and_command(default_parameters, help_strings)
 
 
 # TODO: 
@@ -109,17 +110,16 @@ def dump_params(args):
     with open(f'results/params_{args.loss}_{name(args)}.json', 'w') as f:
         json.dump(vars(args), f, indent=4)
 
-class Normalizer(nn.Module):
-    def __init__(self, dim=-1, maxnorm=1, p=1):
-        super(Normalizer, self).__init__()
-        self.dim = dim
-        self.maxnorm = maxnorm
-        self.p = p #power of the norm
-    def forward(self, x):
-        return torch.renorm(x, self.dim, self.maxnorm, self.p)
-
-
 # MODEL
+
+class Normalizer(nn.Module):
+    def __init__(self, dim=-1):
+        super(Normalizer, self).__init__()
+        self.relu = nn.ReLU()
+        self.dim = dim
+    def forward(self, q):
+        q = self.relu(q)
+        return q/torch.sum(q, dim=self.dim, keepdim=True).detach()
 
 class MLP(nn.Module):
     def __init__(self, args):
@@ -167,7 +167,7 @@ def init_weights(module):
 def weightedL1Loss(outputs, targets):
     if not hasattr(weightedL1Loss, 'weights'):
         output_size = outputs.shape[1]
-        weightedL1Loss.weights = torch.exp(-torch.arange(output_size, dtype=torch.float)/100)
+        weightedL1Loss.weights = torch.exp(-data.mesh())
         print('loss weights =', weightedL1Loss.weights)
     out = torch.abs(outputs-targets) * weightedL1Loss.weights
     out = torch.mean(out)
@@ -176,7 +176,7 @@ def weightedL1Loss(outputs, targets):
 def weightedMSELoss(outputs, targets):
     if not hasattr(weightedMSELoss, 'weights'):
         output_size = outputs.shape[1]
-        weightedMSELoss.weights = torch.exp(-10*torch.arange(output_size, dtype=torch.float)/100)
+        weightedMSELoss.weights = torch.exp(-data.mesh())
         print('loss weights =', weightedMSELoss.weights)
     out = (outputs-targets)**2 * weightedMSELoss.weights
     out = torch.mean(out)
@@ -224,12 +224,12 @@ def train(args, device, train_loader, valid_loader):
         criterion = weightedL1Loss
     elif args.loss == "invWeightL1Loss":
         criterion = weightedL1Loss
-        weightedL1Loss.weights = 1/torch.arange(1,args.out_size+1, dtype=torch.float)
+        weightedL1Loss.weights = 1/(data.mesh()+1e-6)
     elif args.loss == "expWeightMSELoss":
         criterion = weightedMSELoss
     elif args.loss == "invWeightMSELoss":
         criterion = weightedMSELoss
-        weightedMSELoss.weights = 1/torch.arange(1,args.out_size+1, dtype=torch.float)
+        weightedMSELoss.weights = 1/(data.mesh()+1e-6)
     elif args.loss == "hotDC_MSELoss":
         criterion = weightedMSELoss
         loss_weights = torch.ones(args.out_size, dtype=torch.float)
@@ -244,9 +244,9 @@ def train(args, device, train_loader, valid_loader):
                 verbose=True, min_lr=1e-6
             )
 
-    best_val_loss = 1e6
-    best_mse = 1e6
-    best_dc_error = 1e6
+    best_val_loss = torch.finfo(torch.float64).max
+    best_mse = torch.finfo(torch.float64).max
+    best_dc_error = torch.finfo(torch.float64).max
 
     with open('results/training_'+f'{args.loss}_'+name(args)+'.csv', 'w') as f:
         f.write('epoch')
@@ -274,7 +274,7 @@ def train(args, device, train_loader, valid_loader):
                     tmp_lr = batch_number*args.lr/len(train_loader)
                     for g in optimizer.param_groups:
                         g['lr'] = tmp_lr
-
+                
                 inputs = inputs.to(device).float()
                 targets = targets.to(device).float()
 
@@ -398,6 +398,6 @@ if __name__=="__main__":
     if not os.path.exists('results'):
         os.mkdir('results')
     dump_params(args)
-    train_loader, valid_loader = make_loaders(args.path, args.batch_size, args.num_workers)
+    train_loader, valid_loader = data.make_loaders(args.path, args.batch_size, args.num_workers)
     model = train(args, device, train_loader, valid_loader)
     
