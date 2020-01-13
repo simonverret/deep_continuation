@@ -1,137 +1,125 @@
-#%%
+# %%
 #!/usr/local/bin/python3
 import numpy as np
 from scipy import integrate
 import random
 import matplotlib.pyplot as plt
 np.set_printoptions(precision=4)
-np.random.seed(139874)
+# np.random.seed(139874)
 EPS = 1e-10
 
-N_sample = 10
+N_sample = 64
 
-eta = 0.001
 beta = 10
 wn_max = 15*beta
 N_limit = wn_max*beta/(2*np.pi) ## necessary number of frequency wn = (2n+1)pi/beta to reach wn_max
 N_wn = int(2**np.ceil(np.log(N_limit)/np.log(2))) ## closest power of two from above
 
-N_w = 1024
-w_min = -10
-w_max = 10
+N_w   =  512
+w_min =  0
+w_max =  10
 
 realFreqs = np.arange(w_min,w_max,(w_max-w_min)/N_w)
 matsFreqs = np.arange(0,wn_max,wn_max/N_wn)
 
 N_tail = 128
-tail = np.logspace(1,24,N_tail)
+tail = np.logspace(1,5,N_tail)
 neg_tail = -np.flip(tail)[:-1]
-realFreqsDense = np.concatenate((neg_tail,realFreqs,tail))
-N_wGrid = N_w+2*N_tail-1
+neg_realFreqs = -np.flip(realFreqs[1:])
+realFreqsDense = np.concatenate((neg_tail,neg_realFreqs,realFreqs,tail))
+N_dense = len(realFreqsDense)
+
+# AVOID zero
+realFreqs += EPS
+realFreqsDense += EPS
 
 wGrid, wnGrid = np.meshgrid(realFreqsDense,matsFreqs)
 
-
-spectralWeightArr  = np.zeros( [N_sample, N_w ] )
-matsubaraRepreArr  = np.zeros( [N_sample, N_wn] , dtype='complex128' )
-matsubaraRepreGrid = np.zeros( [N_sample, N_wn, N_wGrid], dtype='complex128' )
-
-
 # peaks parameters
+gaussian      = False
 min_w         = 2.0
 max_w         = 6.0
-maxNumPeaks   = 8
+maxNumPeaks   = 6
 maxNumDrude   = 4
-maxDrudeWeightFrac = 0.50
+maxDrudeWeightFrac = 0.15
 maxDrudeWidth = 0.5
-minDrudeWidth = 0.01
+minDrudeWidth = 0.1
 maxPeakWidth  = 1.0
 minPeakWidth  = 0.2
 
-# initialize
-widths  = np.random.uniform( 0.001, 1.000, size=[N_sample, maxNumPeaks] )
-centers = np.random.uniform( min_w, max_w, size=[N_sample, maxNumPeaks] )
-heights = np.random.uniform( 0.001, 1.000, size=[N_sample, maxNumPeaks] )
-
-# adjust
-for i in range(N_sample):
-    numDrude    = np.random.randint(     0, maxNumDrude)
-    numPeak     = np.random.randint(     5, maxNumPeaks)
-    DrudeWeight = np.random.uniform( 0.001, maxDrudeWeightFrac)
-
-    heights[i, numPeak: ]  *= 0.0
-    widths [i, numPeak: ]  *= 0.0
-    centers[i, numPeak: ]  *= 0.0
-
-    # Drude peaks
-    heights[i, :numDrude ] *= DrudeWeight/( heights[i, :numDrude].sum() + EPS )
-    widths [i, :numDrude ] *= maxDrudeWidth 
-    widths [i, :numDrude ] += minDrudeWidth
-    centers[i, :numDrude ] *= 0
-    
-    # other peaks
-    heights[i, numDrude: ] *= (1-DrudeWeight)/( heights[i, numDrude:].sum() + EPS )
-    widths [i, numDrude: ] *= maxPeakWidth
-    widths [i, numDrude: ] += minPeakWidth
-
-#symmetrize
-widths  = np.hstack([widths,widths])
-heights = np.hstack([heights,heights])
-centers = np.hstack([centers,-centers])
-
-#normalize
-heights *= 1/heights.sum(axis=-1,keepdims=True)
-
 def lorentzian(omega, height=1, width=1, center=0):
-    return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
-    # return (height/np.pi) * width/( (omega-center)**2 + width**2 )
+    if gaussian:
+        return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
+    else:
+        return (height/np.pi) * width/( (omega-center)**2 + (width)**2 )
 
-def integrand(omega, z=0, height=1, width=1, center=0):
-    return omega * lorentzian(omega, height, width, center)/ ( omega-z)
+def fullGridIntegrand(wGrid, wnGrid, h, w, c):
+    spectralw = lorentzian(wGrid, h, w, c).sum(axis=0)
+    return wGrid * spectralw/ (wGrid-1j*(wnGrid))
 
-def gridIntegrand(wGrid, wnGrid, height=1, width=1, center=0):
-    return wGrid * lorentzian(wGrid, height, width, center)/ (wGrid-1j*wnGrid)
+spectralWeightArr = np.zeros([N_sample,N_w] )
+matsubaraArr = np.zeros([N_sample,N_wn], dtype='complex128' )
 
-h = heights[:, :, np.newaxis, np.newaxis]
-w = widths[ :, :, np.newaxis, np.newaxis]
-c = centers[:, :, np.newaxis, np.newaxis]
+for i in range(N_sample):
+    if (i==0 or (i+1)%(N_sample//10)==0): print(f"sample {i+1}")
+    matsubaraGrid = np.zeros(wGrid.shape, dtype='complex128' )
 
-# spectral function as a sum of lorentzian
-spectralw = lorentzian( wGrid, h, w, c ).sum(axis=1)
+    # spectrum characteristics
+    numDrude    = np.random.randint(        0, maxNumDrude)
+    numPeak     = np.random.randint(        1, maxNumPeaks)
+    DrudeWeight = np.random.uniform(      EPS, maxDrudeWeightFrac)
+    # random initialization (width, center, height) of peaks
+    w  = np.random.uniform( 0.001, 1.000, size=numPeak )
+    c  = np.random.uniform( min_w, max_w, size=numPeak )
+    h  = np.random.uniform( 0.001, 1.000, size=numPeak )
+    # Drude peaks adjustments
+    c[:numDrude] *= 0
+    w[:numDrude] *= maxDrudeWidth 
+    w[:numDrude] += minDrudeWidth
+    h[:numDrude] *= DrudeWeight/( h[:numDrude].sum() + EPS )
+    # other peaks adjustments
+    w[numDrude:] *= maxPeakWidth
+    w[numDrude:] += minPeakWidth
+    h[numDrude:] *= (1-DrudeWeight)/( h[numDrude:].sum() + EPS )
+    #symmetrize
+    w = np.hstack([w, w])
+    h = np.hstack([h, h])
+    c = np.hstack([c,-c])
+    #normalize
+    h *= 1/h.sum(axis=-1,keepdims=True)
 
-# full plot
-# strt =  N_tail-1
-# stop = -N_tail
-# for i in range(N_sample):
-#     plt.plot( wGrid[0, strt:stop], spectralw[ i, 0, strt:stop ])
+    spectralWeightArr[i] = lorentzian( 
+                                realFreqs[np.newaxis,:] + EPS, 
+                                h[:,np.newaxis], 
+                                w[:,np.newaxis], 
+                                c[:,np.newaxis] 
+                            ).sum(axis=0)    
+
+    matsubaraGrid        = fullGridIntegrand( 
+                                wGrid [ np.newaxis,:,: ] , 
+                                wnGrid[ np.newaxis,:,: ] , 
+                                h[ :, np.newaxis, np.newaxis ], 
+                                w[ :, np.newaxis, np.newaxis ], 
+                                c[ :, np.newaxis, np.newaxis ]
+                            )
+    # print(wGrid.shape)
+    # print(matsubaraGrid[0].shape)
+    # plt.plot( wGrid[0, 128:-128], matsubaraGrid[0,0,128:-128] )
+    
+    matsubaraArr[i]      = integrate.simps( matsubaraGrid[0], wGrid, axis=1)
+    
+    # print(wGrid[:,0].shape)
+    # print(matsubaraArr[i].shape)
+    # plt.plot( wnGrid[:,0], matsubaraArr[i] )
+
 # plt.show()
 
-# half
-# strt = (N_tail-1+N_w//2)
-# stop = -N_tail
-# for i in range(N_sample):
-#     plt.plot( wGrid[0, strt:stop], spectralw[ i, 0, strt:stop ])
-# plt.show()
+for i in range(N_sample):
+    plt.plot(realFreqs,spectralWeightArr[i] )
+plt.show()
 
-# normalization = integrate.simps( spectralw[:,0,:], wGrid[0,:], axis=-1)
-# print(normalization)
+for i in range(N_sample):
+    plt.plot( matsFreqs, matsubaraArr[i] )
+plt.show()
 
-
-def fullGridIntegrand(wGrid, wnGrid, height, width, center):
-    h = heights[:, :, np.newaxis, np.newaxis]
-    w = widths [:, :, np.newaxis, np.newaxis]
-    c = centers[:, :, np.newaxis, np.newaxis]
-    spectralw = lorentzian(wGrid, h, w, c).sum(axis=1)
-    return wGrid * spectralw/ (wGrid-1j*wnGrid)
-
-matsubaraGridIntegrand = fullGridIntegrand( wGrid, wnGrid+1e-50, heights, widths, centers )
-matsubaraArray = integrate.simps( matsubaraGridIntegrand, wGrid[np.newaxis,:,:], axis=-1)
-
-# for i in range(N_sample):
-#     plt.plot(wnGrid[:,0],matsubaraArray[i,:])
-# plt.show()
-
-print(matsubaraArray[:,0])
-
-
-
+print(matsubaraArr[:,0].real)
