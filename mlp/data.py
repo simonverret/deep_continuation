@@ -11,6 +11,7 @@ import os
 import numpy as np
 import random
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import json
 
@@ -46,23 +47,78 @@ def make_loaders(path, batch_size, num_workers=0):
     valid_loader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, sampler=validation_sampler)
     return train_loader,valid_loader
 
-def mesh(N=512,L=20):
+def mesh(mesh='squared',N=512,L=20):
     ints = torch.arange(N).float()
-    freqs = (ints/(N-1))**2*L
+    if mesh=='squared':
+        freqs = (ints/(N-1))**2*L
+    else:
+        freqs = (ints/(N-1))*L
     return freqs
 
-def mesh_deltas(N=512,L=20, analytic=True):
+def mesh_deltas(mesh='squared',N=512,L=20, analytic=True):
     ints = torch.arange(N).float()
-    if analytic:
-        deltas = 2*ints/((N-1)**2)*L #
-    else:    
-        prev_freqs = ((ints-1)/(N-1))**2*L
-        next_freqs = ((ints+1)/(N-1))**2*L
-        deltas = (next_freqs - prev_freqs)/2    
-
+    if mesh=='squared':
+        if analytic:
+            deltas = 2*ints/((N-1)**2)*L #
+        else:    
+            prev_freqs = ((ints-1)/(N-1))**2*L
+            next_freqs = ((ints+1)/(N-1))**2*L
+            deltas = (next_freqs - prev_freqs)/2    
+    else:
+        deltas = ints/(N-1)*L
+    
     deltas[0] = deltas[0]/2
     deltas[-1] = deltas[-1]/2
     return deltas
+
+class Normalizer(nn.Module):
+    def __init__(self, dim=-1):
+        super(Normalizer, self).__init__()
+        self.relu = nn.ReLU()
+        self.dim = dim
+    def forward(self, q):
+        q = self.relu(q)
+        return q/torch.sum(q, dim=self.dim, keepdim=True).detach()
+
+
+# TODO: these functions are copy-pasted with a few changes, eww!
+
+def expWeightedL1Loss(outputs, targets):
+    if not hasattr(expWeightedL1Loss, 'weights'):
+        output_size = outputs.shape[1]
+        expWeightedL1Loss.weights = torch.exp(-mesh(args.mesh))
+        print('loss weights =', expWeightedL1Loss.weights)
+    out = torch.abs(outputs-targets) * expWeightedL1Loss.weights
+    out = torch.mean(out)
+    return out
+
+def invWeightedL1Loss(outputs, targets):
+    if not hasattr(invWeightedL1Loss, 'weights'):
+        output_size = outputs.shape[1]
+        invWeightedL1Loss.weights = 1/(mesh()+1e-6)
+        print('loss weights =', invWeightedL1Loss.weights)
+    out = torch.abs(outputs-targets) * invWeightedL1Loss.weights
+    out = torch.mean(out)
+    return out
+
+def expWeightedMSELoss(outputs, targets):
+    if not hasattr(expWeightedMSELoss, 'weights'):
+        output_size = outputs.shape[1]
+        expWeightedMSELoss.weights = torch.exp(-mesh(args.mesh))
+        print('loss weights =', expWeightedMSELoss.weights)
+    out = (outputs-targets)**2 * expWeightedMSELoss.weights
+    out = torch.mean(out)
+    return out
+
+def invWeightedMSELoss(outputs, targets):
+    if not hasattr(invWeightedMSELoss, 'weights'):
+        output_size = outputs.shape[1]
+        invWeightedMSELoss.weights = 1/(mesh()+1e-6)
+        print('loss weights =', invWeightedMSELoss.weights)
+    out = (outputs-targets)**2 * invWeightedMSELoss.weights
+    out = torch.mean(out)
+    return out
+
 
 
 if __name__ == '__main__':
