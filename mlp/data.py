@@ -20,6 +20,13 @@ from torch.utils.data.sampler import SubsetRandomSampler
 
 ### Reza's data (see the C++ code to generate it)
 
+
+# TODO: the dataset should have the "make_loader" function, and different
+# datasets would lead to different weighted loss functions and measures (mesh)
+# this should be handled internally by the dataset.
+# the mainscript could simply ask the dataset if additional options are
+# available as loss functions / 
+
 class RezaDataset(Dataset):
     def __init__(self, path):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
