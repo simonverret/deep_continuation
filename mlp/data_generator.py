@@ -8,12 +8,13 @@ np.set_printoptions(precision=4)
 # np.random.seed(139874)
 EPS = 1e-10
 
-N_sample = 64
+N_sample = 50000
 
 beta = 10
 wn_max = 15*beta
 N_limit = wn_max*beta/(2*np.pi) ## necessary number of frequency wn = (2n+1)pi/beta to reach wn_max
 N_wn = int(2**np.ceil(np.log(N_limit)/np.log(2))) ## closest power of two from above
+N_wn = 128
 
 N_w   =  512
 w_min =  0
@@ -36,7 +37,7 @@ realFreqsDense += EPS
 wGrid, wnGrid = np.meshgrid(realFreqsDense,matsFreqs)
 
 # peaks parameters
-gaussian      = False
+gauss      = False
 min_w         = 2.0
 max_w         = 6.0
 maxNumPeaks   = 6
@@ -47,21 +48,21 @@ minDrudeWidth = 0.1
 maxPeakWidth  = 1.0
 minPeakWidth  = 0.2
 
-def lorentzian(omega, height=1, width=1, center=0):
-    if gaussian:
+def peak(omega, height=1, width=1, center=0):
+    if gauss:
         return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
     else:
         return (height/np.pi) * width/( (omega-center)**2 + (width)**2 )
 
 def fullGridIntegrand(wGrid, wnGrid, h, w, c):
-    spectralw = lorentzian(wGrid, h, w, c).sum(axis=0)
+    spectralw = peak(wGrid, h, w, c).sum(axis=0)
     return wGrid * spectralw/ (wGrid-1j*(wnGrid))
 
 spectralWeightArr = np.zeros([N_sample,N_w] )
 matsubaraArr = np.zeros([N_sample,N_wn], dtype='complex128' )
 
 for i in range(N_sample):
-    if (i==0 or (i+1)%(N_sample//10)==0): print(f"sample {i+1}")
+    if (i==0 or (i+1)%(max(1,N_sample//100))==0): print(f"sample {i+1}")
     matsubaraGrid = np.zeros(wGrid.shape, dtype='complex128' )
 
     # spectrum characteristics
@@ -88,7 +89,7 @@ for i in range(N_sample):
     #normalize
     h *= 1/h.sum(axis=-1,keepdims=True)
 
-    spectralWeightArr[i] = lorentzian( 
+    spectralWeightArr[i] = peak( 
                                 realFreqs[np.newaxis,:] + EPS, 
                                 h[:,np.newaxis], 
                                 w[:,np.newaxis], 
@@ -114,12 +115,16 @@ for i in range(N_sample):
 
 # plt.show()
 
-for i in range(N_sample):
-    plt.plot(realFreqs,spectralWeightArr[i] )
-plt.show()
+# for i in range(N_sample):
+#     plt.plot(realFreqs,spectralWeightArr[i] )
+# plt.show()
 
-for i in range(N_sample):
-    plt.plot( matsFreqs, matsubaraArr[i] )
-plt.show()
+# for i in range(N_sample):
+#     plt.plot( matsFreqs, matsubaraArr[i] )
+# plt.show()
 
-print(matsubaraArr[:,0].real)
+# print(spectralWeightArr.sum(axis=-1)*(2*10/512))
+# print(matsubaraArr[:,0].real)
+
+np.savetxt('SigmaRe.csv', spectralWeightArr, delimiter=',')
+np.savetxt('Pi.csv', matsubaraArr.real, delimiter=',')

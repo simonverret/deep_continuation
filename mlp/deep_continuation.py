@@ -27,24 +27,30 @@ import matplotlib.pyplot as plt
 # GLOBAL PARAMETERS & PARSING
 
 default_parameters = {
-    "path"          : "../sdata/",
-    "batch_size"    : 1500,
-    "epochs"        : 2,
-    "layers"        : [128,1024,1024,1024,1024,512],
-    "out_unit"      : "ReLU",
-    "loss"          : "L1Loss",
-    "lr"            : 0.01,
-    "weight_decay"  : 0.0,
-    "stop"          : 40,
-    "warmup"        : True,
-    "schedule"      : True,
-    "factor"        : 0.5,
-    "patience"      : 12,
-    "dropout"       : 0.0,
-    "batchnorm"     : True,
-    "seed"          : int(time.time()),
-    "num_workers"   : 0,
-    "cuda"          : False,
+    "path": "../sdata/",
+    "batch_size": 1500,
+    "epochs": 100,
+    "layers": [
+        128,
+        512,
+        1024,
+        512,
+        512
+    ],
+    "out_unit": "None",
+    "loss": "MSELoss",
+    "lr": 0.01,
+    "weight_decay": 0,
+    "stop": 40,
+    "warmup": True,
+    "schedule": True,
+    "factor": 0.5,
+    "patience": 8,
+    "dropout": 0,
+    "batchnorm": True,
+    "seed": 1579012834,
+    "num_workers": 0,
+    "cuda": False
 }
 
 help_strings = {
@@ -107,7 +113,7 @@ def name(args):
     return name
 
 def dump_params(args):
-    with open(f'results/params_{args.loss}_{name(args)}.json', 'w') as f:
+    with open(f'results/params_{name(args)}.json', 'w') as f:
         json.dump(vars(args), f, indent=4)
 
 # MODEL
@@ -138,16 +144,15 @@ class MLP(nn.Module):
         # last layer
         self.layers.append( nn.Linear( sizeA, args.layers[-1] ) )
         
-        if args.out_unit == 'direct' or args.out_unit == 'None':
-            pass
-        elif args.out_unit == 'ReLU': 
+        if args.out_unit == 'ReLU': 
             self.layers.append( nn.ReLU() )
         elif args.out_unit == 'Normalize': 
             self.layers.append( Normalizer() )
         elif args.out_unit == 'Softmax':
             self.layers.append( nn.Softmax(dim=-1) )
-        else: 
-            raise ValueError('out_unit unknown')
+        elif args.out_unit == 'None':
+            pass
+        else: raise ValueError('out_unit unknown')
 
     def forward(self, x):
         out = x
@@ -204,7 +209,6 @@ def save_best(criteria_str, model, args):
     else:
         score = model.avg_val_loss
     torch.save(model.state_dict(), f'results/BEST_{criteria_str}{score:.9f}_epoch{model.epoch}_{name(args)}.pt')
-
 
 
 def train(args, device, train_loader, valid_loader): 
