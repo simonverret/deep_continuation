@@ -364,6 +364,8 @@ if __name__=="__main__":
     if not os.path.exists('results'):
         os.mkdir('results')
     dump_params(args)
-    train_loader, valid_loader = data.make_loaders(args.path, args.batch_size, args.num_workers)
+
+    dataset = data.ContDataset(args.path)
+    train_loader, valid_loader = dataset.make_loaders(args.batch_size, args.num_workers)
     model = train(args, device, train_loader, valid_loader)
     
