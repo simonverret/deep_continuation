@@ -1,23 +1,28 @@
 {
-    "path": "../sdata/",
-    "epochs": 2,
+    "path": "../sdata/part/",
+    "measure": "Normal",
+    "normalize": false,
     "batch_size": 1500,
-    "in_size": 128,
-    "h1": 512,
-    "h2": 512,
-    "out_size":512,
-    "loss":"L1Loss",
+    "epochs": 100,
+    "layers": [
+        128,
+        512,
+        1024,
+        512,
+        512
+    ],
+    "out_unit": "None",
+    "loss": "MSELoss",
     "lr": 0.01,
+    "weight_decay": 0,
     "stop": 40,
     "warmup": true,
     "schedule": true,
     "factor": 0.5,
-    "patience": 8,
-    "weight_decay": 0,
+    "patience": 4,
     "dropout": 0,
-    "no_cuda": false,
+    "batchnorm": true,
+    "seed": 1579012834,
     "num_workers": 0,
-    "overwrite": true,
-    "save": false
+    "cuda": false
 }
-
