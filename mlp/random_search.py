@@ -14,28 +14,36 @@ import numpy as np
 import torch
 
 from utils import ObjectView
-from data import make_loaders
+import data
 import deep_continuation as model
 
 default_dict = {
-    "path"          : "../sdata/",
-    "batch_size"    : 1500,
-    "epochs"        : 2,
-    "layers"        : [128,1024,1024,1024,1024,512],
-    "out_unit"      : "ReLU",
-    "loss"          : "L1Loss",
-    "lr"            : 0.01,
-    "weight_decay"  : 0.0,
-    "stop"          : 40,
-    "warmup"        : True,
-    "schedule"      : True,
-    "factor"        : 0.5,
-    "patience"      : 12,
-    "dropout"       : 0.0,
-    "batchnorm"     : True,
-    "seed"          : int(time.time()),
-    "num_workers"   : 0,
-    "cuda"          : False,
+    "path": "../sdata/part/",
+    "measure": "Normal",
+    "normalize": False,
+    "batch_size": 1500,
+    "epochs": 1,
+    "layers": [
+        128,
+        512,
+        1024,
+        512,
+        512
+    ],
+    "out_unit": "None",
+    "loss": "MSELoss",
+    "lr": 0.01,
+    "weight_decay": 0,
+    "stop": 40,
+    "warmup": True,
+    "schedule": True,
+    "factor": 0.5,
+    "patience": 4,
+    "dropout": 0,
+    "batchnorm": True,
+    "seed": 1579012834,
+    "num_workers": 0,
+    "cuda": False
 }
 
 # the random pick is recursive:
@@ -46,7 +54,13 @@ default_dict = {
 # a tuple defines a set to random.choice from
 # a standalone value will be returned
 search_space = {
-    "layers": [128, [30,200], [40,800], 512], # x10 implicit
+    "layers": (
+        [128, [40,800], 512],
+        [128, [30,200], [40,800], 512],
+        [128, [30,200], [40,800], [30,200], 512],
+        [128, [30,200], [40,800], [40,800], [30,200], 512],
+        [128, [30,800], [40,800], [40,800], [40,800], [30,800], 512]
+    ), # x10 implicit
     "lr": [0.001,0.00001],
     "batch_size": [5,200], # x10 implicit
     "factor": [0.05,1], 
@@ -54,7 +68,8 @@ search_space = {
     "weight_decay": (0, [0.0,0.8]),
     "dropout": (0, [0.0,0.8]),
     "batchnorm": (True,False),
-    "out_unit": ('ReLU','None')
+    "out_unit": ('ReLU','None'),
+    "loss": ("L1Loss", "KLDivLoss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss")
 }
 
 def pick_from(entity):
@@ -86,7 +101,7 @@ def new_args_dict_from(search_space, template_dict = default_dict):
     return new_args_dict
 
 previous_batch_size = 0
-for i in range(10):
+for i in range(100):
 
     new_args_dict = new_args_dict_from(search_space, default_dict)
     args = ObjectView(new_args_dict)
@@ -102,10 +117,11 @@ for i in range(10):
         device = torch.device("cpu")
         print('no GPU available')
 
-    if previous_batch_size != args.batch_size: 
-        train, val = make_loaders(args.path, args.batch_size, args.num_workers)
-        previous_batch_size = args.batch_size
-    model.train(args, device, train, val)
+    # if previous_batch_size != args.batch_size: 
+    #     train, val = make_loaders(args.path, args.batch_size, args.num_workers)
+    #     previous_batch_size = args.batch_size
+    dataset = data.ContinuationData(args.path, measure=args.measure, normalize=args.normalize)
+    model.train(args, device, dataset)
     
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:
         os.system('''
