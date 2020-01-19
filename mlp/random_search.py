@@ -69,7 +69,7 @@ search_space = {
     "dropout": (0, [0.0,0.8]),
     "batchnorm": (True,False),
     "out_unit": ('ReLU','None'),
-    "loss": ("L1Loss", "KLDivLoss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss")
+    "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss")
 }
 
 def pick_from(entity):
