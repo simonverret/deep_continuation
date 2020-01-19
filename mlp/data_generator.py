@@ -1,52 +1,52 @@
-# %%
 #!/usr/local/bin/python3
+# %%
 import numpy as np
 from scipy import integrate
 import random
 import matplotlib.pyplot as plt
+
 np.set_printoptions(precision=4)
-# np.random.seed(139874)
-EPS = 1e-10
+np.random.seed(139874)
+SMALL = 1e-10
 
-N_sample = 50000
+#%%
+N_sample = 20
 
-beta = 10
-wn_max = 15*beta
-N_limit = wn_max*beta/(2*np.pi) ## necessary number of frequency wn = (2n+1)pi/beta to reach wn_max
-N_wn = int(2**np.ceil(np.log(N_limit)/np.log(2))) ## closest power of two from above
+freq_scale = 1
+
+w_min = 0.0
+w_max = 10.0
+N_w = 512
 N_wn = 128
+N_tail = 128
 
-N_w   =  512
-w_min =  0
-w_max =  10
 
 realFreqs = np.arange(w_min,w_max,(w_max-w_min)/N_w)
-matsFreqs = np.arange(0,wn_max,wn_max/N_wn)
+realFreqs += SMALL
 
-N_tail = 128
+matsFreqs = np.arange(0.0,N_wn)
+
 tail = np.logspace(1,5,N_tail)
 neg_tail = -np.flip(tail)[:-1]
 neg_realFreqs = -np.flip(realFreqs[1:])
 realFreqsDense = np.concatenate((neg_tail,neg_realFreqs,realFreqs,tail))
-N_dense = len(realFreqsDense)
+realFreqsDense += SMALL
 
-# AVOID zero
-realFreqs += EPS
-realFreqsDense += EPS
+N_dense = len(realFreqsDense)
 
 wGrid, wnGrid = np.meshgrid(realFreqsDense,matsFreqs)
 
 # peaks parameters
 gauss      = False
-min_w         = 2.0
-max_w         = 6.0
+min_w         = 2.0 * freq_scale
+max_w         = 6.0 * freq_scale
 maxNumPeaks   = 6
 maxNumDrude   = 4
 maxDrudeWeightFrac = 0.15
-maxDrudeWidth = 0.5
-minDrudeWidth = 0.1
-maxPeakWidth  = 1.0
-minPeakWidth  = 0.2
+maxDrudeWidth = 0.5 * freq_scale
+minDrudeWidth = 0.1 * freq_scale
+maxPeakWidth  = 1.0 * freq_scale
+minPeakWidth  = 0.2 * freq_scale
 
 def peak(omega, height=1, width=1, center=0):
     if gauss:
@@ -56,19 +56,19 @@ def peak(omega, height=1, width=1, center=0):
 
 def fullGridIntegrand(wGrid, wnGrid, h, w, c):
     spectralw = peak(wGrid, h, w, c).sum(axis=0)
-    return wGrid * spectralw/ (wGrid-1j*(wnGrid))
+    return wGrid**2 * spectralw/ (wGrid**2+wnGrid**2)
 
 spectralWeightArr = np.zeros([N_sample,N_w] )
-matsubaraArr = np.zeros([N_sample,N_wn], dtype='complex128' )
+matsubaraArr = np.zeros([N_sample,N_wn])
 
 for i in range(N_sample):
     if (i==0 or (i+1)%(max(1,N_sample//100))==0): print(f"sample {i+1}")
-    matsubaraGrid = np.zeros(wGrid.shape, dtype='complex128' )
+    matsubaraGrid = np.zeros(wGrid.shape)
 
     # spectrum characteristics
     numDrude    = np.random.randint(        0, maxNumDrude)
     numPeak     = np.random.randint(        1, maxNumPeaks)
-    DrudeWeight = np.random.uniform(      EPS, maxDrudeWeightFrac)
+    DrudeWeight = np.random.uniform(      SMALL, maxDrudeWeightFrac)
     # random initialization (width, center, height) of peaks
     w  = np.random.uniform( 0.001, 1.000, size=numPeak )
     c  = np.random.uniform( min_w, max_w, size=numPeak )
@@ -77,11 +77,11 @@ for i in range(N_sample):
     c[:numDrude] *= 0
     w[:numDrude] *= maxDrudeWidth 
     w[:numDrude] += minDrudeWidth
-    h[:numDrude] *= DrudeWeight/( h[:numDrude].sum() + EPS )
+    h[:numDrude] *= DrudeWeight/( h[:numDrude].sum() + SMALL )
     # other peaks adjustments
     w[numDrude:] *= maxPeakWidth
     w[numDrude:] += minPeakWidth
-    h[numDrude:] *= (1-DrudeWeight)/( h[numDrude:].sum() + EPS )
+    h[numDrude:] *= (1-DrudeWeight)/( h[numDrude:].sum() + SMALL )
     #symmetrize
     w = np.hstack([w, w])
     h = np.hstack([h, h])
@@ -90,7 +90,7 @@ for i in range(N_sample):
     h *= 1/h.sum(axis=-1,keepdims=True)
 
     spectralWeightArr[i] = peak( 
-                                realFreqs[np.newaxis,:] + EPS, 
+                                realFreqs[np.newaxis,:] + SMALL, 
                                 h[:,np.newaxis], 
                                 w[:,np.newaxis], 
                                 c[:,np.newaxis] 
@@ -115,16 +115,16 @@ for i in range(N_sample):
 
 # plt.show()
 
-# for i in range(N_sample):
-#     plt.plot(realFreqs,spectralWeightArr[i] )
-# plt.show()
+for i in range(N_sample):
+    plt.plot(realFreqs,spectralWeightArr[i] )
+plt.show()
 
-# for i in range(N_sample):
-#     plt.plot( matsFreqs, matsubaraArr[i] )
-# plt.show()
+for i in range(N_sample):
+    plt.plot( matsFreqs, matsubaraArr[i] )
+plt.show()
 
-# print(spectralWeightArr.sum(axis=-1)*(2*10/512))
-# print(matsubaraArr[:,0].real)
+print(spectralWeightArr.sum(axis=-1)*(2*10/512))
+print(matsubaraArr[:,0].real)
 
-np.savetxt('SigmaRe.csv', spectralWeightArr, delimiter=',')
-np.savetxt('Pi.csv', matsubaraArr.real, delimiter=',')
+# np.savetxt('SigmaRe.csv', spectralWeightArr, delimiter=',')
+# np.savetxt('Pi.csv', matsubaraArr.real, delimiter=',')
