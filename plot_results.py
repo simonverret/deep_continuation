@@ -12,7 +12,7 @@ import numpy as np
 import torch
 import json
 from deep_continuation import MLP
-from data_reader import RezaDataset
+from data import RezaDataset
 
 np.random.seed(72)
 
@@ -20,13 +20,13 @@ np.random.seed(72)
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
-with open('results/params_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8.json') as f:
+with open('results/BEST_dc_error0.025382478_epoch25_mlp128-512-1024-512-512_bs1500_lr0.01_wd0_drop0_ReLU_bn_wup_scheduled0.5-8.json') as f:
     params = json.load(f)
 args = ObjectView(params)
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
-mlp.load_state_dict(torch.load('results/BEST_customLoss0.059348080_epoch9_mlp128-512-512_bs1500_lr0.01_wd0_drop0_wup_scheduled0.5-8'))
+mlp.load_state_dict(torch.load('results/BEST_dc_error0.025382478_epoch25_mlp128-512-1024-512-512_bs1500_lr0.01_wd0_drop0_ReLU_bn_wup_scheduled0.5-8.pt'))
 
 ## RELOAD THE DATA
 dataset = RezaDataset(args.path)
@@ -58,4 +58,5 @@ for ii in range(start,end):
     ax4.set_title('difference',loc='right', pad=(-12),)
     ax1.set_xlabel('w')
 
-plt.savefig('results/last_plot.pdf')
+plt.show()
+# plt.savefig('last_plot.pdf')

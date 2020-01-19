@@ -27,7 +27,9 @@ import matplotlib.pyplot as plt
 # GLOBAL PARAMETERS & PARSING
 
 default_parameters = {
-    "path": "../sdata/",
+    "path": "../sdata/part/",
+    "measure": "Normal",
+    "normalize": False,
     "batch_size": 1500,
     "epochs": 100,
     "layers": [
@@ -45,7 +47,7 @@ default_parameters = {
     "warmup": True,
     "schedule": True,
     "factor": 0.5,
-    "patience": 8,
+    "patience": 4,
     "dropout": 0,
     "batchnorm": True,
     "seed": 1579012834,
@@ -55,6 +57,8 @@ default_parameters = {
 
 help_strings = {
     'file'          : 'defines the name of the .json file from which to take the default parameters',
+    'measure'       : 'Resa uses "squared" measure to enhance low frequencies resolution',
+    'normalize'     : 'multiplies each target spectrum by the value at the first Matsubara frequency',
     'path'          : 'path to the SigmaRe.csv and Pi.csv files',
     'batch_size'    : 'batch size for dataloaders',
     'epochs'        : 'number of epochs to train.',
@@ -103,7 +107,8 @@ def name(args):
     for size in args.layers[1:]:
         layers_str = layers_str + '-' + str(size)
 
-    name = 'mlp{}_bs{}_lr{}_wd{}_drop{}{}{}{}{}'.format(
+    name = '{}_mlp{}_bs{}_lr{}_wd{}_drop{}{}{}{}{}'.format(
+                args.loss,
                 layers_str,
                 args.batch_size, round(args.lr,5), round(args.weight_decay,3), round(args.dropout,3),
                 f'_{args.out_unit}',
@@ -117,15 +122,6 @@ def dump_params(args):
         json.dump(vars(args), f, indent=4)
 
 # MODEL
-
-class Normalizer(nn.Module):
-    def __init__(self, dim=-1):
-        super(Normalizer, self).__init__()
-        self.relu = nn.ReLU()
-        self.dim = dim
-    def forward(self, q):
-        q = self.relu(q)
-        return q/torch.sum(q, dim=self.dim, keepdim=True).detach()
 
 class MLP(nn.Module):
     def __init__(self, args):
@@ -144,15 +140,15 @@ class MLP(nn.Module):
         # last layer
         self.layers.append( nn.Linear( sizeA, args.layers[-1] ) )
         
-        if args.out_unit == 'ReLU': 
+        if args.out_unit == 'None': 
+            pass
+        elif args.out_unit == 'ReLU': 
             self.layers.append( nn.ReLU() )
-        elif args.out_unit == 'Normalize': 
-            self.layers.append( Normalizer() )
         elif args.out_unit == 'Softmax':
             self.layers.append( nn.Softmax(dim=-1) )
-        elif args.out_unit == 'None':
-            pass
-        else: raise ValueError('out_unit unknown')
+        ## Here would be a place for our custom Softmax
+        else: 
+            raise ValueError('out_unit unknown')
 
     def forward(self, x):
         out = x
@@ -164,28 +160,6 @@ def init_weights(module):
     if type(module) == nn.Linear:
         torch.nn.init.xavier_uniform_(module.weight)
         torch.nn.init.zeros_(module.bias)
-
-
-
-# CUSTOM LOSS FUNCTIONS
-
-def weightedL1Loss(outputs, targets):
-    if not hasattr(weightedL1Loss, 'weights'):
-        output_size = outputs.shape[1]
-        weightedL1Loss.weights = torch.exp(-data.mesh())
-        print('loss weights =', weightedL1Loss.weights)
-    out = torch.abs(outputs-targets) * weightedL1Loss.weights
-    out = torch.mean(out)
-    return out
-
-def weightedMSELoss(outputs, targets):
-    if not hasattr(weightedMSELoss, 'weights'):
-        output_size = outputs.shape[1]
-        weightedMSELoss.weights = torch.exp(-data.mesh())
-        print('loss weights =', weightedMSELoss.weights)
-    out = (outputs-targets)**2 * weightedMSELoss.weights
-    out = torch.mean(out)
-    return out
 
 
 
@@ -211,7 +185,10 @@ def save_best(criteria_str, model, args):
     torch.save(model.state_dict(), f'results/BEST_{criteria_str}{score:.9f}_epoch{model.epoch}_{name(args)}.pt')
 
 
-def train(args, device, train_loader, valid_loader): 
+def train(args, device, dataset):
+    
+    train_loader, valid_loader = dataset.make_loaders(args.batch_size, args.num_workers)
+    
     model = MLP(args).to(device)
     model.apply(init_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
@@ -223,24 +200,9 @@ def train(args, device, train_loader, valid_loader):
         criterion = nn.KLDivLoss()
     elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
-    ## non standard loss functions
-    elif args.loss == "expWeightL1Loss":
-        criterion = weightedL1Loss
-    elif args.loss == "invWeightL1Loss":
-        criterion = weightedL1Loss
-        weightedL1Loss.weights = 1/(data.mesh()+1e-6)
-    elif args.loss == "expWeightMSELoss":
-        criterion = weightedMSELoss
-    elif args.loss == "invWeightMSELoss":
-        criterion = weightedMSELoss
-        weightedMSELoss.weights = 1/(data.mesh()+1e-6)
-    elif args.loss == "hotDC_MSELoss":
-        criterion = weightedMSELoss
-        loss_weights = torch.ones(args.out_size, dtype=torch.float)
-        loss_weights[0] *= 100
-        weightedMSELoss.weights = loss_weights
-    else:
-        raise ValueError('Unknown loss function "'+args.loss+'"')
+    elif hasattr(dataset, 'custom_loss'):
+        criterion = dataset.custom_loss(args.loss)
+    else: raise ValueError('Unknown loss function "'+args.loss+'"')
     
     if args.schedule:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -402,6 +364,7 @@ if __name__=="__main__":
     if not os.path.exists('results'):
         os.mkdir('results')
     dump_params(args)
-    train_loader, valid_loader = data.make_loaders(args.path, args.batch_size, args.num_workers)
-    model = train(args, device, train_loader, valid_loader)
+    
+    dataset = data.ContinuationData(args.path, measure=args.measure, normalize=args.normalize)
+    model = train(args, device, dataset)
     

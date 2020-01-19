@@ -4,19 +4,20 @@ import os
 import json
 import argparse
 
-def parse_file_and_command(default_dict, help_dict, argv=None):
+def parse_file_and_command(default_dict, help_dict, params_file = 'params.json', argv=None):
     parser = argparse.ArgumentParser()
 
     ## WARNING: ENABLING PARSING OF THE PARAMS FILENAME REMOVES THE HELP
     # parser.add_argument('--file', type=str, default=default_parameters['file'], help=help_str['file'])
     # params_file = parser.parse_known_args()[0].file
-    params_file = 'params.json'
-    if os.path.exists(params_file):
-        with open(params_file) as f:
-            params_dict = json.load(f)
-    else:
-        print("warning: input file '"+params_file+"' not found") 
-        params_dict = {}
+    params_dict = {}
+    if (params_file is not None):
+        if os.path.exists(params_file):
+            with open(params_file) as f:
+                params_dict = json.load(f)
+        else:
+            print("warning: input file '"+params_file+"' not found") 
+        
 
     for name, default in default_dict.items():
         
@@ -26,9 +27,12 @@ def parse_file_and_command(default_dict, help_dict, argv=None):
 
         ## build the kwargs that will be passed to parser.add_argument()
         kwargs = {}
-        kwargs['default']    = default
-        kwargs['help']       = help_dict[name]
-        if   type(default) is list:   
+        kwargs['default'] = default
+        try:
+            kwargs['help'] = help_dict[name]
+        except KeyError:
+            kwargs['help'] = 'sorry, no help string available'
+        if   type(default) is list:
             kwargs['nargs']  = '+' 
             kwargs['type']   = type(default[0])
         elif type(default) is bool:
