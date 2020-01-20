@@ -18,11 +18,11 @@ import data
 import deep_continuation as model
 
 default_dict = {
-    "path": "../sdata/part/",
+    "path": "../sdata/",
     "measure": "Normal",
     "normalize": False,
     "batch_size": 1500,
-    "epochs": 1,
+    "epochs": 200,
     "layers": [
         128,
         512,
@@ -41,9 +41,9 @@ default_dict = {
     "patience": 4,
     "dropout": 0,
     "batchnorm": True,
-    "seed": 1579012834,
+    "seed": time.time(),
     "num_workers": 0,
-    "cuda": False
+    "cuda": True
 }
 
 # the random pick is recursive:

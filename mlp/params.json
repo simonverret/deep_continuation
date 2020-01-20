@@ -22,7 +22,6 @@
     "patience": 4,
     "dropout": 0,
     "batchnorm": true,
-    "seed": 1579012834,
     "num_workers": 0,
     "cuda": false
 }

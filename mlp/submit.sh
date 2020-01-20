@@ -10,8 +10,8 @@ cd $SLURM_TMPDIR
 mkdir job
 mkdir sdata
 cp ~/codes/deep_continuation/mlp/* job/
-cp ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/Pi.csv sdata/
-cp ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/SigmaRe.csv sdata/
+cd job/
+cp -r ~/scratch/deep_continuation/sdata/ ../
 
 # create a local virtual environnement (on the compute node)
 module load python/3.7
