@@ -149,7 +149,8 @@ class WgtLoss(nn.Module):
         
 class Normalizer(nn.Module):
     """ Module intended as a custom non exponential Softmax that uses the proper 
-    measure to normalize the data """
+    measure to normalize the data. Not working because needs to take the Measure
+    into account."""
 
     def __init__(self, dim=-1):
         super(Normalizer, self).__init__()
@@ -160,9 +161,9 @@ class Normalizer(nn.Module):
         q = self.relu(q)
         return q/torch.sum(q, dim=self.dim, keepdim=True).detach()
 
-# to use it
-# elif args.out_unit == 'Normalize': 
-    # self.layers.append( data.Normalizer() )
+    # to use it
+    # elif args.out_unit == 'Normalize': 
+        # self.layers.append( data.Normalizer() )
 
 
 

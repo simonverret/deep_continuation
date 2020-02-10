@@ -2,7 +2,7 @@
 sdata
 rdata
 *results
-
+mlp/*.csv
 generateDataConductivity/srcNew/*.csv
 generateDataConductivity/srcNew/*.o
 generateDataConductivity/srcNew/generateCondData
