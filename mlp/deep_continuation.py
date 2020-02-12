@@ -94,7 +94,7 @@ Thus, from here, all parameters should be accessed as:
     args.parameter
 note: for every bool flag, an additional --no_flag is defined to turn it off.
 '''
-args = utils.parse_file_and_command(default_parameters, help_strings)
+args = utils.parse_file_and_command(default_parameters, help_strings, params_file = 'params.json')
 
 
 # TODO: 

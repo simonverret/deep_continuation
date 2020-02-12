@@ -4,20 +4,19 @@ import os
 import json
 import argparse
 
-def parse_file_and_command(default_dict, help_dict, argv=None):
+def parse_file_and_command(default_dict, help_dict, params_file = None, argv=None):
     parser = argparse.ArgumentParser()
 
-    params_file = 'params.json'
     ## UNCOMMENT TO PARSE params_file (REMOVES THE HELP) before else
     # parser.add_argument('--file', type=str, default=default_parameters['file'], help=help_str['file'])
     # params_file = parser.parse_known_args()[0].file
-    
-    if os.path.exists(params_file):
-        with open(params_file) as f:
-            params_dict = json.load(f)
-    else:
-        print("warning: input file '"+params_file+"' not found") 
-        params_dict = {}
+    params_dict = {}
+    if params_file is not None:
+        if os.path.exists(params_file):
+            with open(params_file) as f:
+                params_dict = json.load(f)
+        else:
+            raise KeyError("input file '"+params_file+"' not found") 
 
     for name, default in default_dict.items():
         
