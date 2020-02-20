@@ -3,6 +3,7 @@ sdata
 rdata
 *results
 mlp/*.csv
+mlp/data/*/
 generateDataConductivity/srcNew/*.csv
 generateDataConductivity/srcNew/*.o
 generateDataConductivity/srcNew/generateCondData

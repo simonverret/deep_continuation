@@ -196,7 +196,8 @@ class DataGenerator():
         self.w_max               = args.w_max
         self.Pi0                 = args.Pi0
         self.beta                = args.beta
-        self.resample            = args.resample
+        self.sqrt_ratio          = args.sqrt_ratio
+        self.cbrt_ratio          = args.cbrt_ratio
         self.normalize           = args.normalize
         # default peaks characteristics
         self.lorentz             = args.lorentz
@@ -238,20 +239,21 @@ class DataGenerator():
         self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)
         return  self.w_grid, self.wn_grid 
 
-    def generate_batch(self, N):
-        sig_of_w_array = np.zeros([ N, self.N_w ])
-        resampled_sigm = np.zeros([ N, self.N_w ])
-        pi_of_wn_array = np.zeros([ N, self.N_wn])
+    def generate_batch(self, batch_size):
+        pi_of_wn_array = np.zeros([ batch_size, self.N_wn])
+        sig_of_w_array = np.zeros([ batch_size, self.N_w ])
+        # alternative
+        sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
+        cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
 
-        for i in range(N):
-            if (i==0 or (i+1)%(max(1,N//100))==0): print(f"sample {i+1}")
+        for i in range(batch_size):
+            if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
 
             # random spectrum characteristics
             num_drude    = np.random.randint( 0,     self.max_drude+1 )
             num_others   = np.random.randint( 0 if num_drude>0 else 1,     self.max_peaks+1 )
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
             num_peak = num_drude + num_others
-            Pi0 = self.Pi0*np.pi
             
             # random initialization (center, width, height) of peaks
             min_c = self.peak_position_range[0]
@@ -275,11 +277,11 @@ class DataGenerator():
             c = np.hstack([c,-c])
             w = np.hstack([w, w])
             h = np.hstack([h, h])
-            h *= Pi0 
             if self.normalize:
                 h /= h.sum(axis=-1, keepdims=True)
+            h *= self.Pi0 * np.pi
 
-            # compute spectra
+            # compute matsubara spectrum (training inputs)
             matsubaraGrid = self.grid_integrand( 
                                 self.w_grid [ np.newaxis,:,: ], 
                                 self.wn_grid[ np.newaxis,:,: ], 
@@ -288,27 +290,37 @@ class DataGenerator():
                                 h[ :, np.newaxis, np.newaxis ] 
                             )
             pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1)
-
-            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
-            if self.resample>0:
-                new_w_max = self.resample * np.cbrt(second_moment)
-                new_w_list = np.linspace(0.0, new_w_max , self.N_w, dtype=float)
             
+            # sample real spectrum (training targets)
             sig_of_w_array[i] = self.peak(
                                     self.w_list[np.newaxis,:], 
                                     c[:,np.newaxis], 
                                     w[:,np.newaxis], 
                                     h[:,np.newaxis] 
                                 ).sum(axis=0)
-
-            resampled_sigm[i] = self.peak(
-                                    new_w_list[np.newaxis,:], 
+            
+            # squareroot sampling real spectrum (alternative training targets)
+            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
+            sqrt_w_max = self.sqrt_ratio * np.sqrt(second_moment)
+            sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
+            sqrt_smpl_sigm[i] = self.peak(
+                                    sqrt_w_list[np.newaxis,:], 
+                                    c[:,np.newaxis], 
+                                    w[:,np.newaxis], 
+                                    h[:,np.newaxis] 
+                                ).sum(axis=0)
+            
+            # cubicroot sampling real spectrum (alternative training targets)
+            cbrt_w_max = self.cbrt_ratio * np.cbrt(second_moment)
+            cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
+            cbrt_smpl_sigm[i] = self.peak(
+                                    cbrt_w_list[np.newaxis,:], 
                                     c[:,np.newaxis], 
                                     w[:,np.newaxis], 
                                     h[:,np.newaxis] 
                                 ).sum(axis=0)
 
-        return pi_of_wn_array, sig_of_w_array, resampled_sigm
+        return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
 
     def compute_tail_ratio(self, pi_of_wn_array, sig_of_w_array, N=10):
         pi_tail = self.wn_list[-N:]**2*pi_of_wn_array[-N:]
@@ -319,7 +331,7 @@ class DataGenerator():
 
         return sigma_diff/(pi_diff+0.00001)
 
-    def plot(self, pi_of_wn_array, sig_of_w_array, resampled):
+    def plot(self, pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm):
         alpha = np.sqrt(self.wn_list**2*pi_of_wn_array)
         s2avg = np.sqrt(np.cumsum((self.w_list)**2*sig_of_w_array,axis=-1)*self.w_volume)
         
@@ -329,7 +341,7 @@ class DataGenerator():
         print('s2avg = ',s2avg[:,-1])
         print('alpha = ', alpha[:,-1],'\n')
     
-        fig, ax = plt.subplots(2, 3, figsize=[10,5])
+        fig, ax = plt.subplots(2, 4, figsize=[12,5])
         
         ax[0,0].set_ylabel(r"$\Pi_n = \Pi(\omega_n)$")
         plt.setp(ax[0,0].get_xticklabels(), visible=False)
@@ -346,24 +358,34 @@ class DataGenerator():
         ax[1,2].set_ylabel(r"$\frac{\sqrt{\langle \omega^2 \rangle}}{M}\sum_{n=0}^{m}n^{2}\sigma_{n}$")
         ax[1,2].set_xlabel(r"$m$")
 
+        ax[0,3].set_ylabel(r"$\sigma_m$")
+        plt.setp(ax[0,3].get_xticklabels(), visible=False)
+        ax[1,3].set_ylabel(r"$\frac{1}{M}\sum_{n=0}^{m}n^{2}\sigma_{n}$")
+        ax[1,3].set_xlabel(r"$m$")
+
         for i in range(len(pi_of_wn_array)):
             ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
             ax[1,0].plot( self.wn_list, alpha[i] )
             ax[0,1].plot( self.w_list , sig_of_w_array[i] )
             ax[1,1].plot( self.w_list , s2avg[i] )
             # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
-            ax[0,2].plot( resampled[i] )
+            
             integer_w_list = np.arange(len(self.w_list))
-            ax[1,2].plot( integer_w_list ,  np.sqrt(np.cumsum((integer_w_list)**2*resampled[i] ))/(self.N_w) )
+            ax[0,2].plot( sqrt_smpl_sigm[i] )
+            ax[1,2].plot( integer_w_list ,  (np.sqrt(alpha[i,-1]))*np.sqrt(np.cumsum((integer_w_list)**2*sqrt_smpl_sigm[i] ))/(self.N_w) )
+
+            ax[0,3].plot( cbrt_smpl_sigm[i] )
+            ax[1,3].plot( integer_w_list ,  np.sqrt(np.cumsum((integer_w_list)**2*cbrt_smpl_sigm[i] ))/(self.N_w) )
 
         fig.tight_layout()
         plt.show()
 
     def generate_dataset(self, N, path='./'):
-        pi_wn_array, sig_of_w_array, resampled = self.generate_batch(N)
-        np.savetxt( path + 'SigmaRe_resampled.csv', resampled, delimiter=',')
-        np.savetxt( path + 'SigmaRe.csv', sig_of_w_array, delimiter=',')
+        pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_batch(batch_size=N)
         np.savetxt( path + 'Pi.csv'     , pi_wn_array   , delimiter=',')
+        np.savetxt( path + 'SigmaRe.csv', sig_of_w_array, delimiter=',')
+        np.savetxt( path + 'SigmaRe_sqrtScale.csv', sqrt_smpl_sigm, delimiter=',')
+        np.savetxt( path + 'SigmaRe_cbrtScale.csv', cbrt_smpl_sigm, delimiter=',')
 
 
 if __name__ == '__main__':
@@ -379,10 +401,11 @@ if __name__ == '__main__':
         'out_size'     : 512,
         'w_max'        : 20.0,
         'beta'         : 10.0,#2*np.pi, # 2pi/beta = 1
-        'N_tail'       : 256,
+        'N_tail'       : 128,
         'tail_power'   : 5,
-        'Pi0'          : 1,
-        'resample'     : 3.,
+        'Pi0'          : 1.0,
+        'sqrt_ratio'   : 4,
+        'cbrt_ratio'   : 6,
         # spectrum parameters (relative)
         'lorentz'      : False,
         'max_drude'    : 4,
@@ -405,16 +428,14 @@ if __name__ == '__main__':
         generator = DataGenerator(args)
         
         if args.generate > 0:
+            os.makedirs(args.path, exist_ok=True)
             generator.generate_dataset(N=args.generate, path=args.path)
             if args.plot > 0:
                 print('WARNING: examples printed are not part of the dataset')
 
         if args.plot > 0:
-            pi, sigma, resampled = generator.generate_batch(N=args.plot)
-            generator.plot(pi, sigma, resampled)
-
-    
-
+            pi, sigma, sigma2, sigma3 = generator.generate_batch(batch_size=args.plot)
+            generator.plot(pi, sigma, sigma2, sigma3)
 
     else:
         if args.generate > 0:
