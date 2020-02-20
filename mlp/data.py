@@ -291,7 +291,7 @@ class DataGenerator():
 
             second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
             if self.resample>0:
-                new_w_max = self.resample * np.sqrt(second_moment)
+                new_w_max = self.resample * np.cbrt(second_moment)
                 new_w_list = np.linspace(0.0, new_w_max , self.N_w, dtype=float)
             
             sig_of_w_array[i] = self.peak(
@@ -354,7 +354,7 @@ class DataGenerator():
             # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
             ax[0,2].plot( resampled[i] )
             integer_w_list = np.arange(len(self.w_list))
-            ax[1,2].plot( integer_w_list ,  (np.sqrt(alpha[i,-1]))*np.sqrt(np.cumsum((integer_w_list)**2*resampled[i] ))/(self.N_w) )
+            ax[1,2].plot( integer_w_list ,  np.sqrt(np.cumsum((integer_w_list)**2*resampled[i] ))/(self.N_w) )
 
         fig.tight_layout()
         plt.show()
