@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import json
 import argparse
 
 def parse_file_and_command(default_dict, help_dict, params_file = None, argv=None):
     parser = argparse.ArgumentParser()
 
-    ## UNCOMMENT TO PARSE params_file (REMOVES THE HELP) before else
-    # parser.add_argument('--file', type=str, default=default_parameters['file'], help=help_str['file'])
-    # params_file = parser.parse_known_args()[0].file
+    
+    
     params_dict = {}
-    if params_file is not None:
-        if os.path.exists(params_file):
-            with open(params_file) as f:
+    first_arg = sys.argv[1]
+    if first_arg[-5:]=='.json':
+        if os.path.exists(first_arg):
+            with open(first_arg) as f:
                 params_dict = json.load(f)
+            print(f'using parameters from file {first_arg}')
         else:
-            raise KeyError("input file '"+params_file+"' not found") 
+            raise ValueError(f'file {first_arg} not found')
+    else:
+        print('using default parameters')
 
     for name, default in default_dict.items():
         

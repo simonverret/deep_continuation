@@ -10,6 +10,7 @@
 #%%
 import os
 import json
+import time
 import random
 import numpy as np
 from scipy import integrate
@@ -19,7 +20,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
+
 import matplotlib.pyplot as plt 
+from matplotlib import rc, rcParams
+# rc('text', usetex=True)
+# rc('axes', linewidth=0.5)
+# rc('xtick.major', width=0.5)
+# rc('ytick.major', width=0.5)
+rcParams['text.latex.preamble'] = [
+        r'\usepackage{amsmath}',
+        r'\usepackage{amssym}',
+    ]
 
 import utils
 
@@ -61,8 +72,8 @@ class ContinuationData(Dataset):
         if self.normalize:
             print('WARNING normalization untested')
             if self.normalize:
-                self.y_data = self.y_data[:,:]/self.y_data[:,0]
-                self.x_data = self.x_data[:,:]/self.y_data[:,0]
+                self.y_data = self.y_data[:,:]/self.x_data[:,:1]
+                self.x_data = self.x_data[:,:]/self.x_data[:,:1]
 
     def __len__(self):
         return len(self.x_data)
@@ -156,8 +167,8 @@ class ContinuationData(Dataset):
     def plot(self, N):
         #%% plot some examples from the loaded dataset
         print('\nnormalization')
-        print('sum =', sig_of_w_array.sum(axis=-1)*(2*10/512))
-        print('pi0 =', pi_of_wn_array[:,0].real, '\n')
+        print('sum =', self.y_data[:N].sum(axis=-1)*(2*10/512))
+        print('pi0 =', self.x_data[:N,0].real, '\n')
 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[4,4])
         ax1.set_xlabel('iwn')
@@ -179,40 +190,47 @@ class DataGenerator():
         self.N_wn = args.in_size
         self.N_w  = args.out_size
         
-        self.wn_list, self.w_list = self.set_freq_grid( args.w_max )
-        self.w_grid, self.wn_grid = self.set_integration_grid( args.N_tail, args.power )
+        self.wn_list, self.w_list = self.set_freq_grid( args.w_max, args.beta )
+        self.w_grid, self.wn_grid = self.set_integration_grid( args.w_max, args.tail_power, args.N_tail )
         
-        self.scale = args.scale
-        # self.w_list *= self.scale
-
+        self.w_max               = args.w_max
+        self.Pi0                 = args.Pi0
+        self.beta                = args.beta
+        self.resample            = args.resample
+        self.normalize           = args.normalize
         # default peaks characteristics
-        self.gauss               = args.gauss
-        self.drude_width_range   = np.array(args.drude_width) * self.scale
-        self.peak_position_range = np.array(args.posit) * self.scale
-        self.peak_width_range    = np.array(args.peak_width) * self.scale
+        self.lorentz             = args.lorentz
         self.max_drude           = args.max_drude
         self.max_peaks           = args.max_peaks
         self.weight_ratio        = args.weight_ratio
+        self.w_volume            = 2*self.w_max/(np.pi*self.N_w)
+        self.drude_width_range   = np.array(args.drude_width)*args.w_max
+        self.peak_position_range = np.array(args.peak_pos)*args.w_max
+        self.peak_width_range    = np.array(args.peak_width)*args.w_max
 
     def peak(self, omega, center=0, width=1, height=1):
-        if self.gauss:
-            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
-        else:
+        if self.lorentz:
             return (height/np.pi) * width/( (omega-center)**2 + (width)**2 )
+        else:
+            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
 
     def grid_integrand(self, omega, omega_n, c, w, h):
         spectralw = self.peak(omega, c, w, h).sum(axis=0)
-        return omega**2 * spectralw/ (omega**2+omega_n**2)
+        return (1/np.pi) * omega**2 * spectralw / (omega**2+omega_n**2)
 
-    def set_freq_grid(self, w_max):
-        self.wn_list = np.arange(0.0, self.N_wn, dtype=float)
-        self.w_list  = np.arange(0.0, w_max, w_max/self.N_w, dtype=float)
+    def set_freq_grid(self, w_max, beta):
+        delta_w = w_max/self.N_w
+        delta_wn = 2*np.pi/beta
+        wn_max = delta_wn * self.N_wn
+
+        self.wn_list = np.arange(0.0, wn_max, delta_wn, dtype=float)
+        self.w_list  = np.arange(0.0, w_max , delta_w, dtype=float)
         return self.wn_list, self.w_list
 
-    def set_integration_grid(self, N_tail, tail_power):
+    def set_integration_grid(self, w_max, tail_power, N_tail):
         pos_w_list = self.w_list
         neg_w_list  = -np.flip(pos_w_list[1:])
-        pos_tail = np.logspace(1, tail_power, N_tail)
+        pos_tail = np.logspace(np.log10(w_max), tail_power, N_tail)
         neg_tail = -np.flip(pos_tail)[:-1]
         
         full_w_list = [ neg_tail, neg_w_list, pos_w_list, pos_tail ]
@@ -221,17 +239,19 @@ class DataGenerator():
         return  self.w_grid, self.wn_grid 
 
     def generate_batch(self, N):
-
         sig_of_w_array = np.zeros([ N, self.N_w ])
+        resampled_sigm = np.zeros([ N, self.N_w ])
         pi_of_wn_array = np.zeros([ N, self.N_wn])
 
         for i in range(N):
             if (i==0 or (i+1)%(max(1,N//100))==0): print(f"sample {i+1}")
 
             # random spectrum characteristics
-            num_drude    = np.random.randint( 0,     self.max_drude)
-            num_peak     = np.random.randint( 1,     self.max_peaks)
+            num_drude    = np.random.randint( 0,     self.max_drude+1 )
+            num_others   = np.random.randint( 0 if num_drude>0 else 1,     self.max_peaks+1 )
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
+            num_peak = num_drude + num_others
+            Pi0 = self.Pi0*np.pi
             
             # random initialization (center, width, height) of peaks
             min_c = self.peak_position_range[0]
@@ -255,16 +275,11 @@ class DataGenerator():
             c = np.hstack([c,-c])
             w = np.hstack([w, w])
             h = np.hstack([h, h])
-            h *= 1/h.sum(axis=-1, keepdims=True)
+            h *= Pi0 
+            if self.normalize:
+                h /= h.sum(axis=-1, keepdims=True)
 
             # compute spectra
-            sig_of_w_array[i] = self.peak(
-                                    self.w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
-                                ).sum(axis=0)
-
             matsubaraGrid = self.grid_integrand( 
                                 self.w_grid [ np.newaxis,:,: ], 
                                 self.wn_grid[ np.newaxis,:,: ], 
@@ -272,26 +287,81 @@ class DataGenerator():
                                 w[ :, np.newaxis, np.newaxis ], 
                                 h[ :, np.newaxis, np.newaxis ] 
                             )
-
             pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1)
-        return pi_of_wn_array, sig_of_w_array
 
-    def plot(self, pi_of_wn_array, sig_of_w_array):
+            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
+            if self.resample>0:
+                new_w_max = self.resample * np.sqrt(second_moment)
+                new_w_list = np.linspace(0.0, new_w_max , self.N_w, dtype=float)
+            
+            sig_of_w_array[i] = self.peak(
+                                    self.w_list[np.newaxis,:], 
+                                    c[:,np.newaxis], 
+                                    w[:,np.newaxis], 
+                                    h[:,np.newaxis] 
+                                ).sum(axis=0)
+
+            resampled_sigm[i] = self.peak(
+                                    new_w_list[np.newaxis,:], 
+                                    c[:,np.newaxis], 
+                                    w[:,np.newaxis], 
+                                    h[:,np.newaxis] 
+                                ).sum(axis=0)
+
+        return pi_of_wn_array, sig_of_w_array, resampled_sigm
+
+    def compute_tail_ratio(self, pi_of_wn_array, sig_of_w_array, N=10):
+        pi_tail = self.wn_list[-N:]**2*pi_of_wn_array[-N:]
+        pi_diff = pi_tail[1:]-pi_tail[:-1]
+
+        sigma_tail = np.cumsum(self.w_list[-N:]**2*sig_of_w_array[-N:])
+        sigma_diff = sigma_tail[1:]-sigma_tail[:-1]
+
+        return sigma_diff/(pi_diff+0.00001)
+
+    def plot(self, pi_of_wn_array, sig_of_w_array, resampled):
+        alpha = np.sqrt(self.wn_list**2*pi_of_wn_array)
+        s2avg = np.sqrt(np.cumsum((self.w_list)**2*sig_of_w_array,axis=-1)*self.w_volume)
+        
         print('\nnormalization')
-        print('sum =', sig_of_w_array.sum(axis=-1)*(2*10/512))
-        print('pi0 =', pi_of_wn_array[:,0].real, '\n')
+        print('sum =', sig_of_w_array.sum(axis=-1)*self.w_volume)
+        print('Pi0 =', pi_of_wn_array[:,0].real)
+        print('s2avg = ',s2avg[:,-1])
+        print('alpha = ', alpha[:,-1],'\n')
     
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[4,4])
-        ax1.set_xlabel('iwn')
-        ax1.set_title('input (matsubara freqs)',loc='right', pad=-12)
-        ax2.set_title('target (real freqs)',loc='right', pad=-12)
+        fig, ax = plt.subplots(2, 3, figsize=[10,5])
+        
+        ax[0,0].set_ylabel(r"$\Pi_n = \Pi(\omega_n)$")
+        plt.setp(ax[0,0].get_xticklabels(), visible=False)
+        ax[1,0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi_n}$")
+        ax[1,0].set_xlabel(r"$i\omega_n$")
+        
+        ax[0,1].set_ylabel(r"$\sigma(\omega)$")
+        plt.setp(ax[0,1].get_xticklabels(), visible=False)
+        ax[1,1].set_ylabel(r"running $\sqrt{ \langle \omega^2 \rangle_{\sigma} }$") #"$\int_0^\omega dz z^2\sigma(z^2)$"
+        ax[1,1].set_xlabel(r"$\omega$")
+        
+        ax[0,2].set_ylabel(r"$\sigma_m$")
+        plt.setp(ax[0,2].get_xticklabels(), visible=False)
+        ax[1,2].set_ylabel(r"$\frac{\sqrt{\langle \omega^2 \rangle}}{M}\sum_{n=0}^{m}n^{2}\sigma_{n}$")
+        ax[1,2].set_xlabel(r"$m$")
+
         for i in range(len(pi_of_wn_array)):
-            ax1.plot( self.wn_list, pi_of_wn_array[i] )
-            ax2.plot( self.w_list, sig_of_w_array[i] )
+            ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
+            ax[1,0].plot( self.wn_list, alpha[i] )
+            ax[0,1].plot( self.w_list , sig_of_w_array[i] )
+            ax[1,1].plot( self.w_list , s2avg[i] )
+            # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
+            ax[0,2].plot( resampled[i] )
+            integer_w_list = np.arange(len(self.w_list))
+            ax[1,2].plot( integer_w_list ,  (np.sqrt(alpha[i,-1]))*np.sqrt(np.cumsum((integer_w_list)**2*resampled[i] ))/(self.N_w) )
+
+        fig.tight_layout()
         plt.show()
 
     def generate_dataset(self, N, path='./'):
-        pi_wn_array, sig_of_w_array = self.generate_batch(N)
+        pi_wn_array, sig_of_w_array, resampled = self.generate_batch(N)
+        np.savetxt( path + 'SigmaRe_resampled.csv', resampled, delimiter=',')
         np.savetxt( path + 'SigmaRe.csv', sig_of_w_array, delimiter=',')
         np.savetxt( path + 'Pi.csv'     , pi_wn_array   , delimiter=',')
 
@@ -303,31 +373,33 @@ if __name__ == '__main__':
         'plot'         : 0,
         'generate'     : 0,
         'path'         : './',
+        'normalize'    : True,
         # data generation parameters
         'in_size'      : 128,
         'out_size'     : 512,
-        'w_max'        : 10,
-        'N_tail'       : 128,
-        'power'        : 5,
-        'scale'        : 1,
-        # spectrum parameters
-        'gauss'        : False,
+        'w_max'        : 20.0,
+        'beta'         : 10.0,#2*np.pi, # 2pi/beta = 1
+        'N_tail'       : 256,
+        'tail_power'   : 5,
+        'Pi0'          : 1,
+        'resample'     : 3.,
+        # spectrum parameters (relative)
+        'lorentz'      : False,
         'max_drude'    : 4,
         'max_peaks'    : 6,
-        'weight_ratio' : 0.20,
-        'drude_width'  : [0.1, 0.5],
-        'posit'        : [2.0, 6.0],
-        'peak_width'   : [0.2, 1.0],
-        'seed'         : 139874
+        'weight_ratio' : 0.50,
+        'drude_width'  : [.02, .1],
+        'peak_pos'     : [.2 , .8],
+        'peak_width'   : [.05, .1],
+        'seed'         : int(time.time())
     }
     args = utils.parse_file_and_command(default_args, {}, )
 
     np.random.seed(args.seed)
+    print('seed :',args.seed)
     sigma_path = args.path+'SigmaRe.csv'
     pi_path = args.path+'Pi.csv'
 
-    print(sigma_path)
-    print(pi_path)
 
     if not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
         generator = DataGenerator(args)
@@ -338,18 +410,22 @@ if __name__ == '__main__':
                 print('WARNING: examples printed are not part of the dataset')
 
         if args.plot > 0:
-            pi, sigma = generator.generate_batch(N=args.plot)
-            generator.plot(pi, sigma)
+            pi, sigma, resampled = generator.generate_batch(N=args.plot)
+            generator.plot(pi, sigma, resampled)
+
+    
+
 
     else:
         if args.generate > 0:
             raise ValueError('ABORT GENERATION: there is already a dataset on this path')
 
         #%% test dataset with ContinuationData
-        my_dataset = ContinuationData(args.path)
+        my_dataset = ContinuationData(args.path, normalize=args.normalize)
 
         if args.plot > 0:
             my_dataset.plot(args.plot)
+        
 
 
     if args.test:
@@ -428,3 +504,6 @@ if __name__ == '__main__':
                 print(torch.sum(meas*spectrum*(2/chi0/np.pi)))
                 break
             break
+
+    if args.generate==0 and args.plot==0 and not args.test:
+        print('nothing to do. try --help, --plot 10, or --generate --1000')
