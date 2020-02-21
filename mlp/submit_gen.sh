@@ -7,9 +7,6 @@
 
 cd $SLURM_TMPDIR
 
-mkdir job
-cp ~/codes/deep_continuation/mlp/* job/
-
 # create a local virtual environnement (on the compute node)
 module load python/3.7
 virtualenv --no-download env
@@ -22,9 +19,11 @@ pip install --no-index scipy
 pip install --no-index matplotlib
 pip install --no-index torch
 
-cd job
-python data_generator.py
-cd ..
+mkdir job
+cp -r ~/codes/deep_continuation/mlp/* job/
 
-DATE=$(date -u +%Y%m%d)
-cp -r job $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
+cd job
+python data.py data/G1_train.json --generate 50000
+python data.py data/G1_valid.json --generate 10000
+
+cp -r data/G1 ~/scratch/deep_continuation/data/
