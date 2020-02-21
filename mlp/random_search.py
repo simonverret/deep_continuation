@@ -41,7 +41,7 @@ default_dict = {
     "patience": 4,
     "dropout": 0,
     "batchnorm": True,
-    "seed": time.time(),
+    "seed": int(time.time()),
     "num_workers": 0,
     "cuda": True
 }
