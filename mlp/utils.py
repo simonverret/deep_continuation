@@ -8,17 +8,19 @@ import argparse
 def parse_file_and_command(default_dict, help_dict, params_file = None, argv=None):
     parser = argparse.ArgumentParser()
 
-    
-    
     params_dict = {}
-    first_arg = sys.argv[1]
-    if first_arg[-5:]=='.json':
-        if os.path.exists(first_arg):
-            with open(first_arg) as f:
-                params_dict = json.load(f)
-            print(f'using parameters from file {first_arg}')
+    
+    if len(sys.argv)>1:
+        args_file = sys.argv[1] 
+        if args_file[-5:]=='.json':
+            if os.path.exists(args_file):
+                with open(args_file) as f:
+                    params_dict = json.load(f)
+                print(f'using parameters from file {args_file}')
+            else:
+                raise ValueError(f'file {args_file} not found')
         else:
-            raise ValueError(f'file {first_arg} not found')
+            print('using default parameters with args')
     else:
         print('using default parameters')
 
