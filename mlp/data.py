@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
+from torchvision import transforms
 
 import matplotlib.pyplot as plt 
 from matplotlib import rc, rcParams
@@ -58,10 +59,11 @@ class WgtLoss(nn.Module):
         return out
 
 class ContinuationData(Dataset):
-    def __init__(self, path, measure=None, N=512, L=10, normalize=False):
+    def __init__(self, path, N=512, L=10, noise=0.0, measure=None, normalize=False, ):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
         self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
-        
+        self.noise = noise
+
         self.measure_name = measure
         self.N = N
         self.L = L
@@ -79,13 +81,13 @@ class ContinuationData(Dataset):
         return len(self.x_data)
 
     def __getitem__(self, index):
-        x = self.x_data[index]
+        x = self.x_data[index] 
+        x += np.random.normal(0,1, size=x.shape)*self.noise
         y = self.y_data[index]
         return x, y
 
     def make_loaders(self, batch_size, num_workers=0, split=0.1):
         """ make pytorch dataloaders """
-
         print("Loading data")
         validation_split = split
         indices = list(range(len(self)))
@@ -95,13 +97,15 @@ class ContinuationData(Dataset):
         train_sampler = SubsetRandomSampler(train_indices)
         validation_sampler = SubsetRandomSampler(val_indices)
 
-        train_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=train_sampler)
-        valid_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=validation_sampler)
+        train_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=train_sampler, shuffle=True)
+        valid_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=validation_sampler, shuffle=True)
         return train_loader,valid_loader
+
+    def single_loader(self, batch_size=0, num_workers=0):
+        return DataLoader(self, batch_size=batch_size, num_workers=num_workers, shuffle=True)
 
     def make_mesh(self):
         """ Returns the x at to which the data corresponds """
-        
         ints = torch.arange(self.N).float()
         if self.measure_name == 'squared':
             mesh = (ints/(self.N-1))**2*self.L
@@ -111,7 +115,6 @@ class ContinuationData(Dataset):
 
     def make_measure(self, analytic=True): 
         """ Returns the lenghts dx on which the data is defined """
-
         ints = torch.arange(self.N).float()
         if self.measure_name == 'squared':
             if analytic:
