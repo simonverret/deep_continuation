@@ -1,5 +1,5 @@
 {
-    "path": "../sdata/part/",
+    "path": "data/G1/train/",
     "measure": "Normal",
     "normalize": false,
     "batch_size": 1500,

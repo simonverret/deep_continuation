@@ -7,9 +7,8 @@
 #   Andre-Marie Tremablay
 #
 #%%
-
-import time
 import os
+import time
 import json
 from glob import glob
 from copy import deepcopy
@@ -27,7 +26,8 @@ import matplotlib.pyplot as plt
 # GLOBAL PARAMETERS & PARSING
 
 default_parameters = {
-    "path": "../sdata/part/",
+    "path": "data/G1/",
+    "noise": 0.01,
     "measure": "Normal",
     "normalize": False,
     "batch_size": 1500,
@@ -36,7 +36,6 @@ default_parameters = {
         128,
         512,
         1024,
-        512,
         512
     ],
     "out_unit": "None",
@@ -50,16 +49,16 @@ default_parameters = {
     "patience": 4,
     "dropout": 0,
     "batchnorm": True,
-    "seed": 1579012834,
+    "seed": int(time.time()),
     "num_workers": 0,
     "cuda": False
 }
 
 help_strings = {
-    'file'          : 'defines the name of the .json file from which to take the default parameters',
     'measure'       : 'Resa uses "squared" measure to enhance low frequencies resolution',
     'normalize'     : 'multiplies each target spectrum by the value at the first Matsubara frequency',
     'path'          : 'path to the SigmaRe.csv and Pi.csv files',
+    'noise'         : 'noise to the matsubara spectra',
     'batch_size'    : 'batch size for dataloaders',
     'epochs'        : 'number of epochs to train.',
     'layers'        : 'sequence of dimensions for the neural net, includes input and output, e.g. --layers 128 400 600 512',
@@ -185,9 +184,10 @@ def save_best(criteria_str, model, args):
     torch.save(model.state_dict(), f'results/BEST_{criteria_str}{score:.9f}_epoch{model.epoch}_{name(args)}.pt')
 
 
-def train(args, device, dataset):
+def train(args, device, train_set, valid_set):
     
-    train_loader, valid_loader = dataset.make_loaders(args.batch_size, args.num_workers)
+    train_loader = train_set.single_loader(args.batch_size, args.num_workers)
+    valid_loader = valid_set.single_loader(args.batch_size, args.num_workers)
     
     model = MLP(args).to(device)
     model.apply(init_weights)
@@ -200,8 +200,8 @@ def train(args, device, dataset):
         criterion = nn.KLDivLoss()
     elif args.loss == "MSELoss":
         criterion = nn.MSELoss()
-    elif hasattr(dataset, 'custom_loss'):
-        criterion = dataset.custom_loss(args.loss)
+    elif hasattr(train_set, 'custom_loss'):
+        criterion = train_set.custom_loss(args.loss)
     else: raise ValueError('Unknown loss function "'+args.loss+'"')
     
     if args.schedule:
@@ -365,6 +365,7 @@ if __name__=="__main__":
         os.mkdir('results')
     dump_params(args)
     
-    dataset = data.ContinuationData(args.path, measure=args.measure, normalize=args.normalize)
-    model = train(args, device, dataset)
+    train_set = data.ContinuationData(args.path+'train/', noise=0)
+    valid_set = data.ContinuationData(args.path+'valid/', noise=args.noise)
+    model = train(args, device, train_set, valid_set)
     
