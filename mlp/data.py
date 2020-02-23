@@ -251,8 +251,8 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
 
             # random spectrum characteristics
-            num_drude    = np.random.randint( 0,     self.max_drude+1 )
-            num_others   = np.random.randint( 0 if num_drude>0 else 1,     self.max_peaks+1 )
+            num_drude    = np.random.randint( 0 if self.max_peaks > 0 else 1,     self.max_drude+1 )
+            num_others   = np.random.randint( 0 if num_drude > 0 else 1,     self.max_peaks+1 )
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
             num_peak = num_drude + num_others
             

@@ -1,11 +1,11 @@
 {
     "generate"     : 0,
     "path"         : "data/G3/train/",
-    "max_drude"    : 2,
-    "max_peaks"    : 4,
+    "max_drude"    : 4,
+    "max_peaks"    : 0,
     "weight_ratio" : 0.50,
-    "drude_width"  : [0.05, 0.20],
-    "peak_pos"     : [0.40, 0.70],
-    "peak_width"   : [0.10, 0.20],
-    "seed"         : 33333
+    "drude_width"  : [0.01, 0.20],
+    "peak_pos"     : [0.20, 0.80],
+    "peak_width"   : [0.02, 0.20],
+    "seed"         : 44444
 }
