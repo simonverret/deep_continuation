@@ -5,7 +5,7 @@ import sys
 import json
 import argparse
 
-def parse_file_and_command(default_dict, help_dict, params_file = None, argv=None):
+def parse_file_and_command(default_dict, help_dict):
     parser = argparse.ArgumentParser()
 
     params_dict = {}

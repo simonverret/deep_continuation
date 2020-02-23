@@ -9,7 +9,6 @@
 
 #%%
 import os
-import json
 import time
 import random
 import numpy as np
@@ -20,7 +19,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
-from torchvision import transforms
 
 import matplotlib.pyplot as plt 
 from matplotlib import rc, rcParams
@@ -102,7 +100,7 @@ class ContinuationData(Dataset):
         return train_loader,valid_loader
 
     def single_loader(self, batch_size=0, num_workers=0):
-        return DataLoader(self, batch_size=batch_size, num_workers=num_workers, shuffle=True)
+        return DataLoader(self, batch_size=batch_size, num_workers=num_workers, shuffle=True, drop_last=True)
 
     def make_mesh(self):
         """ Returns the x at to which the data corresponds """
@@ -419,7 +417,7 @@ if __name__ == '__main__':
         'peak_width'   : [.05, .1],
         'seed'         : int(time.time())
     }
-    args = utils.parse_file_and_command(default_args, {}, )
+    args = utils.parse_file_and_command(default_args, {})
 
     np.random.seed(args.seed)
     print('seed :',args.seed)
