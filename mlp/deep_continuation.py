@@ -53,7 +53,8 @@ default_parameters = {
     "measure": "Normal",
     "normalize": False,
     "num_workers": 0,
-    "cuda": False
+    "cuda": False,
+    "valid_fraction":0.3
 }
 
 help_strings = {
@@ -176,8 +177,8 @@ def dc_error(outputs, targets):
 
 
 class Metric():
-    def __init__(self, name, data_set, loss_list=['mse', 'dc_error'], batch_size=50):
-        self.valid_loader = DataLoader(data_set, batch_size=batch_size, drop_last=True, shuffle=True)
+    def __init__(self, name, data_set, loss_list=['mse', 'dc_error'], batch_size=512):
+        self.valid_loader = DataLoader(data_set, batch_size=batch_size, drop_last=True, shuffle=False)
         self.name = name
         self.batch_size = batch_size
 
@@ -227,7 +228,6 @@ class Metric():
             if score < self.best_loss[lname]:
                 self.best_loss[lname] = score
                 self.best_model[lname] = deepcopy(model)
-                self.best_model[lname].loss_value = self.loss_value
                 if save_best:
                     for filename in glob(f'results/BEST_{self.name}/{lname}*_epoch*{model.name}*'): 
                         os.remove(filename)
@@ -328,7 +328,7 @@ def train(args, device, train_set, metrics=None):
             model.eval()   
             found_one_best = False
             for metric in metric_list:
-                is_best = metric.evaluate(model, device, save_best=True, fraction=1.0)
+                is_best = metric.evaluate(model, device, save_best=True, fraction=args.valid_fraction)
                 if is_best: found_one_best = True
                 metric.print_results()
                 metric.write_results(f)
@@ -362,6 +362,7 @@ def train(args, device, train_set, metrics=None):
         for metric in metric_list:
             for lname in loss_list:
                 tmp_model = metric.best_model[lname]
+                tmp_model.eval()
                 epoch_list.append(tmp_model.epoch)
                 metric.evaluate(tmp_model, device, save_best=False, fraction=1.0)
                 metric.print_results()

@@ -22,7 +22,7 @@ default_dict = {
     "noise": 0.01,
     "loss": "MSELoss",
     "batch_size": 1500,
-    "epochs": 200,
+    "epochs": 6,
     "layers": [
         128,
         512,
@@ -43,7 +43,8 @@ default_dict = {
     "measure": "Normal",
     "normalize": False,
     "num_workers": 0,
-    "cuda": False
+    "cuda": False,
+    "valid_fraction": 0.3
 }
 
 # the random pick is recursive:
@@ -55,16 +56,16 @@ default_dict = {
 #   a standalone value will be returned as is
 search_space = {
     "layers": (
-        [128, [40,800], 512],
-        [128, [30,200], [40,800], 512],
-        [128, [30,200], [40,800], [30,200], 512],
-        [128, [30,200], [40,800], [40,800], [30,200], 512],
-        [128, [30,800], [40,800], [40,800], [40,800], [30,800], 512]
-    ), # x10 implicit
+        [128, [40,8000], 512],
+        [128, [30,2000], [40,8000], 512],
+        [128, [30,1500], [40,4000], [30,1500], 512],
+        [128, [30,1000], [40,2000], [40,2000], [30,1000], 512],
+        [128, [30,800], [40,1000], [40,1000], [40,800], [30,800], 512]
+    ),
     "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss"),
     "data": ("G1", "G2", "G3", "G4"),
     "noise": (0.0 , [0.0,0.1]),
-    "batch_size": [5,200], # x10 implicit
+    "batch_size": ([10,800],[400,2000]),
     "lr": [0.001, 0.00001],
     "weight_decay": (0, [0.0,0.8]),
     "dropout": (0, [0.0,0.8]),
