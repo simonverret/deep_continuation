@@ -9,7 +9,7 @@ cd $SLURM_TMPDIR
 
 mkdir job
 cp ~/codes/deep_continuation/mlp/* job/
-cp ~/scratch/deep_continuation/data job/
+cp -r ~/scratch/deep_continuation/data job/
 
 # create a local virtual environnement (on the compute node)
 module load python/3.7
@@ -28,7 +28,7 @@ mkdir results
 python random_search.py
 cd ..
 
-vm job/data ./
+mv job/data ./
 
 DATE=$(date -u +%Y%m%d)
 cp -r job $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
