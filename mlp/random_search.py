@@ -15,44 +15,44 @@ import torch
 
 from utils import ObjectView
 import data
-import deep_continuation as model
+import deep_continuation as dc
 
 default_dict = {
-    "path": "../sdata/",
-    "measure": "Normal",
-    "normalize": False,
+    "data": "G1",
+    "noise": 0.01,
+    "loss": "MSELoss",
     "batch_size": 1500,
     "epochs": 200,
     "layers": [
         128,
         512,
         1024,
-        512,
         512
     ],
     "out_unit": "None",
-    "loss": "MSELoss",
-    "lr": 0.01,
+    "dropout": 0,
+    "batchnorm": True,
+    "lr": 0.001,
     "weight_decay": 0,
     "stop": 40,
     "warmup": True,
     "schedule": True,
     "factor": 0.5,
     "patience": 4,
-    "dropout": 0,
-    "batchnorm": True,
     "seed": int(time.time()),
+    "measure": "Normal",
+    "normalize": False,
     "num_workers": 0,
-    "cuda": True
+    "cuda": False
 }
 
 # the random pick is recursive:
 #   a list of (lists/tuples) will return a list of random picks
 #   a tuple of (lists/tuples) will pick one list/tuple to choose from
-# at the end level
-# a list defines a range
-# a tuple defines a set to random.choice from
-# a standalone value will be returned
+# the recursion ends when it finds:
+#   a list of two elements = defines a range
+#   a tuple of many elements = defines a set to random.choice from
+#   a standalone value will be returned as is
 search_space = {
     "layers": (
         [128, [40,800], 512],
@@ -61,15 +61,17 @@ search_space = {
         [128, [30,200], [40,800], [40,800], [30,200], 512],
         [128, [30,800], [40,800], [40,800], [40,800], [30,800], 512]
     ), # x10 implicit
-    "lr": [0.001,0.00001],
+    "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss"),
+    "data": ("G1", "G2", "G3", "G4"),
+    "noise": (0.0 , [0.0,0.1]),
     "batch_size": [5,200], # x10 implicit
-    "factor": [0.05,1], 
-    "patience": [4,10],
+    "lr": [0.001, 0.00001],
     "weight_decay": (0, [0.0,0.8]),
     "dropout": (0, [0.0,0.8]),
-    "batchnorm": (True,False),
     "out_unit": ('ReLU','None'),
-    "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss")
+    "batchnorm": (True,False),
+    "factor": [0.05,1], 
+    "patience": [4,10],
 }
 
 def pick_from(entity):
@@ -120,9 +122,40 @@ for i in range(100):
     # if previous_batch_size != args.batch_size: 
     #     train, val = make_loaders(args.path, args.batch_size, args.num_workers)
     #     previous_batch_size = args.batch_size
-    dataset = data.ContinuationData(args.path, measure=args.measure, normalize=args.normalize)
-    model.train(args, device, dataset)
     
+    train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise)
+
+    ### VALID LIST
+    metrics_dict = {
+        'G1bse': data.ContinuationData('data/G1/valid/', noise=0.0),
+        'G1n01': data.ContinuationData('data/G1/valid/', noise=0.01),
+        'G1n05': data.ContinuationData('data/G1/valid/', noise=0.05),
+        'G1n10': data.ContinuationData('data/G1/valid/', noise=0.10),
+        'G2bse': data.ContinuationData('data/G2/valid/', noise=0.0),
+        'G2n01': data.ContinuationData('data/G2/valid/', noise=0.01),
+        'G2n05': data.ContinuationData('data/G2/valid/', noise=0.05),
+        'G2n10': data.ContinuationData('data/G2/valid/', noise=0.10),
+        'G3bse': data.ContinuationData('data/G3/valid/', noise=0.0),
+        'G3n01': data.ContinuationData('data/G3/valid/', noise=0.01),
+        'G3n05': data.ContinuationData('data/G3/valid/', noise=0.05),
+        'G3n10': data.ContinuationData('data/G3/valid/', noise=0.10),
+        'G4bse': data.ContinuationData('data/G4/valid/', noise=0.0),
+        'G4n01': data.ContinuationData('data/G4/valid/', noise=0.01),
+        'G4n05': data.ContinuationData('data/G4/valid/', noise=0.05),
+        'G4n10': data.ContinuationData('data/G4/valid/', noise=0.10)
+    }
+
+    if not os.path.exists('results'):
+        os.mkdir('results')
+
+    for metric in metrics_dict:
+        if not os.path.exists(f'results/BEST_{metric}'):
+            os.mkdir(f'results/BEST_{metric}')
+    ##############
+    dc.dump_params(args)    
+    dc.train(args, device, train_set, metrics=metrics_dict)
+    
+    ## CHECKPOINTING (WHEN on SLURM)
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:
         os.system('''
                 DATE=$(date -u +%Y%m%d)

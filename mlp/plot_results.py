@@ -1,0 +1,73 @@
+#
+#   deep_continuation
+#
+#   © Simon Verret
+#   Reza Nourafkan
+#   Andre-Marie Tremablay
+#
+
+#%%
+import sys
+import re
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import json
+from deep_continuation import MLP
+import data
+import utils
+
+np.random.seed(72)
+
+try: filename = sys.argv[1]
+except ValueError: raise ValueError('provide the filename as first argument')
+
+# filename = 'results/BEST_G1bse/mse0.011997843_epoch87_mlp128-131-134-175-512_L1Loss_G2n0.042_bs13_lr4e-05_wd0.624_0_None_bn_wup_sch0.732-5.pt'
+params_file = f'results/params_mlp{filename.split("mlp", 1)[1]}'.strip('.pt')+'.json'
+
+with open(params_file) as f:
+    params = json.load(f)
+args = utils.ObjectView(params)
+
+try: dataset = sys.argv[2]
+except ValueError: dataset = args.data
+
+
+## IMPORT THE MODEL
+mlp = MLP(args)
+mlp.load_state_dict(torch.load(filename))
+mlp.eval()
+
+## RELOAD THE DATA
+dataset = data.ContinuationData(f'data/{dataset}/train/', noise=0.0)
+
+## PLOT RANDOM DATA
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=[4,8])
+ax4.get_shared_x_axes().join(ax2, ax3, ax4)
+ax2.set_xticklabels([])
+ax3.set_xticklabels([])
+
+start=np.random.randint(0,100)
+end=start+5
+for ii in range(start,end):
+    x = torch.tensor(dataset[ii][0]).float()
+    ax1.plot(x.detach().numpy())
+    ax1.set_title('input (matsubara freqs)',loc='right', pad=-12)
+    ax1.set_xlabel('iwn')
+
+    t = torch.tensor(dataset[ii][1]).float()
+    ax2.plot(t.detach().numpy())
+    ax2.set_title('target (real freqs)',loc='right', pad=-12)
+
+    
+    y = mlp(x.unsqueeze(0)).squeeze()
+    ax3.plot(y.detach().numpy())
+    ax3.set_title('NN output (real freqs)',loc='right', pad=-12)
+
+    e = y-t
+    ax4.plot(e.detach().numpy())
+    ax4.set_title('difference',loc='right', pad=(-12),)
+    ax1.set_xlabel('w')
+
+plt.show()
+# plt.savefig('last_plot.pdf')

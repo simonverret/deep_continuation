@@ -29,18 +29,19 @@ TORCH_MAX = torch.finfo(torch.float64).max
 default_parameters = {
     "data": "G1",
     "noise": 0.01,
-    "measure": "Normal",
-    "normalize": False,
-    "batch_size": 1500,
-    "epochs": 100,
+    "loss": "MSELoss",
+    "batch_size": 200,
+    "epochs": 10,
     "layers": [
         128,
+        256,
         512,
         1024,
         512
     ],
     "out_unit": "None",
-    "loss": "MSELoss",
+    "dropout": 0,
+    "batchnorm": True,
     "lr": 0.001,
     "weight_decay": 0,
     "stop": 40,
@@ -48,9 +49,9 @@ default_parameters = {
     "schedule": True,
     "factor": 0.5,
     "patience": 4,
-    "dropout": 0,
-    "batchnorm": True,
     "seed": int(time.time()),
+    "measure": "Normal",
+    "normalize": False,
     "num_workers": 0,
     "cuda": False
 }
@@ -102,19 +103,17 @@ args = utils.parse_file_and_command(default_parameters, help_strings)
 # ideas: 
 #   name(args, naming_dict)  # where naming dict specifies parameters to use
 
-def name(args):
-    layers_str = str(args.layers[0])
-    for size in args.layers[1:]:
+def name(a = args): ## a = args
+    layers_str = str(a.layers[0])
+    for size in a.layers[1:]:
         layers_str = layers_str + '-' + str(size)
 
-    name = '{}_mlp{}_bs{}_lr{}_wd{}_drop{}{}{}{}{}'.format(
-                args.loss,
-                layers_str,
-                args.batch_size, round(args.lr, 5), round(args.weight_decay, 3), round(args.dropout, 3),
-                f'_{args.out_unit}',
-                '_bn' if args.batchnorm else '',
-                '_wup' if args.warmup else '',
-                '_scheduled{}-{}'.format(round(args.factor, 3), round(args.patience, 3)) if args.schedule else '')
+    name  = f'mlp{layers_str}_{a.loss}_{a.data}n{round(a.noise,3)}_bs{a.batch_size}'
+    name += f'_lr{round(a.lr, 5)}_wd{round(a.weight_decay, 3)}'
+    name += f'_{round(a.dropout, 3)}_{a.out_unit}'
+    name += f'_bn' if a.batchnorm else ''
+    name += f'_wup' if a.warmup else ''
+    name += f'_sch{round(a.factor, 3)}-{round(a.patience, 3)}' if a.schedule else ''
     return name
 
 
@@ -177,9 +176,10 @@ def dc_error(outputs, targets):
 
 
 class Metric():
-    def __init__(self, name, data_set, loss_list=['mse', 'dc_error']):
-        self.valid_loader = DataLoader(data_set)
+    def __init__(self, name, data_set, loss_list=['mse', 'dc_error'], batch_size=50):
+        self.valid_loader = DataLoader(data_set, batch_size=batch_size, drop_last=True, shuffle=True)
         self.name = name
+        self.batch_size = batch_size
 
         self.loss_list = loss_list
         self.loss_value = {lname: 0 for lname in loss_list}
@@ -201,12 +201,15 @@ class Metric():
             else: 
                 raise ValueError(f'Unknown loss function "{lname}"')
 
-    def evaluate(self, model, save_best=False):
+    def evaluate(self, model, device, save_best=False, fraction=0.3):
         for lname in self.loss_list:
             self.loss_value[lname] = 0
 
+        stop_at_batch = fraction*len(self.valid_loader)//self.batch_size+1
+
         batch_count = 0
         for batch_number, (inputs, targets)  in enumerate(self.valid_loader):
+            if batch_number == stop_at_batch: break
             inputs = inputs.float().to(device)
             targets = targets.float().to(device)
             outputs = model(inputs)
@@ -223,12 +226,12 @@ class Metric():
             score = self.loss_value[lname]
             if score < self.best_loss[lname]:
                 self.best_loss[lname] = score
-                self.best_model[lname] = model
+                self.best_model[lname] = deepcopy(model)
                 self.best_model[lname].loss_value = self.loss_value
                 if save_best:
-                    for filename in glob(f'results/BEST_{self.name}{lname}*_epoch*{model.name}*'): 
+                    for filename in glob(f'results/BEST_{self.name}/{lname}*_epoch*{model.name}*'): 
                         os.remove(filename)
-                    torch.save(model.state_dict(), f'results/BEST_{self.name}{lname}{score:.9f}_epoch{model.epoch}_{model.name}.pt')
+                    torch.save(model.state_dict(), f'results/BEST_{self.name}/{lname}{score:.9f}_epoch{model.epoch}_{model.name}.pt')
                 is_best = True
         return is_best
 
@@ -248,12 +251,14 @@ class Metric():
 
 
 
-def train(args, device, train_set, valid_set_dict=None):
+def train(args, device, train_set, metrics=None):
     
     train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=args.num_workers, shuffle=True, drop_last=True)
+
+    loss_list=['mse', 'dc_error']
     metric_list = []
-    for name, dataset in valid_set_dict.items():
-        metric_list.append( Metric(name, dataset, loss_list=[args.loss, 'mse', 'dc_error']) )
+    for name, dataset in metrics.items():
+        metric_list.append( Metric(name, dataset, loss_list=loss_list) )
 
     model = MLP(args).to(device)
     model.apply(init_weights)
@@ -323,7 +328,7 @@ def train(args, device, train_set, valid_set_dict=None):
             model.eval()   
             found_one_best = False
             for metric in metric_list:
-                is_best = metric.evaluate(model, save_best=True)
+                is_best = metric.evaluate(model, device, save_best=True, fraction=1.0)
                 if is_best: found_one_best = True
                 metric.print_results()
                 metric.write_results(f)
@@ -343,18 +348,26 @@ def train(args, device, train_set, valid_set_dict=None):
                 print('early stopping limit reached!!')
                 break
     
-    for metric in metric_list:
-        for lname, model in metric.best_model.items():
-            all_best_file = f'results/all_bests_{metric.name}_{lname}.csv'
-            
-            if not os.path.exists(all_best_file):
-                with open(all_best_file,'w') as f:
-                    f.write('\t'.join(model.loss_value.keys())+'\t')
-                    f.write('\t'.join(vars(args).keys())+'\n')
-            
-            with open(all_best_file,'a') as f:
-                f.write('\t'.join([str(v) for v in model.loss_value.values()])+'\t')
-                f.write('\t'.join([str(v) for v in vars(args).values()])+'\n')
+    print('final_evaluation')
+    all_best_file = f'results/all_bests.csv'
+    if not os.path.exists(all_best_file): # header
+        with open(all_best_file,'w') as f:
+            for metric in metric_list:
+                for lname in loss_list:
+                    f.write( f'{metric.name}_{lname}\t' )
+            f.write('\t'.join(vars(args).keys())+'\t')
+            f.write('best_epochs\n')
+    with open(all_best_file,'a') as f:
+        epoch_list = []
+        for metric in metric_list:
+            for lname in loss_list:
+                tmp_model = metric.best_model[lname]
+                epoch_list.append(tmp_model.epoch)
+                metric.evaluate(tmp_model, device, save_best=False, fraction=1.0)
+                metric.print_results()
+                f.write(f'{metric.loss_value[lname]}\t')
+        f.write('\t'.join([str(v) for v in vars(args).values()])+'\t')
+        f.write(f'{str(epoch_list)}\n')
 
     return model
 
@@ -379,27 +392,28 @@ if __name__=="__main__":
     train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise)
     
     ### VALID LIST
-    valid_dict = {
+    metrics_dict = {
         'G1bse': data.ContinuationData('data/G1/valid/', noise=0.0),
         'G1n01': data.ContinuationData('data/G1/valid/', noise=0.01),
         'G1n05': data.ContinuationData('data/G1/valid/', noise=0.05),
-        # 'G1n10': data.ContinuationData('data/G1/valid/', noise=0.10),
+        'G1n10': data.ContinuationData('data/G1/valid/', noise=0.10),
         'G2bse': data.ContinuationData('data/G2/valid/', noise=0.0),
-        # 'G2n01': data.ContinuationData('data/G2/valid/', noise=0.01),
-        # 'G2n05': data.ContinuationData('data/G2/valid/', noise=0.05),
-        # 'G2n10': data.ContinuationData('data/G2/valid/', noise=0.10),
+        'G2n01': data.ContinuationData('data/G2/valid/', noise=0.01),
+        'G2n05': data.ContinuationData('data/G2/valid/', noise=0.05),
+        'G2n10': data.ContinuationData('data/G2/valid/', noise=0.10),
         'G3bse': data.ContinuationData('data/G3/valid/', noise=0.0),
-        # 'G3n01': data.ContinuationData('data/G3/valid/', noise=0.01),
-        # 'G3n05': data.ContinuationData('data/G3/valid/', noise=0.05),
-        # 'G3n10': data.ContinuationData('data/G3/valid/', noise=0.10),
+        'G3n01': data.ContinuationData('data/G3/valid/', noise=0.01),
+        'G3n05': data.ContinuationData('data/G3/valid/', noise=0.05),
+        'G3n10': data.ContinuationData('data/G3/valid/', noise=0.10),
         'G4bse': data.ContinuationData('data/G4/valid/', noise=0.0),
-        # 'G4n01': data.ContinuationData('data/G4/valid/', noise=0.01),
-        # 'G4n05': data.ContinuationData('data/G4/valid/', noise=0.05),
-        # 'G4n10': data.ContinuationData('data/G4/valid/', noise=0.10)
+        'G4n01': data.ContinuationData('data/G4/valid/', noise=0.01),
+        'G4n05': data.ContinuationData('data/G4/valid/', noise=0.05),
+        'G4n10': data.ContinuationData('data/G4/valid/', noise=0.10)
     }
+    for metric in metrics_dict:
+        if not os.path.exists(f'results/BEST_{metric}'):
+            os.mkdir(f'results/BEST_{metric}')
     ##############
     
-    model = train(args, device, train_set, valid_set_dict=valid_dict)
-    
-
+    model = train(args, device, train_set, metrics=metrics_dict)
     

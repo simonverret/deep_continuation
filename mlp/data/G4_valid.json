@@ -1,6 +1,6 @@
 {
     "generate"     : 0,
-    "path"         : "data/G3/valid/",
+    "path"         : "data/G4/valid/",
     "max_drude"    : 2,
     "max_peaks"    : 4,
     "weight_ratio" : 0.50,
