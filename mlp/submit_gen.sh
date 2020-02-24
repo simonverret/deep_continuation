@@ -23,7 +23,7 @@ mkdir job
 cp -r ~/codes/deep_continuation/mlp/* job/
 
 cd job
-python data.py data/G1_train.json --generate 50000
-python data.py data/G1_valid.json --generate 10000
+python data.py data/G3_train.json --generate 50000
+python data.py data/G3_valid.json --generate 10000
 
-cp -r data/G1 ~/scratch/deep_continuation/data/
+cp -r data/G3 ~/scratch/deep_continuation/data/
