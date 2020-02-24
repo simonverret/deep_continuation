@@ -8,10 +8,8 @@
 cd $SLURM_TMPDIR
 
 mkdir job
-mkdir sdata
 cp ~/codes/deep_continuation/mlp/* job/
-head -n 50000 ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/SigmaRe.csv > sdata/SigmaRe.csv
-head -n 50000 ~/scratch/deep_cont/data/Database_Gaussian_beta20/Training/Pi.csv > sdata/Pi.csv
+cp ~/scratch/deep_continuation/data job/
 
 # create a local virtual environnement (on the compute node)
 module load python/3.7
@@ -29,6 +27,8 @@ cd job
 mkdir results
 python random_search.py
 cd ..
+
+vm job/data ./
 
 DATE=$(date -u +%Y%m%d)
 cp -r job $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
