@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --account=def-tremblay
 #SBATCH --time=0-71:59
-#SBATCH --mem-per-cpu=4000M 
+#SBATCH --mem-per-cpu=8000M 
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 

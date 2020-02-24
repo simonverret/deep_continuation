@@ -22,7 +22,7 @@ default_dict = {
     "noise": 0.01,
     "loss": "MSELoss",
     "batch_size": 1500,
-    "epochs": 6,
+    "epochs": 1000,
     "layers": [
         128,
         512,
