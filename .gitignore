@@ -1,7 +1,8 @@
 *__pycache__
 sdata
 rdata
-*results
+*results*
+*.pdf
 mlp/*.csv
 mlp/data/*/
 generateDataConductivity/srcNew/*.csv

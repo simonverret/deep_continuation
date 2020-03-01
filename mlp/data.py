@@ -393,6 +393,7 @@ if __name__ == '__main__':
     default_args = {
         # script parameters
         'test'         : False,
+        'new'          : True,
         'plot'         : 0,
         'generate'     : 0,
         'path'         : './',
@@ -424,8 +425,13 @@ if __name__ == '__main__':
     sigma_path = args.path+'SigmaRe.csv'
     pi_path = args.path+'Pi.csv'
 
+    if args.new:
+        generator = DataGenerator(args)
+        if args.plot > 0:
+            pi, sigma, sigma2, sigma3 = generator.generate_batch(batch_size=args.plot)
+            generator.plot(pi, sigma, sigma2, sigma3)
 
-    if not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
+    elif not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
         generator = DataGenerator(args)
         
         if args.generate > 0:

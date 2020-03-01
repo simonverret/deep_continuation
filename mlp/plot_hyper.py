@@ -12,15 +12,6 @@ import sys
 import csv
 import matplotlib.pyplot as plt
 
-try:
-    filename = sys.argv[1]
-    y_name = sys.argv[2]
-    x_name = sys.argv[3]
-except IndexError:
-    raise IndexError('this script requires arguments: filename yname xname')
-try: flag = sys.argv[4]
-except IndexError: flag = None
-
 def treat_field(raw, name, flag=None):
     ''' Use `name` to decide how to use the `raw` data strig. 
     ex: `name='layers'` will enable to use the string at a list and `flag` will
@@ -47,26 +38,41 @@ def treat_field(raw, name, flag=None):
 
     return data
 
-x_list = [[],[],[],[]]
-y_list = [[],[],[],[]]
+if __name__=='__main__':
 
-with open(filename) as csv_file:
-    csv_reader = csv.reader(csv_file, delimiter='\t')
-    header = True
-    for row in csv_reader:
-        if header:
-            print([name for name in row])
-            x_idx = row.index(x_name)
-            y_idx = row.index(y_name)
-            color_idx = row.index('data')
-            header = False
-        else:
-            c = ['G1','G2','G3','G4'].index(row[color_idx])
-            x_list[c].append(treat_field(row[x_idx], x_name, flag))
-            y_list[c].append(treat_field(row[y_idx], y_name))
+    try:
+        filename = sys.argv[1]
+        y_name = sys.argv[2]
+        x_name = sys.argv[3]
+    except IndexError:
+        raise IndexError('this script requires arguments: filename yname xname')
+    try: flag = sys.argv[4]
+    except IndexError: flag = None
 
-for c , color in enumerate(['red','blue','green','purple']):
-    plt.plot(x_list[c], y_list[c], '.', color = color)
-plt.xlabel(x_name)
-plt.ylabel(y_name)
-plt.show()
+    try: limit = sys.argv[5]
+    except IndexError: limit = False
+
+    x_list = [[],[],[],[]]
+    y_list = [[],[],[],[]]
+
+    with open(filename) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter='\t')
+        header = True
+        for row in csv_reader:
+            if header:
+                print([name for name in row])
+                x_idx = row.index(x_name)
+                y_idx = row.index(y_name)
+                color_idx = row.index('data')
+                header = False
+            else:
+                c = ['G1','G2','G3','G4'].index(row[color_idx])
+                x_list[c].append(treat_field(row[x_idx], x_name, flag))
+                y_list[c].append(treat_field(row[y_idx], y_name))
+
+    for c , color in enumerate(['red','blue','green','purple']):
+        plt.plot(x_list[c], y_list[c], '.', color = color)
+    if limit : plt.ylim(0,float(limit))
+    plt.xlabel(x_name)
+    plt.ylabel(y_name)
+    plt.show()
