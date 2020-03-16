@@ -27,34 +27,35 @@ TORCH_MAX = torch.finfo(torch.float64).max
 # GLOBAL PARAMETERS & PARSING
 
 default_parameters = {
-    "data": "G1",
-    "noise": 0.01,
-    "loss": "MSELoss",
-    "batch_size": 200,
-    "epochs": 10,
-    "layers": [
+    'data': 'G1',
+    'noise': 0.001,
+    'loss': 'MSELoss',
+    'batch_size': 300,
+    'epochs': 500,
+    'layers': [
         128,
         2000,
         2000,
         2000,
         512
     ],
-    "out_unit": "None",
-    "dropout": 0,
-    "batchnorm": True,
-    "lr": 0.0005,
-    "weight_decay": 0,
-    "stop": 40,
-    "warmup": True,
-    "schedule": True,
-    "factor": 0.5,
-    "patience": 4,
-    "seed": int(time.time()),
-    "measure": "Normal",
-    "normalize": False,
-    "num_workers": 0,
-    "cuda": False,
-    "valid_fraction":0.3
+    'out_unit': 'None',
+    'dropout': 0,
+    'batchnorm': True,
+    'lr': 0.0008,
+    'weight_decay': 0,
+    'stop': 40,
+    'warmup': True,
+    'schedule': True,
+    'factor': 0.4,
+    'patience': 6,
+    'seed': int(time.time()),
+    'measure': 'Normal',
+    'normalize': False,
+    'num_workers': 0,
+    'cuda': False,
+    'valid_fraction':0.3,
+    'resampling': 'default'
 }
 
 help_strings = {
@@ -79,6 +80,7 @@ help_strings = {
     'seed'          : 'seed for the random generator number (time.time() if unspecified)',
     'num_workers'   : 'number of workers used in the dataloaders',
     'cuda'          : 'enables CUDA',
+    'resampling'    : 'changes the data file for the either "cbrt" or "sqrt"'
 }
 
 '''
@@ -390,26 +392,26 @@ if __name__=="__main__":
         os.mkdir('results')
     dump_params(args)
     
-    train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise)
+    train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise, resampling=args.resampling)
     
     ### VALID LIST
     metrics_dict = {
-        'G1bse': data.ContinuationData('data/G1/valid/', noise=0.0),
-        'G1n01': data.ContinuationData('data/G1/valid/', noise=0.01),
-        'G1n05': data.ContinuationData('data/G1/valid/', noise=0.05),
-        'G1n10': data.ContinuationData('data/G1/valid/', noise=0.10),
-        'G2bse': data.ContinuationData('data/G2/valid/', noise=0.0),
-        'G2n01': data.ContinuationData('data/G2/valid/', noise=0.01),
-        'G2n05': data.ContinuationData('data/G2/valid/', noise=0.05),
-        'G2n10': data.ContinuationData('data/G2/valid/', noise=0.10),
-        'G3bse': data.ContinuationData('data/G3/valid/', noise=0.0),
-        'G3n01': data.ContinuationData('data/G3/valid/', noise=0.01),
-        'G3n05': data.ContinuationData('data/G3/valid/', noise=0.05),
-        'G3n10': data.ContinuationData('data/G3/valid/', noise=0.10),
-        'G4bse': data.ContinuationData('data/G4/valid/', noise=0.0),
-        'G4n01': data.ContinuationData('data/G4/valid/', noise=0.01),
-        'G4n05': data.ContinuationData('data/G4/valid/', noise=0.05),
-        'G4n10': data.ContinuationData('data/G4/valid/', noise=0.10)
+        'G1bse': data.ContinuationData('data/G1/valid/', noise=0.0  , resampling=args.resampling),
+        'G1ne2': data.ContinuationData('data/G1/valid/', noise=1e-2 , resampling=args.resampling),
+        'G1ne3': data.ContinuationData('data/G1/valid/', noise=1e-3 , resampling=args.resampling),
+        'G1ne5': data.ContinuationData('data/G1/valid/', noise=1e-5 , resampling=args.resampling),
+        'G2bse': data.ContinuationData('data/G2/valid/', noise=0.0  , resampling=args.resampling),
+        'G2ne2': data.ContinuationData('data/G2/valid/', noise=1e-2 , resampling=args.resampling),
+        'G2ne3': data.ContinuationData('data/G2/valid/', noise=1e-3 , resampling=args.resampling),
+        'G2ne5': data.ContinuationData('data/G2/valid/', noise=1e-5 , resampling=args.resampling),
+        'G3bse': data.ContinuationData('data/G3/valid/', noise=0.0  , resampling=args.resampling),
+        'G3ne2': data.ContinuationData('data/G3/valid/', noise=1e-2 , resampling=args.resampling),
+        'G3ne3': data.ContinuationData('data/G3/valid/', noise=1e-3 , resampling=args.resampling),
+        'G3ne5': data.ContinuationData('data/G3/valid/', noise=1e-5 , resampling=args.resampling),
+        'G4bse': data.ContinuationData('data/G4/valid/', noise=0.0  , resampling=args.resampling),
+        'G4ne2': data.ContinuationData('data/G4/valid/', noise=1e-2 , resampling=args.resampling),
+        'G4ne3': data.ContinuationData('data/G4/valid/', noise=1e-3 , resampling=args.resampling),
+        'G4ne5': data.ContinuationData('data/G4/valid/', noise=1e-5 , resampling=args.resampling)
     }
     for metric in metrics_dict:
         if not os.path.exists(f'results/BEST_{metric}'):

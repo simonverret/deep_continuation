@@ -57,9 +57,16 @@ class WgtLoss(nn.Module):
         return out
 
 class ContinuationData(Dataset):
-    def __init__(self, path, N=512, L=10, noise=0.0, measure=None, normalize=False, ):
+    def __init__(self, path, N=512, L=10, noise=0.0, measure=None, normalize=False, resampling='default'):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
-        self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
+        if resampling == 'cbrt':
+            self.y_data = np.loadtxt(open(path+"SigmaRe_cbrtScale.csv", "rb"), delimiter=",")
+        elif resampling == 'sqrt':
+            self.y_data = np.loadtxt(open(path+"SigmaRe_sqrtScale.csv", "rb"), delimiter=",")
+        elif resampling == 'default':
+            self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
+        else:
+            raise ValueError(f'resampling value {resampling} could not be read must be either "cbrt", "sqrt" or "default"')
         self.noise = noise
 
         self.measure_name = measure
