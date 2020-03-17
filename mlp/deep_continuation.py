@@ -52,8 +52,8 @@ default_parameters = {
     'seed': int(time.time()),
     'measure': 'Normal',
     'normalize': False,
-    'num_workers': 0,
-    'cuda': False,
+    'num_workers': 4,
+    'cuda': True,
     'valid_fraction':0.3,
     'resampling': 'default'
 }
@@ -209,12 +209,11 @@ class Metric():
             self.loss_value[lname] = 0
 
         stop_at_batch = fraction*len(self.valid_loader)//self.batch_size+1
-
         batch_count = 0
         for batch_number, (inputs, targets)  in enumerate(self.valid_loader):
             if batch_number == stop_at_batch: break
-            inputs = inputs.float().to(device)
-            targets = targets.float().to(device)
+            inputs = inputs.to(device).float()
+            targets = targets.to(device).float()
             outputs = model(inputs)
             for lname in self.loss_list:
                 loss = self.loss[lname](outputs,targets).item()
@@ -376,6 +375,8 @@ def train(args, device, train_set, metrics=None):
 
 
 if __name__=="__main__":
+
+    args.cuda = True
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     args.cuda = args.cuda and torch.cuda.is_available()
@@ -391,9 +392,9 @@ if __name__=="__main__":
     if not os.path.exists('results'):
         os.mkdir('results')
     dump_params(args)
-    
+
     train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise, resampling=args.resampling)
-    
+
     ### VALID LIST
     metrics_dict = {
         'G1bse': data.ContinuationData('data/G1/valid/', noise=0.0  , resampling=args.resampling),
@@ -417,6 +418,6 @@ if __name__=="__main__":
         if not os.path.exists(f'results/BEST_{metric}'):
             os.mkdir(f'results/BEST_{metric}')
     ##############
-    
+
     model = train(args, device, train_set, metrics=metrics_dict)
-    
+        
