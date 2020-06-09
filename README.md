@@ -20,3 +20,6 @@ To train the neural network
 
     python train.py
     
+
+## SLURM CLUSTERS
+Two example submission scripts are provided in `bin/` to run the program on compute canada clusters
