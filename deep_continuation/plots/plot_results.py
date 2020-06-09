@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import json
-from deep_continuation import MLP
+from deep_continuation.train import MLP
 import data
 import utils
 

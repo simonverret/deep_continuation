@@ -1,10 +1,4 @@
-*__pycache__
-sdata
-rdata
-*results*
-*.pdf
-mlp/*.csv
-mlp/data/*/
-generateDataConductivity/srcNew/*.csv
-generateDataConductivity/srcNew/*.o
-generateDataConductivity/srcNew/generateCondData
+*__pycache__/
+*.egg-info
+*/results/
+*/data/*/

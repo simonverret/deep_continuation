@@ -13,16 +13,16 @@ import random
 import numpy as np
 import torch
 
-from utils import ObjectView
-import data
-import deep_continuation as dc
+from deep_continuation.utils import ObjectView
+from deep_continuation import data
+from deep_continuation import train
 
 default_dict = {
     "data": "G1",
     "noise": 0.01,
     "loss": "MSELoss",
     "batch_size": 1500,
-    "epochs": 1000,
+    "epochs": 5,
     "layers": [
         128,
         512,
@@ -155,8 +155,8 @@ for i in range(100):
         if not os.path.exists(f'results/BEST_{metric}'):
             os.mkdir(f'results/BEST_{metric}')
     ##############
-    dc.dump_params(args)    
-    dc.train(args, device, train_set, metrics=metrics_dict)
+    train.dump_params(args)    
+    train.train(args, device, train_set, metrics=metrics_dict)
     
     ## CHECKPOINTING (WHEN on SLURM)
     if os.environ.get('SLURM_SUBMIT_DIR') is not None:

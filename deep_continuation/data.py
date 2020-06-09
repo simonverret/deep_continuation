@@ -400,7 +400,6 @@ if __name__ == '__main__':
     default_args = {
         # script parameters
         'test'         : False,
-        'new'          : True,
         'plot'         : 0,
         'generate'     : 0,
         'path'         : './',
@@ -432,13 +431,9 @@ if __name__ == '__main__':
     sigma_path = args.path+'SigmaRe.csv'
     pi_path = args.path+'Pi.csv'
 
-    if args.new:
-        generator = DataGenerator(args)
-        if args.plot > 0:
-            pi, sigma, sigma2, sigma3 = generator.generate_batch(batch_size=args.plot)
-            generator.plot(pi, sigma, sigma2, sigma3)
-
-    elif not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
+    
+    if not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
+        print(args.generate)
         generator = DataGenerator(args)
         
         if args.generate > 0:
@@ -541,4 +536,4 @@ if __name__ == '__main__':
             break
 
     if args.generate==0 and args.plot==0 and not args.test:
-        print('nothing to do. try --help, --plot 10, or --generate --1000')
+        print('nothing to do. try --help, --plot 10, or --generate 1000')

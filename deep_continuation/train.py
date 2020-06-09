@@ -19,8 +19,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-import data
-import utils
+from deep_continuation import data
+from deep_continuation import utils
 
 TORCH_MAX = torch.finfo(torch.float64).max
 
