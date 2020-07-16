@@ -8,7 +8,6 @@
 #   Andre-Marie Tremblay
 #
 
-## example modification
 #%%
 import os
 import time
@@ -119,7 +118,7 @@ class ContinuationData(Dataset):
         return mesh
 
     def make_measure(self, analytic=True): 
-        """ Returns the lenghts dx on which the data is defined """
+        """ Returns the lengths dx on which the data is defined """
         ints = torch.arange(self.N).float()
         if self.measure_name == 'squared':
             if analytic:
@@ -216,13 +215,15 @@ class DataGenerator():
         self.peak_position_range = np.array(args.peak_pos)*args.w_max
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
         # Lorentzian-specific characteristics
-        self.lor_peaks           = int(10e1)             # Number of Lorentzian peaks
-        self.lor_width           = 0.1            # Width of Lorentzian peaks 
+        self.lor_peaks           = int(1000)             # Number of Lorentzian peaks
+        self.lor_width           = 0.1                   # Width of Lorentzian peaks 
+        self.N_seg               = 25                    # The number of linear segments to use in the monotonic function
 
     def peak(self, omega, center=0, width=1, height=1):                                 # The sigma function is a sum of these peaks
         if self.lorentz:
-            return (height/(np.pi * omega +SMALL)) * width/( (omega-center)**2 + (width)**2 )  # Define peak function to be a Lorentzian if flag set to true
-                                                                                        # Added that omega in the denominator.
+            return ((height/(center)) * width/( (omega-center)**2 + (width)**2) + (height/(center)) * width/( (omega+center)**2 + (width)**2))
+            # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
+            # centers in the denominator to cancel out the omega in the numerator of the integrand.
         else:
             return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)  # Define peak function to be a Gaussian if flag set to false
 
@@ -255,7 +256,58 @@ class DataGenerator():
         full_w_list = np.concatenate(full_w_list) + SMALL                   # Combine the positive and negative lists together. "SMALL" is a small offset value to prevent
                                                                             # issues involving zero.
         self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)  # Generate a grid from all the w and wn values, and store both sets of coordinates as matrices?
-        return  self.w_grid, self.wn_grid 
+        return  self.w_grid, self.wn_grid
+
+    def monotonic(self, x): # A randomizable monotonically increasing piecewise linear function.
+        angles = np.random.uniform(0, np.pi/2 - SMALL, size=self.N_seg) # Generates a list of random angles of length N_seg in the interval [0,pi/2).
+        sines = np.sin(angles)
+        cosines = np.cos(angles) # Two lists, one of the sines of the angles, one of the cosines.
+        x_list = np.cumsum(sines) # x-coordinates of the edges of the line segments are given by the cumulative sum of sines
+        x_list *= 1.1*self.w_max/x_list[-1] # Resize x_list so the last value is equal to w_max.
+        y_list = np.cumsum(cosines) # y-coordinates of the edges of the line segments are given by the cumulative sum of cosines
+        x_list = np.insert(x_list,0,0)
+        y_list = np.insert(y_list,0,0)
+        x_lower = np.max(x_list[x_list <= x])
+        y_lower = np.max(y_list[x_list <= x])
+        x_upper = np.min(x_list[x_list > x])
+        y_upper = np.min(y_list[x_list > x])
+        x_diffs = x_upper - x_lower
+        y_diffs = y_upper - y_lower
+        slopes = y_diffs/x_diffs
+        return slopes*x + y_lower
+
+    def softp(self, x): # A randomizable monotonically increasing sum of softplus functions.
+        xint = 0
+        lower = np.zeros(self.N_seg)
+        coeffs = np.zeros(self.N_seg + 1)
+        coeffs[0] = 10 * np.random.rand()
+        for i in range(self.N_seg):
+            xint += 5 * np.random.rand()
+            lower[i] -= xint
+            A = np.sum(coeffs)
+            new_coeff = np.random.uniform(-A, 10)
+            coeffs[i+1] = new_coeff
+        lower *= np.random.uniform(0.8, 1.2)*self.w_max/lower[-1]
+        mat = np.tile(x,(self.N_seg,1))
+        mat = mat + np.transpose(np.tile(lower,(len(x),1)))
+        expmat = np.exp(mat)
+        logmat = np.log(1+expmat)
+        unsized = np.vstack((x,logmat))
+        unsummed = unsized * np.transpose(np.tile(coeffs,(len(x),1)))
+        return unsummed.sum(axis=0)
+
+    def arcsum(self, x): # A randomizable monotonically increasing sum of arctangent functions.
+        lower = np.random.uniform(-10, 10, size=self.N_seg)
+        in_coeffs = np.random.uniform(0, 10, size=self.N_seg)
+        out_coeffs = np.random.uniform(0, 10, size=self.N_seg)
+        lower = np.sort(lower)
+        lower *= np.random.uniform(0.8, 1.2)*self.w_max/lower[-1]
+        mat = np.tile(x,(self.N_seg,1))
+        mat = mat + np.transpose(np.tile(lower,(len(x),1)))
+        mat = mat * np.transpose(np.tile(in_coeffs,(len(x),1)))
+        arcmat = np.arctan(mat)
+        unsummed = arcmat * np.transpose(np.tile(out_coeffs,(len(x),1)))
+        return unsummed.sum(axis=0)
 
     def generate_gauss_batch(self, batch_size):
         pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
@@ -340,7 +392,8 @@ class DataGenerator():
 
         return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
 
-    def generate_lorentz_batch(self, batch_size):
+    def generate_lorentz_batch(self, batch_size, center_function=lambda x: np.sqrt(x)):
+        # center_function is the function that will determine the locations of the centres of the Lorentzians.
         pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
         sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
         # alternative
@@ -351,14 +404,12 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
             
             # initialization (center, width, height) of peaks
-            center  = np.linspace( 0.000, 1.000, num=self.lor_peaks )
-            center += center[1] # Add the second element of the centre positions to the whole list, this effectively shifts all the peaks over one space. This is
-                                # necessary because we don't want any peaks at zero, which would occur if we didn't shift.
-            center *= self.w_max*0.8
+            center = center_function(np.linspace(0, self.w_max, self.lor_peaks))
+            center += center[1]
+            # Use center_function to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1.
+            width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
+            height = np.ones(self.lor_peaks) # All peaks have the same height.
 
-            width  = np.ones(self.lor_peaks) * self.lor_width
-            height  = np.random.uniform( 0.0  , 1.000, size=self.lor_peaks )   # The heights are initialized as random numbers between 0 and 1
-            
             #normalize
             if self.normalize:
                 height /= height.sum(axis=-1, keepdims=True) # -1 index is the last index
@@ -422,6 +473,7 @@ class DataGenerator():
 
         if self.lorentz:
             print('Using Lorentzians')
+            print(self.w_max)
         else:
             print('Using Gaussians')
     
@@ -451,7 +503,7 @@ class DataGenerator():
             ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
             ax[1,0].plot( self.wn_list, alpha[i] )
             if self.lorentz:
-                ax[0,1].plot( self.w_list , sig_of_w_array[i]*self.w_list )
+                ax[0,1].plot( self.w_list , sig_of_w_array[i] * self.w_list)
             else:
                 ax[0,1].plot( self.w_list , sig_of_w_array[i] )
             ax[1,1].plot( self.w_list , s2avg[i] )
