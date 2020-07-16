@@ -195,26 +195,45 @@ class ContinuationData(Dataset):
             ax2.plot(x,y)
         plt.show()
 
+
 #%%
 import numpy as np
 from scipy.special import binom
 import matplotlib.pyplot as plt
 
+def gaussian(x, c, w, h):
+    return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
+
+
+def lorentzian(x, c, w, h):
+    return (h/np.pi)*w/((x-c)**2+w**2)
+
+
 def bernstein(x, m, n):
     return binom(m,n) * (x**n) * ((1-x)**(m-n)) * (x>=0) * (x<=1)
 
-def normed_bernstein(x, m, n, c=0, w=1, h=1):
+
+def free_bernstein(x, m, n, c=0, w=1, h=1):
     sq = np.sqrt(m+1)
     xx = (x-c)/(w*sq) + n/m
     return (h*sq/w)*bernstein(xx, m, n)
 
 
+def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
+    if type_m == 0:  
+        return lorentzian(omega, center, width, height)
+    elif type_m == 1:
+        return gaussian(omega, center, width, height)
+    elif type_m >= 2:
+        return free_bernstein(omega, type_m, type_n, center, width, height)
+
+
 x = np.linspace(-1,2,1000)
 # plt.ylim(0,1)
-b1 = normed_bernstein(x, 99, 98, -0.2, 0.5, 1/10)
-b2 = normed_bernstein(x, 99,  2,  0.3, 0.5, 2/10)
-b3 = normed_bernstein(x,  5,  2,  0.6, 1.2, 3/10)
-b4 = normed_bernstein(x,  5,  3, -0.9, 0.8, 4/10)
+b1 = peak(x, -0.2, 0.5, 1/10, 99, 98)
+b2 = peak(x,  0.3, 0.5, 2/10, 99,  2)
+b3 = peak(x,  0.6, 1.2, 3/10,  5,  2)
+b4 = peak(x, -0.9, 0.8, 4/10,  5,  3)
 
 plt.plot(x, b3)
 plt.plot(x, b2)
@@ -248,13 +267,13 @@ class DataGenerator():
         self.peak_position_range = np.array(args.peak_pos)*args.w_max
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
 
-    def peak(self, omega, center=0, width=1, height=1):
-        if func_type == 0:
-            return (height/np.pi) * width/( (omega-center)**2 + (width)**2 )
-        elif func_type == 1:
-            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
-        elif func_type == 2:
-            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**4/width**4)
+    def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
+        if type_m == 0:  
+            return lorentzian(omega, center, width, height)
+        elif type_m == 1:
+            return gaussian(omega, center, width, height)
+        elif type_m >= 2:
+            return free_bernstein(omega, type_m, type_n, center, width, height)
 
     def grid_integrand(self, omega, omega_n, c, w, h):
         spectralw = self.peak(omega, c, w, h).sum(axis=0)
