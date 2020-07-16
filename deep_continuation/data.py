@@ -14,6 +14,7 @@ import time
 import random
 import numpy as np
 from scipy import integrate
+from scipy.special import binom
 
 import torch
 import torch.nn as nn
@@ -33,6 +34,7 @@ rcParams['text.latex.preamble'] = [
     ]
 
 import utils
+
 
 np.set_printoptions(precision=4)
 SMALL = 1e-10
@@ -193,6 +195,34 @@ class ContinuationData(Dataset):
             ax2.plot(x,y)
         plt.show()
 
+#%%
+import numpy as np
+from scipy.special import binom
+import matplotlib.pyplot as plt
+
+def bernstein(x, m, n):
+    return binom(m,n) * (x**n) * ((1-x)**(m-n)) * (x>=0) * (x<=1)
+
+def normed_bernstein(x, m, n, c=0, w=1, h=1):
+    sq = np.sqrt(m+1)
+    xx = (x-c)/(w*sq) + n/m
+    return (h*sq/w)*bernstein(xx, m, n)
+
+
+x = np.linspace(-1,2,1000)
+# plt.ylim(0,1)
+b1 = normed_bernstein(x, 99, 98, -0.2, 0.5, 1/10)
+b2 = normed_bernstein(x, 99,  2,  0.3, 0.5, 2/10)
+b3 = normed_bernstein(x,  5,  2,  0.6, 1.2, 3/10)
+b4 = normed_bernstein(x,  5,  3, -0.9, 0.8, 4/10)
+
+plt.plot(x, b3)
+plt.plot(x, b2)
+plt.plot(x, b1)
+plt.plot(x, b4)
+plt.plot(x, b1+b2+b3+b4, lw=3, color='black')
+
+#%%
 
 class DataGenerator():
     def __init__(self, args):
@@ -219,10 +249,12 @@ class DataGenerator():
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
 
     def peak(self, omega, center=0, width=1, height=1):
-        if self.lorentz:
+        if func_type == 0:
             return (height/np.pi) * width/( (omega-center)**2 + (width)**2 )
-        else:
+        elif func_type == 1:
             return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)
+        elif func_type == 2:
+            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**4/width**4)
 
     def grid_integrand(self, omega, omega_n, c, w, h):
         spectralw = self.peak(omega, c, w, h).sum(axis=0)
