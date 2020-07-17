@@ -15,6 +15,7 @@ import time
 import random
 import numpy as np
 from scipy import integrate
+from scipy.special import binom
 
 import torch
 import torch.nn as nn
@@ -34,6 +35,7 @@ rcParams['text.latex.preamble'] = [
     ]
 
 import utils
+
 
 np.set_printoptions(precision=4)
 SMALL = 1e-10
@@ -192,6 +194,56 @@ class ContinuationData(Dataset):
             ax2.plot(x,y)
         plt.show()
 
+
+def gaussian(x, c, w, h):
+    return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
+
+
+def lorentzian(x, c, w, h):
+    return (h/np.pi)*w/((x-c)**2+w**2)
+
+
+def bernstein(x, m, n):
+    return binom(m,n) * (x**n) * ((1-x)**(m-n)) * (x>=0) * (x<=1)
+
+
+def free_bernstein(x, m, n, c=0, w=1, h=1):
+    sq = np.sqrt(m+1)
+    xx = (x-c)/(w*sq) + n/m
+    return (h*sq/w)*bernstein(xx, m, n)
+
+
+def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
+    out = 0
+    out += (type_m == 0) * lorentzian(omega, center, width, height)
+    out += (type_m == 1) * gaussian(omega, center, width, height)
+    out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
+    return out
+
+
+def peak_sum(omega, c, w, h, m, n):
+        return peak(
+            x[np.newaxis, :],
+            c[:, np.newaxis],
+            w[:, np.newaxis],
+            h[:, np.newaxis],
+            m[:, np.newaxis],
+            n[:, np.newaxis]
+        ).sum(axis=0)
+
+
+def test_peak():
+    x = np.linspace(-1,2,1000)
+    c = np.array([-0.2, 0.3, 0.6, -0.9])
+    w = np.array([ 0.5, 0.5, 1.2,  0.8])
+    h = np.array([ 1/10, 2/10, 3/10, 4/10])
+    m = np.array([ 99, 99, 5, 5 ])
+    n = np.array([98, 2, 2, 3])
+
+    bs = peak_sum(x, c, w, h, m, n)
+    plt.plot(x, bs, lw=2, color='black')
+
+
 class DataGenerator():
     def __init__(self, args):
         self.N_wn = args.in_size        # Number of input datapoints
@@ -208,6 +260,7 @@ class DataGenerator():
         self.normalize           = args.normalize   # True or false flag for normalization
         # default peaks characteristics
         self.lorentz             = args.lorentz     # True or false flag for the use of Lorentzians instead of Gaussians
+        self.bernstein           = args.bernstein     # True or false flag for the use of Lorentzians instead of Gaussians
         self.max_drude           = args.max_drude
         self.max_peaks           = args.max_peaks
         self.weight_ratio        = args.weight_ratio
@@ -219,16 +272,18 @@ class DataGenerator():
         self.lor_peaks           = int(10e1)             # Number of Lorentzian peaks
         self.lor_width           = 0.1            # Width of Lorentzian peaks 
 
-    def peak(self, omega, center=0, width=1, height=1):                                 # The sigma function is a sum of these peaks
+    def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
             return (height/(np.pi * omega +SMALL)) * width/( (omega-center)**2 + (width)**2 )  # Define peak function to be a Lorentzian if flag set to true
-                                                                                        # Added that omega in the denominator.
         else:
-            return (height/np.sqrt(np.pi)/width) * np.exp(-(omega-center)**2/width**2)  # Define peak function to be a Gaussian if flag set to false
-
-    def grid_integrand(self, omega, omega_n, c, w, h):                      # This is the real part of the integrand, as shown by multiplying by the complex conjugate
-                                                                            # of the denominator.
-        spectralw = self.peak(omega, c, w, h).sum(axis=0)                   # spectralw is the sigma function, a sum of peaks
+            out = 0
+            # out += (type_m == 0) * lorentzian(omega, center, width, height)
+            out += (type_m == 1) * gaussian(omega, center, width, height)
+            out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
+            return out
+    
+    def grid_integrand(self, omega, omega_n, c, w, h, m, n):
+        spectralw = self.peak(omega, c, w, h, m, n).sum(axis=0)
         return (1/np.pi) * omega**2 * spectralw / (omega**2+omega_n**2)
 
     def lor_pi(self, omega_n, center, height):
@@ -256,11 +311,11 @@ class DataGenerator():
                                                                             # issues involving zero.
         self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)  # Generate a grid from all the w and wn values, and store both sets of coordinates as matrices?
         return  self.w_grid, self.wn_grid 
-
+        
     def generate_gauss_batch(self, batch_size):
         pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
         sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
-        # alternative
+        # alternative sampling (attempt for scale-free spectra)
         sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
         cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
 
@@ -273,13 +328,21 @@ class DataGenerator():
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
             num_peak = num_drude + num_others
             
-            # random initialization (center, width, height) of peaks
+            # random initialization (center, width, height, n, m) of peaks
             min_c = self.peak_position_range[0]
             max_c = self.peak_position_range[1]
             c  = np.random.uniform( min_c, max_c, size=num_peak )
             w  = np.random.uniform( 0.0  , 1.000, size=num_peak )   # The widths and heights are initialized as random numbers between 0 and 1
             h  = np.random.uniform( 0.0  , 1.000, size=num_peak )
-            
+            if self.bernstein:            
+                m = np.random.randint(2, 20, size=num_peak)
+                n = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
+            else:
+                m = np.ones(num_peak)
+                n = np.ones(num_peak)
+
+            print(m, n)
+
             # Drude peaks adjustments
             c[:num_drude]  = 0.0 # The first num_drude peaks are put at 0
             w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0]) # The ranges of the widths and heights are adjusted to their proper values
@@ -295,6 +358,8 @@ class DataGenerator():
             c = np.hstack([c,-c])   # hstack is like concatenate but works in more general cases, such as for tensors instead of just vectors
             w = np.hstack([w, w])
             h = np.hstack([h, h])
+            n = np.hstack([n, m-n])
+            m = np.hstack([m, m])
             if self.normalize:
                 h /= h.sum(axis=-1, keepdims=True) # -1 index is the last index
             h *= self.Pi0 * np.pi # Normalizing to something other than 1 (Pi0)
@@ -304,17 +369,21 @@ class DataGenerator():
                                 self.w_grid [ np.newaxis,:,: ], 
                                 self.wn_grid[ np.newaxis,:,: ],     # Why exactly is this?
                                 c[ :, np.newaxis, np.newaxis ],
-                                w[ :, np.newaxis, np.newaxis ], 
-                                h[ :, np.newaxis, np.newaxis ] 
+                                w[ :, np.newaxis, np.newaxis ],
+                                h[ :, np.newaxis, np.newaxis ],
+                                m[ :, np.newaxis, np.newaxis ],
+                                n[ :, np.newaxis, np.newaxis ]
                             )
             pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1) # Approximation of an integral (actually a sum over the discrete grid values)
                                                                                         # What's going on with the indices?
             # sample real spectrum (training targets)
             sig_of_w_array[i] = self.peak(
                                     self.w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis] 
                                 ).sum(axis=0)
             
             # squareroot sampling real spectrum (alternative training targets)
@@ -323,9 +392,11 @@ class DataGenerator():
             sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
             sqrt_smpl_sigm[i] = self.peak(
                                     sqrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis]
                                 ).sum(axis=0)
             
             # cubicroot sampling real spectrum (alternative training targets)
@@ -333,9 +404,11 @@ class DataGenerator():
             cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
             cbrt_smpl_sigm[i] = self.peak(
                                     cbrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis]
                                 ).sum(axis=0)
 
         return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
@@ -497,6 +570,7 @@ if __name__ == '__main__':
         'cbrt_ratio'   : 6,
         # spectrum parameters (relative)
         'lorentz'      : False,
+        'bernstein'    : False,
         'max_drude'    : 4,
         'max_peaks'    : 6,
         'weight_ratio' : 0.50,
