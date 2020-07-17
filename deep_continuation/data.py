@@ -200,6 +200,7 @@ class ContinuationData(Dataset):
 import numpy as np
 from scipy.special import binom
 import matplotlib.pyplot as plt
+import time
 
 def gaussian(x, c, w, h):
     return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
@@ -227,35 +228,28 @@ def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
     return out
 
 
-# def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
-#     if type_m == 0:  
-#         return lorentzian(omega, center, width, height)
-#     elif type_m == 1:
-#         return gaussian(omega, center, width, height)
-#     elif type_m >= 2:
-#         return free_bernstein(omega, type_m, type_n, center, width, height)
+def test_peak():
+    x = np.linspace(-1,2,1000)
+    c = np.array([-0.2, 0.3, 0.6, -0.9])
+    w = np.array([ 0.5, 0.5, 1.2,  0.8])
+    h = np.array([ 1/10, 2/10, 3/10, 4/10])
+    m = np.array([ 99, 99, 5, 5 ])
+    n = np.array([98, 2, 2, 3])
 
-x = np.linspace(-1,2,1000)
-c = np.array([-0.2, 0.3, 0.6, -0.9])
-w = np.array([ 0.5, 0.5, 1.2,  0.8])
-h = np.array([ 1/10, 2/10, 3/10, 4/10])
-m = np.array([ 99, 99, 5, 5 ])
-n = np.array([98, 2, 2, 3])
+    def peak_sum(omega, c, w, h, m, n):
+        return peak(
+            x[np.newaxis, :],
+            c[:, np.newaxis],
+            w[:, np.newaxis],
+            h[:, np.newaxis],
+            m[:, np.newaxis],
+            n[:, np.newaxis]
+        ).sum(axis=0)
 
-def peak_sum(omega, c, w, h, m, n):
-    return peak(
-        x[np.newaxis, :],
-        c[:, np.newaxis],
-        w[:, np.newaxis],
-        h[:, np.newaxis],
-        m[:, np.newaxis],
-        n[:, np.newaxis]
-    ).sum(axis=0)
+    bs = peak_sum(x, c, w, h, m, n)
+    plt.plot(x, bs, lw=2, color='black')
+# test_peak()
 
-# plt.ylim(0,1)
-bs = peak_sum(x, c, w, h, m, n)
-
-plt.plot(x, bs, lw=3, color='black')
 
 #%%
 
@@ -273,6 +267,7 @@ class DataGenerator():
         self.sqrt_ratio          = args.sqrt_ratio
         self.cbrt_ratio          = args.cbrt_ratio
         self.normalize           = args.normalize
+        
         # default peaks characteristics
         self.lorentz             = args.lorentz
         self.max_drude           = args.max_drude
@@ -284,12 +279,11 @@ class DataGenerator():
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
-        if type_m == 0:  
-            return lorentzian(omega, center, width, height)
-        elif type_m == 1:
-            return gaussian(omega, center, width, height)
-        elif type_m >= 2:
-            return free_bernstein(omega, type_m, type_n, center, width, height)
+        out = 0
+        out += (type_m == 0) * lorentzian(omega, center, width, height)
+        out += (type_m == 1) * gaussian(omega, center, width, height)
+        out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
+        return out
 
     def grid_integrand(self, omega, omega_n, c, w, h):
         spectralw = self.peak(omega, c, w, h).sum(axis=0)
@@ -318,7 +312,7 @@ class DataGenerator():
     def generate_batch(self, batch_size):
         pi_of_wn_array = np.zeros([ batch_size, self.N_wn])
         sig_of_w_array = np.zeros([ batch_size, self.N_w ])
-        # alternative
+        # alternative sampling (attempt for scale-free spectra)
         sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
         cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
 
@@ -331,7 +325,7 @@ class DataGenerator():
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
             num_peak = num_drude + num_others
             
-            # random initialization (center, width, height) of peaks
+            # random initialization (center, width, height, n, m) of peaks
             min_c = self.peak_position_range[0]
             max_c = self.peak_position_range[1]
             c  = np.random.uniform( min_c, max_c, size=num_peak )
