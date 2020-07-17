@@ -219,27 +219,43 @@ def free_bernstein(x, m, n, c=0, w=1, h=1):
     return (h*sq/w)*bernstein(xx, m, n)
 
 
-def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
-    if type_m == 0:  
-        return lorentzian(omega, center, width, height)
-    elif type_m == 1:
-        return gaussian(omega, center, width, height)
-    elif type_m >= 2:
-        return free_bernstein(omega, type_m, type_n, center, width, height)
+def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
+    out = 0
+    out += (type_m == 0) * lorentzian(omega, center, width, height)
+    out += (type_m == 1) * gaussian(omega, center, width, height)
+    out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
+    return out
 
+
+# def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
+#     if type_m == 0:  
+#         return lorentzian(omega, center, width, height)
+#     elif type_m == 1:
+#         return gaussian(omega, center, width, height)
+#     elif type_m >= 2:
+#         return free_bernstein(omega, type_m, type_n, center, width, height)
 
 x = np.linspace(-1,2,1000)
-# plt.ylim(0,1)
-b1 = peak(x, -0.2, 0.5, 1/10, 99, 98)
-b2 = peak(x,  0.3, 0.5, 2/10, 99,  2)
-b3 = peak(x,  0.6, 1.2, 3/10,  5,  2)
-b4 = peak(x, -0.9, 0.8, 4/10,  5,  3)
+c = np.array([-0.2, 0.3, 0.6, -0.9])
+w = np.array([ 0.5, 0.5, 1.2,  0.8])
+h = np.array([ 1/10, 2/10, 3/10, 4/10])
+m = np.array([ 99, 99, 5, 5 ])
+n = np.array([98, 2, 2, 3])
 
-plt.plot(x, b3)
-plt.plot(x, b2)
-plt.plot(x, b1)
-plt.plot(x, b4)
-plt.plot(x, b1+b2+b3+b4, lw=3, color='black')
+def peak_sum(omega, c, w, h, m, n):
+    return peak(
+        x[np.newaxis, :],
+        c[:, np.newaxis],
+        w[:, np.newaxis],
+        h[:, np.newaxis],
+        m[:, np.newaxis],
+        n[:, np.newaxis]
+    ).sum(axis=0)
+
+# plt.ylim(0,1)
+bs = peak_sum(x, c, w, h, m, n)
+
+plt.plot(x, bs, lw=3, color='black')
 
 #%%
 
