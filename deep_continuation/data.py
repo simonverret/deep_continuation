@@ -228,15 +228,7 @@ def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
     return out
 
 
-def test_peak():
-    x = np.linspace(-1,2,1000)
-    c = np.array([-0.2, 0.3, 0.6, -0.9])
-    w = np.array([ 0.5, 0.5, 1.2,  0.8])
-    h = np.array([ 1/10, 2/10, 3/10, 4/10])
-    m = np.array([ 99, 99, 5, 5 ])
-    n = np.array([98, 2, 2, 3])
-
-    def peak_sum(omega, c, w, h, m, n):
+def peak_sum(omega, c, w, h, m, n):
         return peak(
             x[np.newaxis, :],
             c[:, np.newaxis],
@@ -246,9 +238,17 @@ def test_peak():
             n[:, np.newaxis]
         ).sum(axis=0)
 
+
+def test_peak():
+    x = np.linspace(-1,2,1000)
+    c = np.array([-0.2, 0.3, 0.6, -0.9])
+    w = np.array([ 0.5, 0.5, 1.2,  0.8])
+    h = np.array([ 1/10, 2/10, 3/10, 4/10])
+    m = np.array([ 99, 99, 5, 5 ])
+    n = np.array([98, 2, 2, 3])
+
     bs = peak_sum(x, c, w, h, m, n)
     plt.plot(x, bs, lw=2, color='black')
-# test_peak()
 
 
 #%%
@@ -284,9 +284,9 @@ class DataGenerator():
         out += (type_m == 1) * gaussian(omega, center, width, height)
         out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
         return out
-
-    def grid_integrand(self, omega, omega_n, c, w, h):
-        spectralw = self.peak(omega, c, w, h).sum(axis=0)
+    
+    def grid_integrand(self, omega, omega_n, c, w, h, m, n):
+        spectralw = self.peak(omega, c, w, h, m, n).sum(axis=0)
         return (1/np.pi) * omega**2 * spectralw / (omega**2+omega_n**2)
 
     def set_freq_grid(self, w_max, beta):
@@ -331,7 +331,11 @@ class DataGenerator():
             c  = np.random.uniform( min_c, max_c, size=num_peak )
             w  = np.random.uniform( 0.0  , 1.000, size=num_peak )
             h  = np.random.uniform( 0.0  , 1.000, size=num_peak )
-            
+            m  = np.random.randint(2, 20, size=num_peak)
+            n  = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
+
+            print(m, n)
+
             # Drude peaks adjustments
             c[:num_drude]  = 0.0
             w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0])
@@ -347,26 +351,32 @@ class DataGenerator():
             c = np.hstack([c,-c])
             w = np.hstack([w, w])
             h = np.hstack([h, h])
+            n = np.hstack([n, m-n])
+            m = np.hstack([m, m])
             if self.normalize:
                 h /= h.sum(axis=-1, keepdims=True)
             h *= self.Pi0 * np.pi
 
             # compute matsubara spectrum (training inputs)
             matsubaraGrid = self.grid_integrand( 
-                                self.w_grid [ np.newaxis,:,: ], 
-                                self.wn_grid[ np.newaxis,:,: ], 
+                                self.w_grid [ np.newaxis,:,: ],
+                                self.wn_grid[ np.newaxis,:,: ],
                                 c[ :, np.newaxis, np.newaxis ],
-                                w[ :, np.newaxis, np.newaxis ], 
-                                h[ :, np.newaxis, np.newaxis ] 
+                                w[ :, np.newaxis, np.newaxis ],
+                                h[ :, np.newaxis, np.newaxis ],
+                                m[ :, np.newaxis, np.newaxis ],
+                                n[ :, np.newaxis, np.newaxis ]
                             )
             pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1)
             
             # sample real spectrum (training targets)
             sig_of_w_array[i] = self.peak(
                                     self.w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis] 
                                 ).sum(axis=0)
             
             # squareroot sampling real spectrum (alternative training targets)
@@ -375,9 +385,11 @@ class DataGenerator():
             sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
             sqrt_smpl_sigm[i] = self.peak(
                                     sqrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis]
                                 ).sum(axis=0)
             
             # cubicroot sampling real spectrum (alternative training targets)
@@ -385,9 +397,11 @@ class DataGenerator():
             cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
             cbrt_smpl_sigm[i] = self.peak(
                                     cbrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis], 
-                                    w[:,np.newaxis], 
-                                    h[:,np.newaxis] 
+                                    c[:,np.newaxis],
+                                    w[:,np.newaxis],
+                                    h[:,np.newaxis],
+                                    m[:,np.newaxis],
+                                    n[:,np.newaxis]
                                 ).sum(axis=0)
 
         return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
