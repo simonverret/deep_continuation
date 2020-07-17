@@ -3,8 +3,9 @@
 #   deep_continuation
 #
 #   Simon Verret
+#   Quinton Weyrich
 #   Reza Nourafkan
-#   Andre-Marie Tremablay
+#   Andre-Marie Tremblay
 #
 
 ## example modification
@@ -38,8 +39,6 @@ import utils
 
 np.set_printoptions(precision=4)
 SMALL = 1e-10
-
-
 
 ### Reza's data (see the C++ code to generate it)
 
@@ -255,28 +254,30 @@ def test_peak():
 
 class DataGenerator():
     def __init__(self, args):
-        self.N_wn = args.in_size
-        self.N_w  = args.out_size
+        self.N_wn = args.in_size        # Number of input datapoints
+        self.N_w  = args.out_size       # Number of output datapoints
         
-        self.wn_list, self.w_list = self.set_freq_grid( args.w_max, args.beta )
+        self.wn_list, self.w_list = self.set_freq_grid( args.w_max, args.beta )                             # What are these two lines doing?
         self.w_grid, self.wn_grid = self.set_integration_grid( args.w_max, args.tail_power, args.N_tail )
         
-        self.w_max               = args.w_max
+        self.w_max               = args.w_max       # These are all parameters
         self.Pi0                 = args.Pi0
         self.beta                = args.beta
         self.sqrt_ratio          = args.sqrt_ratio
         self.cbrt_ratio          = args.cbrt_ratio
-        self.normalize           = args.normalize
-        
+        self.normalize           = args.normalize   # True or false flag for normalization
         # default peaks characteristics
-        self.lorentz             = args.lorentz
+        self.lorentz             = args.lorentz     # True or false flag for the use of Lorentzians instead of Gaussians
         self.max_drude           = args.max_drude
         self.max_peaks           = args.max_peaks
         self.weight_ratio        = args.weight_ratio
-        self.w_volume            = 2*self.w_max/(np.pi*self.N_w)
+        self.w_volume            = 2*self.w_max/(np.pi*self.N_w)            
         self.drude_width_range   = np.array(args.drude_width)*args.w_max
         self.peak_position_range = np.array(args.peak_pos)*args.w_max
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
+        # Lorentzian-specific characteristics
+        self.lor_peaks           = int(10e1)             # Number of Lorentzian peaks
+        self.lor_width           = 0.1            # Width of Lorentzian peaks 
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         out = 0
@@ -289,29 +290,35 @@ class DataGenerator():
         spectralw = self.peak(omega, c, w, h, m, n).sum(axis=0)
         return (1/np.pi) * omega**2 * spectralw / (omega**2+omega_n**2)
 
-    def set_freq_grid(self, w_max, beta):
-        delta_w = w_max/self.N_w
-        delta_wn = 2*np.pi/beta
-        wn_max = delta_wn * self.N_wn
+    def lor_pi(self, omega_n, center, height):
+        integrated_function = 2 * height * center / (center**2 + omega_n**2)
+        return integrated_function
 
-        self.wn_list = np.arange(0.0, wn_max, delta_wn, dtype=float)
+    def set_freq_grid(self, w_max, beta):
+        delta_w = w_max/self.N_w                # Grid size is largest value divided by number of datapoints
+        delta_wn = 2*np.pi/beta                 
+        wn_max = delta_wn * self.N_wn           # Max value is grid size multiplied by number of datapoints
+
+        self.wn_list = np.arange(0.0, wn_max, delta_wn, dtype=float)    # Equally-distributed points between 0 and the max value with separation equal to the grid sizes
         self.w_list  = np.arange(0.0, w_max , delta_w, dtype=float)
         return self.wn_list, self.w_list
 
     def set_integration_grid(self, w_max, tail_power, N_tail):
         pos_w_list = self.w_list
-        neg_w_list  = -np.flip(pos_w_list[1:])
-        pos_tail = np.logspace(np.log10(w_max), tail_power, N_tail)
+        neg_w_list  = -np.flip(pos_w_list[1:]) # Reverse order of datapoints and make them negative, extending the list into the negatives
+        pos_tail = np.logspace(np.log10(w_max), tail_power, N_tail)         # The tail is a set of exponentially-spaced grid lines placed after the last peak, used as
+                                                                            # an integration tool.
         neg_tail = -np.flip(pos_tail)[:-1]
         
         full_w_list = [ neg_tail, neg_w_list, pos_w_list, pos_tail ]
-        full_w_list = np.concatenate(full_w_list) + SMALL
-        self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)
+        full_w_list = np.concatenate(full_w_list) + SMALL                   # Combine the positive and negative lists together. "SMALL" is a small offset value to prevent
+                                                                            # issues involving zero.
+        self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)  # Generate a grid from all the w and wn values, and store both sets of coordinates as matrices?
         return  self.w_grid, self.wn_grid 
-
-    def generate_batch(self, batch_size):
-        pi_of_wn_array = np.zeros([ batch_size, self.N_wn])
-        sig_of_w_array = np.zeros([ batch_size, self.N_w ])
+        
+    def generate_gauss_batch(self, batch_size):
+        pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
+        sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
         # alternative sampling (attempt for scale-free spectra)
         sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
         cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
@@ -320,7 +327,7 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
 
             # random spectrum characteristics
-            num_drude    = np.random.randint( 0 if self.max_peaks > 0 else 1,     self.max_drude+1 )
+            num_drude    = np.random.randint( 0 if self.max_peaks > 0 else 1,     self.max_drude+1 )    # max_peaks is the maximum number of non-Drude peaks
             num_others   = np.random.randint( 0 if num_drude > 0 else 1,     self.max_peaks+1 )
             weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
             num_peak = num_drude + num_others
@@ -329,7 +336,7 @@ class DataGenerator():
             min_c = self.peak_position_range[0]
             max_c = self.peak_position_range[1]
             c  = np.random.uniform( min_c, max_c, size=num_peak )
-            w  = np.random.uniform( 0.0  , 1.000, size=num_peak )
+            w  = np.random.uniform( 0.0  , 1.000, size=num_peak )   # The widths and heights are initialized as random numbers between 0 and 1
             h  = np.random.uniform( 0.0  , 1.000, size=num_peak )
             m  = np.random.randint(2, 20, size=num_peak)
             n  = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
@@ -337,10 +344,10 @@ class DataGenerator():
             print(m, n)
 
             # Drude peaks adjustments
-            c[:num_drude]  = 0.0
-            w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0])
+            c[:num_drude]  = 0.0 # The first num_drude peaks are put at 0
+            w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0]) # The ranges of the widths and heights are adjusted to their proper values
             w[:num_drude] += self.drude_width_range[0] #min
-            h[:num_drude] *= weight_ratio/( h[:num_drude].sum() + SMALL )
+            h[:num_drude] *= weight_ratio/( h[:num_drude].sum() + SMALL ) # weight_ratio is the weight put into Drude peaks compared to other peaks
             
             # other peaks adjustments
             w[num_drude:] *= (self.peak_width_range[1] - self.peak_width_range[0])
@@ -348,27 +355,27 @@ class DataGenerator():
             h[num_drude:] *= (1-weight_ratio)/( h[num_drude:].sum() + SMALL )
             
             #symmetrize and normalize
-            c = np.hstack([c,-c])
+            c = np.hstack([c,-c])   # hstack is like concatenate but works in more general cases, such as for tensors instead of just vectors
             w = np.hstack([w, w])
             h = np.hstack([h, h])
             n = np.hstack([n, m-n])
             m = np.hstack([m, m])
             if self.normalize:
-                h /= h.sum(axis=-1, keepdims=True)
-            h *= self.Pi0 * np.pi
+                h /= h.sum(axis=-1, keepdims=True) # -1 index is the last index
+            h *= self.Pi0 * np.pi # Normalizing to something other than 1 (Pi0)
 
             # compute matsubara spectrum (training inputs)
-            matsubaraGrid = self.grid_integrand( 
-                                self.w_grid [ np.newaxis,:,: ],
-                                self.wn_grid[ np.newaxis,:,: ],
+            matsubaraGrid = self.grid_integrand(                    # matsubaraGrid is a 3-d tensor, which is generated by adding axes to the arguments as needed.
+                                self.w_grid [ np.newaxis,:,: ], 
+                                self.wn_grid[ np.newaxis,:,: ],     # Why exactly is this?
                                 c[ :, np.newaxis, np.newaxis ],
                                 w[ :, np.newaxis, np.newaxis ],
                                 h[ :, np.newaxis, np.newaxis ],
                                 m[ :, np.newaxis, np.newaxis ],
                                 n[ :, np.newaxis, np.newaxis ]
                             )
-            pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1)
-            
+            pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1) # Approximation of an integral (actually a sum over the discrete grid values)
+                                                                                        # What's going on with the indices?
             # sample real spectrum (training targets)
             sig_of_w_array[i] = self.peak(
                                     self.w_list[np.newaxis,:], 
@@ -406,7 +413,68 @@ class DataGenerator():
 
         return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
 
-    def compute_tail_ratio(self, pi_of_wn_array, sig_of_w_array, N=10):
+    def generate_lorentz_batch(self, batch_size):
+        pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
+        sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
+        # alternative
+        sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
+        cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
+
+        for i in range(batch_size):
+            if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
+            
+            # initialization (center, width, height) of peaks
+            center  = np.linspace( 0.000, 1.000, num=self.lor_peaks )
+            center += center[1] # Add the second element of the centre positions to the whole list, this effectively shifts all the peaks over one space. This is
+                                # necessary because we don't want any peaks at zero, which would occur if we didn't shift.
+            center *= self.w_max*0.8
+
+            width  = np.ones(self.lor_peaks) * self.lor_width
+            height  = np.random.uniform( 0.0  , 1.000, size=self.lor_peaks )   # The heights are initialized as random numbers between 0 and 1
+            
+            #normalize
+            if self.normalize:
+                height /= height.sum(axis=-1, keepdims=True) # -1 index is the last index
+            #height *= self.Pi0 * np.pi # Normalizing to something other than 1 (Pi0)
+
+            # sample real spectrum (training targets)
+            sig_of_w_array[i] = self.peak(
+                                    self.w_list[np.newaxis,:], 
+                                    center[:,np.newaxis], 
+                                    width[:,np.newaxis], 
+                                    height[:,np.newaxis] 
+                                ).sum(axis=0)
+
+            pi_of_wn_array[i] = self.lor_pi(
+                                self.wn_list[ np.newaxis,: ],
+                                center[ :, np.newaxis ], 
+                                height[ :, np.newaxis ]
+                                ).sum(axis=0)
+
+            # squareroot sampling real spectrum (alternative training targets)
+            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
+            sqrt_w_max = self.sqrt_ratio * np.sqrt(second_moment)
+            sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
+            sqrt_smpl_sigm[i] = self.peak(
+                                    sqrt_w_list[np.newaxis,:], 
+                                    center[:,np.newaxis], 
+                                    width[:,np.newaxis], 
+                                    height[:,np.newaxis] 
+                                ).sum(axis=0)
+            
+            # cubicroot sampling real spectrum (alternative training targets)
+            cbrt_w_max = self.cbrt_ratio * np.cbrt(second_moment)
+            cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
+            cbrt_smpl_sigm[i] = self.peak(
+                                    cbrt_w_list[np.newaxis,:], 
+                                    center[:,np.newaxis], 
+                                    width[:,np.newaxis], 
+                                    height[:,np.newaxis] 
+                                ).sum(axis=0)
+
+        return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
+
+    def compute_tail_ratio(self, pi_of_wn_array, sig_of_w_array, N=10):     # What is compute_tail_ratio doing?
         pi_tail = self.wn_list[-N:]**2*pi_of_wn_array[-N:]
         pi_diff = pi_tail[1:]-pi_tail[:-1]
 
@@ -424,6 +492,11 @@ class DataGenerator():
         print('Pi0 =', pi_of_wn_array[:,0].real)
         print('s2avg = ',s2avg[:,-1])
         print('alpha = ', alpha[:,-1],'\n')
+
+        if self.lorentz:
+            print('Using Lorentzians')
+        else:
+            print('Using Gaussians')
     
         fig, ax = plt.subplots(2, 4, figsize=[12,5])
         
@@ -450,7 +523,10 @@ class DataGenerator():
         for i in range(len(pi_of_wn_array)):
             ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
             ax[1,0].plot( self.wn_list, alpha[i] )
-            ax[0,1].plot( self.w_list , sig_of_w_array[i] )
+            if self.lorentz:
+                ax[0,1].plot( self.w_list , sig_of_w_array[i]*self.w_list )
+            else:
+                ax[0,1].plot( self.w_list , sig_of_w_array[i] )
             ax[1,1].plot( self.w_list , s2avg[i] )
             # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
             
@@ -465,12 +541,14 @@ class DataGenerator():
         plt.show()
 
     def generate_dataset(self, N, path='./'):
-        pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_batch(batch_size=N)
+        if self.lorentz:
+            pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_lorentz_batch(batch_size=N)
+        else:
+            pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_gauss_batch(batch_size=N)
         np.savetxt( path + 'Pi.csv'     , pi_wn_array   , delimiter=',')
         np.savetxt( path + 'SigmaRe.csv', sig_of_w_array, delimiter=',')
         np.savetxt( path + 'SigmaRe_sqrtScale.csv', sqrt_smpl_sigm, delimiter=',')
         np.savetxt( path + 'SigmaRe_cbrtScale.csv', cbrt_smpl_sigm, delimiter=',')
-
 
 if __name__ == '__main__':
     default_args = {
@@ -519,7 +597,10 @@ if __name__ == '__main__':
                 print('WARNING: examples printed are not part of the dataset')
 
         if args.plot > 0:
-            pi, sigma, sigma2, sigma3 = generator.generate_batch(batch_size=args.plot)
+            if args.lorentz:
+                pi, sigma, sigma2, sigma3 = generator.generate_lorentz_batch(batch_size=args.plot)
+            else:
+                pi, sigma, sigma2, sigma3 = generator.generate_gauss_batch(batch_size=args.plot)
             generator.plot(pi, sigma, sigma2, sigma3)
 
     else:
