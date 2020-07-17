@@ -180,6 +180,7 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
 
 print('training')
 early_stop_count = args.stop
+best = TORCH_MAX
 for epoch in range(1, args.epochs+1):
     print(f' epoch {epoch}')
 
@@ -222,3 +223,14 @@ for epoch in range(1, args.epochs+1):
         "train loss": avg_train_loss,
         "valid loss": avg_valid_loss
     })
+
+    scheduler.step(avg_train_loss)
+    
+    if avg_valid_loss < best:
+        early_stop_count = args.stop
+        best = avg_valid_loss
+    else: 
+        early_stop_count -= 1
+    if early_stop_count==0:
+        print('early stopping limit reached!!')
+        break
