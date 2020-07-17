@@ -195,12 +195,6 @@ class ContinuationData(Dataset):
         plt.show()
 
 
-#%%
-import numpy as np
-from scipy.special import binom
-import matplotlib.pyplot as plt
-import time
-
 def gaussian(x, c, w, h):
     return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
 
@@ -250,8 +244,6 @@ def test_peak():
     plt.plot(x, bs, lw=2, color='black')
 
 
-#%%
-
 class DataGenerator():
     def __init__(self, args):
         self.N_wn = args.in_size        # Number of input datapoints
@@ -268,6 +260,7 @@ class DataGenerator():
         self.normalize           = args.normalize   # True or false flag for normalization
         # default peaks characteristics
         self.lorentz             = args.lorentz     # True or false flag for the use of Lorentzians instead of Gaussians
+        self.bernstein           = args.bernstein     # True or false flag for the use of Lorentzians instead of Gaussians
         self.max_drude           = args.max_drude
         self.max_peaks           = args.max_peaks
         self.weight_ratio        = args.weight_ratio
@@ -280,11 +273,14 @@ class DataGenerator():
         self.lor_width           = 0.1            # Width of Lorentzian peaks 
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
-        out = 0
-        out += (type_m == 0) * lorentzian(omega, center, width, height)
-        out += (type_m == 1) * gaussian(omega, center, width, height)
-        out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
-        return out
+        if self.lorentz:
+            return (height/(np.pi * omega +SMALL)) * width/( (omega-center)**2 + (width)**2 )  # Define peak function to be a Lorentzian if flag set to true
+        else:
+            out = 0
+            # out += (type_m == 0) * lorentzian(omega, center, width, height)
+            out += (type_m == 1) * gaussian(omega, center, width, height)
+            out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
+            return out
     
     def grid_integrand(self, omega, omega_n, c, w, h, m, n):
         spectralw = self.peak(omega, c, w, h, m, n).sum(axis=0)
@@ -338,8 +334,12 @@ class DataGenerator():
             c  = np.random.uniform( min_c, max_c, size=num_peak )
             w  = np.random.uniform( 0.0  , 1.000, size=num_peak )   # The widths and heights are initialized as random numbers between 0 and 1
             h  = np.random.uniform( 0.0  , 1.000, size=num_peak )
-            m  = np.random.randint(2, 20, size=num_peak)
-            n  = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
+            if self.bernstein:            
+                m = np.random.randint(2, 20, size=num_peak)
+                n = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
+            else:
+                m = np.ones(num_peak)
+                n = np.ones(num_peak)
 
             print(m, n)
 
@@ -570,6 +570,7 @@ if __name__ == '__main__':
         'cbrt_ratio'   : 6,
         # spectrum parameters (relative)
         'lorentz'      : False,
+        'bernstein'    : False,
         'max_drude'    : 4,
         'max_peaks'    : 6,
         'weight_ratio' : 0.50,
