@@ -22,6 +22,10 @@ from torch.utils.data import Dataset, DataLoader
 from deep_continuation import data
 from deep_continuation import utils
 
+import wandb
+wandb.init(project="mlp")
+
+
 TORCH_MAX = torch.finfo(torch.float64).max
 
 # GLOBAL PARAMETERS & PARSING
@@ -265,6 +269,8 @@ def train(args, device, train_set, metrics=None):
     model.apply(init_weights)
     optimizer = torch.optim.Adam(model.parameters(), lr = args.lr, weight_decay=args.weight_decay)
 
+    wandb.watch(model)
+
     if args.loss == "L1Loss":
         criterion = nn.L1Loss()
     elif args.loss == "KLDivLoss":
@@ -368,8 +374,15 @@ def train(args, device, train_set, metrics=None):
                 metric.evaluate(tmp_model, device, save_best=False, fraction=1.0)
                 metric.print_results()
                 f.write(f'{metric.loss_value[lname]}\t')
+                
         f.write('\t'.join([str(v) for v in vars(args).values()])+'\t')
         f.write(f'{str(epoch_list)}\n')
+
+    all_losses_dict = {}
+    for metric in metric_list:
+        for lname in loss_list:
+            all_losses_dict[f"{metric.name}_{lname}"] = metric.loss_value[lname]
+    wandb.log(all_losses_dict)
 
     return model
 
