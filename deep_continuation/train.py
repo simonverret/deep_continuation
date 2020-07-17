@@ -23,7 +23,7 @@ from deep_continuation import data
 from deep_continuation import utils
 
 import wandb
-wandb.init(project="mlp")
+wandb.init(project="mlp", entity="deep_continuation")
 
 
 TORCH_MAX = torch.finfo(torch.float64).max
@@ -340,6 +340,12 @@ def train(args, device, train_set, metrics=None):
                 metric.print_results()
                 metric.write_results(f)
             
+            all_losses_dict = {}
+            for metric in metric_list:
+                for lname in loss_list:
+                    all_losses_dict[f"{metric.name}_{lname}"] = metric.loss_value[lname]
+            wandb.log(all_losses_dict)
+
             f.write('\n')
             f.flush()
 
@@ -377,12 +383,6 @@ def train(args, device, train_set, metrics=None):
                 
         f.write('\t'.join([str(v) for v in vars(args).values()])+'\t')
         f.write(f'{str(epoch_list)}\n')
-
-    all_losses_dict = {}
-    for metric in metric_list:
-        for lname in loss_list:
-            all_losses_dict[f"{metric.name}_{lname}"] = metric.loss_value[lname]
-    wandb.log(all_losses_dict)
 
     return model
 
