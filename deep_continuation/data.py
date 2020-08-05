@@ -217,12 +217,16 @@ class DataGenerator():
         # Lorentzian-specific characteristics
         self.lorentz             = args.lorentz          # True or false flag for the use of Lorentzians instead of Gaussians
         self.lor_peaks           = int(1000)             # Number of Lorentzian peaks
-        self.lor_width           = 0.1                   # Width of Lorentzian peaks 
+        self.lor_width           = 0.5                   # Width of Lorentzian peaks 
         self.N_seg               = 8                     # The number of terms to include in the peak distribution functions
 
     def peak(self, omega, center=0, width=1, height=1):                                 # The sigma function is a sum of these peaks
         if self.lorentz:
-            return ((height/(np.pi * omega + SMALL)) * (width/( (omega-center)**2 + (width)**2) -  width/( (omega+center)**2 + (width)**2)))
+#            if omega == 0:
+#                return 4 * height * width * center / (np.pi * (center**2 + width**2)**2) 
+                # This is the limit of the else case for omega = 0, which must be dealt with separately to avoid errors involving zero
+#            else:
+                return ((height/(np.pi * omega + SMALL)) * (width/( (omega + SMALL -center)**2 + (width)**2) - width/( (omega + SMALL +center)**2 + (width)**2)))
             # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
             # centers in the denominator to cancel out the omega in the numerator of the integrand.
         else:
@@ -433,7 +437,7 @@ class DataGenerator():
         return unsummed.sum(axis=0)
 
     def debug(self,x): # A simple, non-randomizable function that is used to test whether the code is working. Should not be called normally
-        return x**2
+        return x
     # More center distribution functions to be added.
 
     def generate_gauss_batch(self, batch_size):
@@ -531,7 +535,8 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
             
             # initialization (center, width, height) of peaks
-            method = random.randint(0,10)
+            # method = random.randint(0,10)
+            method = -1
             if method == 0:
                 center = self.piecelin(np.linspace(0, self.w_max, self.lor_peaks))
             elif method == 1:
@@ -559,7 +564,7 @@ class DataGenerator():
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
             center -= center[0]
-            center += center[1]
+            #center += center[1]
             center *= self.w_max/center[-1] # Shift the vectors to make them strictly greater than zero, then rescale
             
             width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
@@ -659,7 +664,7 @@ class DataGenerator():
             ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
             ax[1,0].plot( self.wn_list, alpha[i] )
             if self.lorentz:
-                ax[0,1].plot( self.w_list , sig_of_w_array[i] * self.w_list)
+                ax[0,1].plot( self.w_list , sig_of_w_array[i])
             else:
                 ax[0,1].plot( self.w_list , sig_of_w_array[i] )
             ax[1,1].plot( self.w_list , s2avg[i] )
