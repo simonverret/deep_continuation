@@ -275,13 +275,11 @@ class DataGenerator():
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
-#            if omega == 0:
-#                return 4 * height * width * center / (np.pi * (center**2 + width**2)**2) 
-                # This is the limit of the else case for omega = 0, which must be dealt with separately to avoid errors involving zero
-#            else:
-                return ((height/(np.pi * omega + SMALL)) * (width/( (omega + SMALL -center)**2 + (width)**2) - width/( (omega + SMALL +center)**2 + (width)**2)))
+            return ((height/(np.pi * omega + SMALL)) * (width/( (omega-center)**2 + (width)**2) - width/( (omega+center)**2 + (width)**2))) + (omega == 0) * 4 * height * width * center / (np.pi * (center**2 + width**2)**2) 
             # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
             # centers in the denominator to cancel out the omega in the numerator of the integrand.
+            # The function will normally go to zero at 0 due to the subtraction of Lorentzians. This is undesirable behaviour, so the term at the 
+            # end will add in the correct value (found by taking the limit) in this specific case.
         else:
             out = 0
             # out += (type_m == 0) * lorentzian(omega, center, width, height)
@@ -610,8 +608,8 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
             
             # initialization (center, width, height) of peaks
-            # method = random.randint(0,10)
-            method = -1
+            method = random.randint(0,10)
+            # method = -1 # Comment out the previous line and uncomment this one for debug mode
             if method == 0:
                 center = self.piecelin(np.linspace(0, self.w_max, self.lor_peaks))
             elif method == 1:
