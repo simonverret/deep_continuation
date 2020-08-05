@@ -222,7 +222,7 @@ def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
     return out
 
 
-def peak_sum(omega, c, w, h, m, n):
+def peak_sum(x, c, w, h, m, n):
         return peak(
             x[np.newaxis, :],
             c[:, np.newaxis],
