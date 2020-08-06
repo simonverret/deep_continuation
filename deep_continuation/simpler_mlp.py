@@ -13,12 +13,12 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import data
 import utils
-import wandb
+#import wandb
 
 TORCH_MAX = torch.finfo(torch.float64).max
 
 
-wandb.init(project="simpler_mlp", entity="deep_continuation")
+#wandb.init(project="simpler_mlp", entity="deep_continuation")
 
 
 class MLP(nn.Module):
@@ -166,7 +166,7 @@ valid_loader = DataLoader(
 
 model = MLP(args).to(device)
 model.apply(init_weights)
-wandb.watch(model)
+#wandb.watch(model)
 optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 criterion = nn.MSELoss()
 
@@ -219,10 +219,10 @@ for epoch in range(1, args.epochs+1):
     print(f'   validation loss: {avg_valid_loss:.9f}')
 
     model.eval()
-    wandb.log({
-        "train loss": avg_train_loss,
-        "valid loss": avg_valid_loss
-    })
+    # wandb.log({
+    #     "train loss": avg_train_loss,
+    #     "valid loss": avg_valid_loss
+    # })
 
     scheduler.step(avg_train_loss)
     

@@ -491,8 +491,31 @@ class DataGenerator():
         unsummed = logmat * np.transpose(np.tile(A,(len(x),1))) # Multiply all the arguments by their coefficients
         return unsummed.sum(axis=0)
 
-    def debug(self,x): # A simple, non-randomizable function that is used to test whether the code is working. Should not be called normally
-        return x
+    def debug(self,v): # A simple, non-randomizable function that is used to test whether the code is working. Should not be called normally
+        angles = np.random.choice([0.01, 1.54], size=self.N_seg) # Generates a list of random angles of length N_seg either slightly above 0 or slightly below pi/2.
+        sines = np.sin(angles)
+        cosines = np.cos(angles) # Two lists, one of the sines of the angles, one of the cosines.
+        x_list = np.cumsum(cosines) # The x-coordinates of the connection points between line segments. Each is the previous x-value plus the cosine of the current angle.
+        x_list *= 1.1*self.w_max/x_list[-1] # Resize the x-coordinates so all the peaks fit inside
+        y_list = np.cumsum(sines) # The y-coordinates of the connection points between line segments
+        x_list = np.insert(x_list,0,0)
+        y_list = np.insert(y_list,0,0) # We add (0,0) to the beginning of the list of endpoints
+        x_lower = np.zeros(len(v))
+        y_lower = np.zeros(len(v))
+        x_upper = np.zeros(len(v))
+        y_upper = np.zeros(len(v)) # Initialized vectors that will store the endpoints of the line segment each input point is on
+        for i in range(len(v)):
+            # For each value in the vector v, this for-loop will find the x and y coordinates of the endpoints to either side of it.
+            # In other words, these lists determine which line segment each point is located on.
+            x_lower[i] = np.max(x_list[x_list <= v[i]])
+            y_lower[i] = np.max(y_list[x_list <= v[i]])
+            x_upper[i] = np.min(x_list[x_list > v[i]])
+            y_upper[i] = np.min(y_list[x_list > v[i]])
+        x_diffs = x_upper - x_lower
+        y_diffs = y_upper - y_lower
+        slopes = y_diffs/x_diffs # These three lines find the slope of the line segment each point exists on
+        return slopes*v + y_lower - slopes*x_lower # This outputs the heights of the piecewise function at each point. 
+                                                   # This is derived from expressing the line segment in point-slope form.
     # More center distribution functions to be added.
 
     def generate_gauss_batch(self, batch_size):
@@ -636,12 +659,14 @@ class DataGenerator():
                 center = self.debug(np.linspace(0, self.w_max, self.lor_peaks)) # Used for debugging, should not normally be called
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
-            center -= center[0]
-            #center += center[1]
+            center -= center[0] # Moves the centres so the leftmost one is at zero
+            center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size = 1))]) # Has a fifty-fifty chance of giving no offset or
+            # offsetting the centres to the right by a random amount, normally distributed with a mean of 0 and standard deviation of w_max/8
             center *= self.w_max/center[-1] # Shift the vectors to make them strictly greater than zero, then rescale
             
             width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
-            height = np.ones(self.lor_peaks) # All peaks have the same height.
+            height = abs(center) + 0.05 # Have the heights equal to the center positions so the higher-frequency features don't disappear.
+            # The constant term prevents them from vanishing at zero.
 
             #normalize
             if self.normalize:
@@ -657,10 +682,10 @@ class DataGenerator():
                                 ).sum(axis=0)
 
             pi_of_wn_array[i] = self.lor_pi(
-                                self.wn_list[ np.newaxis,: ],
-                                center[ :, np.newaxis ], 
-                                height[ :, np.newaxis ],
-                                width[ :, np.newaxis  ]
+                                    self.wn_list[ np.newaxis,: ],
+                                    center[ :, np.newaxis ], 
+                                    height[ :, np.newaxis ],
+                                    width[ :, np.newaxis  ]
                                 ).sum(axis=0)
 
             # TODO: Modify the squareroot and cuberoot sampling for the Lorentzian case
