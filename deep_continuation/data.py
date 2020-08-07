@@ -269,9 +269,10 @@ class DataGenerator():
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
         # Lorentzian-specific characteristics
         self.lorentz             = args.lorentz          # True or false flag for the use of Lorentzians instead of Gaussians
-        self.lor_peaks           = int(1000)             # Number of Lorentzian peaks
-        self.lor_width           = 0.5                   # Width of Lorentzian peaks 
-        self.N_seg               = 8                     # The number of terms to include in the peak distribution functions
+        self.lor_peaks           = args.lor_peaks        # Number of Lorentzian peaks
+        self.lor_width           = args.lor_width        # Width of Lorentzian peaks 
+        self.N_seg               = args.N_seg            # The number of terms to include in the peak distribution functions
+        self.center_method       = args.center_method    # The center distribution function to use
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
@@ -631,32 +632,36 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
             
             # initialization (center, width, height) of peaks
-            method = random.randint(0,10)
-            # method = -1 # Comment out the previous line and uncomment this one for debug mode
+            if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
+                method = random.randint(1,11)       # Otherwise, center_method can be used to specify the centre distribution function to use
+            else:
+                method = self.center_method
+            
             if method == 0:
-                center = self.piecelin(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 1:
-                center = self.softp(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 2:
-                center = self.arctsum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 3:
-                center = self.erfsum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 4:
-                center = self.arssum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 5:
-                center = self.rootsum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 6:
-                center = self.exparsinh(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 7:
-                center = self.exparctan(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 8:
-                center = self.arssoft(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 9:
-                center = self.tanerf(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 10:
-                center = self.logarc(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == -1:
                 center = self.debug(np.linspace(0, self.w_max, self.lor_peaks)) # Used for debugging, should not normally be called
+            elif method == 1:
+                center = self.piecelin(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 2:
+                center = self.softp(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 3:
+                center = self.arctsum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 4:
+                center = self.erfsum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 5:
+                center = self.arssum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 6:
+                center = self.rootsum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 7:
+                center = self.exparsinh(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 8:
+                center = self.exparctan(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 9:
+                center = self.arssoft(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 10:
+                center = self.tanerf(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 11:
+                center = self.logarc(np.linspace(0, self.w_max, self.lor_peaks))
+            
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
             center -= center[0] # Moves the centres so the leftmost one is at zero
@@ -815,6 +820,10 @@ if __name__ == '__main__':
         'drude_width'  : [.02, .1],
         'peak_pos'     : [.2 , .8],
         'peak_width'   : [.05, .1],
+        'lor_peaks'    : int(1000),
+        'lor_width'    : 0.50,
+        'N_seg'        : 8,
+        'center_method': -1,
         'seed'         : int(time.time())
     }
     args = utils.parse_file_and_command(default_args, {})
