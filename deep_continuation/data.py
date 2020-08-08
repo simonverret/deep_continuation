@@ -276,7 +276,7 @@ class DataGenerator():
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
-            return ((height/(np.pi * omega + SMALL)) * (width/( (omega-center)**2 + (width)**2) - width/( (omega+center)**2 + (width)**2))) + (omega == 0) * 4 * height * width * center / (np.pi * (center**2 + width**2)**2) 
+            return 4 * center * width * height/(np.pi * ((omega-center)**2 + width**2) * ((omega+center)**2 + width**2))
             # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
             # centers in the denominator to cancel out the omega in the numerator of the integrand.
             # The function will normally go to zero at 0 due to the subtraction of Lorentzians. This is undesirable behaviour, so the term at the 
