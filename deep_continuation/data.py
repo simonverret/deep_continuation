@@ -273,6 +273,7 @@ class DataGenerator():
         self.lor_width           = args.lor_width        # Width of Lorentzian peaks 
         self.N_seg               = args.N_seg            # The number of terms to include in the peak distribution functions
         self.center_method       = args.center_method    # The center distribution function to use
+        self.remove_nonphysical  = args.remove_nonphysical # Excludes centre distribution functions that produce less desirable sigma functions
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
@@ -633,9 +634,12 @@ class DataGenerator():
             
             # initialization (center, width, height) of peaks
             if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
-                method = random.randint(1,11)       # Otherwise, center_method can be used to specify the centre distribution function to use
+                if self.remove_nonphysical == True:
+                    method = random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
+                else
+                    method = random.randint(1,11)   # Includes all centre distribution functions
             else:
-                method = self.center_method
+                method = self.center_method         # Otherwise, center_method can be used to specify the centre distribution function to use
             
             if method == 0:
                 center = self.debug(np.linspace(0, self.w_max, self.lor_peaks)) # Used for debugging, should not normally be called
@@ -646,21 +650,21 @@ class DataGenerator():
             elif method == 3:
                 center = self.arctsum(np.linspace(0, self.w_max, self.lor_peaks))
             elif method == 4:
-                center = self.erfsum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 5:
-                center = self.arssum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 6:
-                center = self.rootsum(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 7:
                 center = self.exparsinh(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 8:
+            elif method == 5:
                 center = self.exparctan(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 9:
+            elif method == 6:
                 center = self.arssoft(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 10:
+            elif method == 7:
                 center = self.tanerf(np.linspace(0, self.w_max, self.lor_peaks))
-            elif method == 11:
+            elif method == 8:
                 center = self.logarc(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 9:
+                center = self.erfsum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 10:
+                center = self.arssum(np.linspace(0, self.w_max, self.lor_peaks))
+            elif method == 11:
+                center = self.rootsum(np.linspace(0, self.w_max, self.lor_peaks))
             
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
@@ -824,6 +828,7 @@ if __name__ == '__main__':
         'lor_width'    : 0.50,
         'N_seg'        : 8,
         'center_method': -1,
+        'remove_nonphysical': False,
         'seed'         : int(time.time())
     }
     args = utils.parse_file_and_command(default_args, {})
