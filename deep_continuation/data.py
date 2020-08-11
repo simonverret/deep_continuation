@@ -636,7 +636,7 @@ class DataGenerator():
             if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
                 if self.remove_nonphysical == True:
                     method = random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
-                else
+                else:
                     method = random.randint(1,11)   # Includes all centre distribution functions
             else:
                 method = self.center_method         # Otherwise, center_method can be used to specify the centre distribution function to use
@@ -824,8 +824,8 @@ if __name__ == '__main__':
         'drude_width'  : [.02, .1],
         'peak_pos'     : [.2 , .8],
         'peak_width'   : [.05, .1],
-        'lor_peaks'    : int(1000),
-        'lor_width'    : 0.50,
+        'lor_peaks'    : int(1000000),
+        'lor_width'    : 0.001,
         'N_seg'        : 8,
         'center_method': -1,
         'remove_nonphysical': False,
