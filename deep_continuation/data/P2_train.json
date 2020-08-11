@@ -2,7 +2,7 @@
     "test"         : false,
     "plot"         : 10,
     "generate"     : 0,
-    "path"         : "data/P1/train/",
+    "path"         : "data/P2/train/",
     "normalize"    : true,
     "in_size"      : 128,
     "out_size"     : 512,

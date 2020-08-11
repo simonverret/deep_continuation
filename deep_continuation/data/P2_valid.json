@@ -2,7 +2,7 @@
     "test"         : false,
     "plot"         : 10,
     "generate"     : 0,
-    "path"         : "data/P1/valid/",
+    "path"         : "data/P2/valid/",
     "normalize"    : true,
     "in_size"      : 128,
     "out_size"     : 512,
