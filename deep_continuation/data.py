@@ -639,22 +639,16 @@ if __name__ == '__main__':
     pi_path = args.path+'Pi.csv'
 
     
+    generator = DataGenerator(args)
+    
     if not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
-        print(args.generate)
-        generator = DataGenerator(args)
-        
+        print("generating",args.generate)
+
         if args.generate > 0:
             os.makedirs(args.path, exist_ok=True)
             generator.generate_dataset(N=args.generate, path=args.path)
             if args.plot > 0:
                 print('WARNING: examples printed are not part of the dataset')
-
-        if args.plot > 0:
-            if args.lorentz:
-                pi, sigma, sigma2, sigma3 = generator.generate_lorentz_batch(batch_size=args.plot)
-            else:
-                pi, sigma, sigma2, sigma3 = generator.generate_gauss_batch(batch_size=args.plot)
-            generator.plot(pi, sigma, sigma2, sigma3)
 
     else:
         if args.generate > 0:
@@ -663,9 +657,12 @@ if __name__ == '__main__':
         #%% test dataset with ContinuationData
         my_dataset = ContinuationData(args.path, normalize=args.normalize)
 
-        if args.plot > 0:
-            my_dataset.plot(args.plot)
-        
+    if args.plot > 0:
+        if args.lorentz:
+            pi, sigma, sigma2, sigma3 = generator.generate_lorentz_batch(batch_size=args.plot)
+        else:
+            pi, sigma, sigma2, sigma3 = generator.generate_gauss_batch(batch_size=args.plot)
+        generator.plot(pi, sigma, sigma2, sigma3)
 
 
     if args.test:
