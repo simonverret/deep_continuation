@@ -6,13 +6,19 @@
 #   Reza Nourafkan
 #   Andre-Marie Tremablay
 #
+import os
 import time
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import wandb
+
+try:
+    import wandb
+    use_wandb = True
+except ModuleNotFoundError:
+    use_wandb = False
 
 from deep_continuation import data
 from deep_continuation import utils
@@ -123,7 +129,10 @@ def main():
     '''
     args = utils.parse_file_and_command(default_parameters, help_strings)
 
-    wandb.init(project="simpler_mlp", entity="deep_continuation")
+    if use_wandb: 
+        wandb.init(project="simpler_mlp", entity="deep_continuation")
+        wandb.config.update(args)
+        wandb.save("*.pt")  # will sync .pt files as they are saved
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -166,7 +175,8 @@ def main():
 
     model = MLP(args).to(device)
     model.apply(init_weights)
-    wandb.watch(model)
+    if use_wandb: 
+        wandb.watch(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     criterion = nn.MSELoss()
 
@@ -219,14 +229,22 @@ def main():
         print(f'   validation loss: {avg_valid_loss:.9f}')
 
         model.eval()
-        wandb.log({
-            "train loss": avg_train_loss,
-            "valid loss": avg_valid_loss
-        })
+        if use_wandb: 
+            wandb.log({
+                "epoch":epoch,
+                "train loss": avg_train_loss,
+                "valid loss": avg_valid_loss
+            })
 
         scheduler.step(avg_train_loss)
         
         if avg_valid_loss < best:
+            if use_wandb: 
+                torch.save(model.state_dict(), os.path.join(wandb.run.dir, "best_weights.pt"))
+                wandb.run.summary["train loss"] = avg_train_loss
+                wandb.run.summary["valid loss"] = avg_valid_loss
+            else:
+                torch.save(os.path.join("results", "simpler_mlp_latest_weights.pt"))
             early_stop_count = args.stop
             best = avg_valid_loss
         else: 
@@ -235,7 +253,6 @@ def main():
             print('early stopping limit reached!!')
             break
 
-    torch.save(model.state_dict(), f'results/last_simpler_mlp.pt')
 
 if __name__ == "__main__":
     main()

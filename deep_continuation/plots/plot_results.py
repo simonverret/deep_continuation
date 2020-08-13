@@ -19,17 +19,13 @@ from deep_continuation.simpler_mlp import MLP, default_parameters
 from deep_continuation import data
 from deep_continuation import utils
 
-try: filename = sys.argv[1]
-except IndexError: raise IndexError('provide the filename as first argument')
-
-#%%
+# try: filename = sys.argv[1]
+# except IndexError: raise IndexError('provide the filename as first argument')
 filename = 'results/last_simpler_mlp.pt'
 args = utils.ObjectView(default_parameters)
 
 try: datafile = sys.argv[2]
-except IndexError: dataset = args.data
-
-print(datafile)
+except IndexError: datafile = args.data
 
 try: number = int(sys.argv[3])
 except: number = 1
@@ -51,6 +47,10 @@ ax3.set_xticklabels([])
 
 start=np.random.randint(0,100)
 
+criterion = torch.nn.MSELoss()
+criterion = torch.nn.MSELoss()
+
+
 end=start+number
 for ii in range(start,end):
     x = torch.tensor(dataset[ii][0]).float()
@@ -67,8 +67,9 @@ for ii in range(start,end):
     ax3.set_title('NN output (real freqs)',loc='right', pad=-12)
 
     e = y-t
+    mse = criterion(y,t)
     ax4.plot(e.detach().numpy())
-    ax4.set_title(f'difference (MSE={np.sum(e.detach().numpy()**2)})',loc='right', pad=(-12),)
+    ax4.set_title(f'difference (MSE={mse})',loc='right', pad=(-12),)
     ax4.set_xlabel('w')
 
 plt.show()
