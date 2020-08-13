@@ -34,7 +34,7 @@ rcParams['text.latex.preamble'] = [
         r'\usepackage{amssym}',
     ]
 
-import utils
+from deep_continuation import utils
 
 
 np.set_printoptions(precision=4)
@@ -635,9 +635,9 @@ class DataGenerator():
             # initialization (center, width, height) of peaks
             if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
                 if self.remove_nonphysical == True:
-                    method = random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
+                    method = np.random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
                 else:
-                    method = random.randint(1,11)   # Includes all centre distribution functions
+                    method = np.random.randint(1,11)   # Includes all centre distribution functions
             else:
                 method = self.center_method         # Otherwise, center_method can be used to specify the centre distribution function to use
             
