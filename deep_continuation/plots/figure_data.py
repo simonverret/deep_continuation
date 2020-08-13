@@ -9,15 +9,15 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import data
+from deep_continuation import data
 
 noise = 0.0
 pdf_name = 'dataset_noise00.pdf'
 
-dataset1 = data.ContinuationData(f'data/G1/valid/', noise=noise)
-dataset2 = data.ContinuationData(f'data/G2/valid/', noise=noise)
-dataset3 = data.ContinuationData(f'data/G3/valid/', noise=noise)
-dataset4 = data.ContinuationData(f'data/G4/valid/', noise=noise)
+dataset1 = data.ContinuationData(f'../data/G1/valid/', noise=noise)
+dataset2 = data.ContinuationData(f'../data/P1/valid/', noise=noise)
+dataset3 = data.ContinuationData(f'../data/P2/valid/', noise=noise)
+dataset4 = data.ContinuationData(f'../data/G4/valid/', noise=noise)
 
 fig, ax = plt.subplots(4, 2, figsize=[6,5])
 

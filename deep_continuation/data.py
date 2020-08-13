@@ -34,7 +34,7 @@ rcParams['text.latex.preamble'] = [
         r'\usepackage{amssym}',
     ]
 
-import utils
+from deep_continuation import utils
 
 
 np.set_printoptions(precision=4)
@@ -666,9 +666,6 @@ class DataGenerator():
             elif method == 11:
                 center = self.rootsum(np.linspace(0, self.w_max, self.lor_peaks))
             
-            # plt.plot(center)
-            # plt.show()
-
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
             center -= center[0] # Moves the centres so the leftmost one is at zero

@@ -9,36 +9,27 @@
 #%%
 import sys
 import re
+import json
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import json
-from deep_continuation.train import MLP
-import data
-import utils
 
-
+from deep_continuation.simpler_mlp import MLP, default_parameters
+from deep_continuation import data
+from deep_continuation import utils
 
 try: filename = sys.argv[1]
 except IndexError: raise IndexError('provide the filename as first argument')
 
-
-
-
-
 #%%
-
-filename = 'results_beluga/deep_cont_20200227-id5933377/results/BEST_G1bse/mse0.001726982_epoch999_mlp128-588-128-418-446-223-512_MSELoss_G1n0.0_bs479_lr2e-05_wd0_0_None_wup_sch0.083-9.pt'
-location = filename.split("BEST_", 1)[0]
-name = filename.split("mlp", 1)[1].strip('.pt')
-params_file = f'{location}params_mlp{name}.json'
-
-with open(params_file) as f:
-    params = json.load(f)
-args = utils.ObjectView(params)
+filename = 'results/last_simpler_mlp.pt'
+args = utils.ObjectView(default_parameters)
 
 try: datafile = sys.argv[2]
 except IndexError: dataset = args.data
+
+print(datafile)
 
 try: number = int(sys.argv[3])
 except: number = 1
@@ -77,7 +68,7 @@ for ii in range(start,end):
 
     e = y-t
     ax4.plot(e.detach().numpy())
-    ax4.set_title('difference',loc='right', pad=(-12),)
+    ax4.set_title(f'difference (MSE={np.sum(e.detach().numpy()**2)})',loc='right', pad=(-12),)
     ax4.set_xlabel('w')
 
 plt.show()
