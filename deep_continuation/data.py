@@ -34,8 +34,8 @@ rcParams['text.latex.preamble'] = [
         r'\usepackage{amssym}',
     ]
 
-import utils
 import monotonous_functions as monofunc
+from deep_continuation import utils
 
 
 np.set_printoptions(precision=4)
@@ -270,15 +270,19 @@ class DataGenerator():
         self.peak_width_range    = np.array(args.peak_width)*args.w_max
         # Lorentzian-specific characteristics
         self.lorentz             = args.lorentz          # True or false flag for the use of Lorentzians instead of Gaussians
-        self.lor_peaks           = int(1000)             # Number of Lorentzian peaks
-        self.lor_width           = 0.1                   # Width of Lorentzian peaks 
-        self.N_seg               = 8                     # The number of terms to include in the peak distribution functions
+        self.lor_peaks           = args.lor_peaks        # Number of Lorentzian peaks
+        self.lor_width           = args.lor_width        # Width of Lorentzian peaks 
+        self.N_seg               = args.N_seg            # The number of terms to include in the peak distribution functions
+        self.center_method       = args.center_method    # The center distribution function to use
+        self.remove_nonphysical  = args.remove_nonphysical # Excludes centre distribution functions that produce less desirable sigma functions
 
     def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
         if self.lorentz:
-            return ((height/(np.pi * omega + SMALL)) * (width/( (omega-center)**2 + (width)**2) -  width/( (omega+center)**2 + (width)**2)))
+            return 4 * center * width * height/(np.pi * ((omega-center)**2 + width**2) * ((omega+center)**2 + width**2))
             # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
             # centers in the denominator to cancel out the omega in the numerator of the integrand.
+            # The function will normally go to zero at 0 due to the subtraction of Lorentzians. This is undesirable behaviour, so the term at the 
+            # end will add in the correct value (found by taking the limit) in this specific case.
         else:
             out = 0
             # out += (type_m == 0) * lorentzian(omega, center, width, height)
@@ -430,7 +434,14 @@ class DataGenerator():
             if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
             
             # initialization (center, width, height) of peaks
-            method = random.randint(0,10)
+            if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
+                if self.remove_nonphysical == True:
+                    method = np.random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
+                else:
+                    method = np.random.randint(1,11)   # Includes all centre distribution functions
+            else:
+                method = self.center_method         # Otherwise, center_method can be used to specify the centre distribution function to use
+            
             if method == 0:
                 center = monofunc.piecelin(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
             elif method == 1:
@@ -457,12 +468,14 @@ class DataGenerator():
                 center = monofunc.debug(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg) # Used for debugging, should not normally be called
             # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
             # As more center distribution functions get completed, will need to add calls for them here.
-            center -= center[0]
-            center += center[1]
+            center -= center[0] # Moves the centres so the leftmost one is at zero
+            center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size = 1))]) # Has a fifty-fifty chance of giving no offset or
+            # offsetting the centres to the right by a random amount, normally distributed with a mean of 0 and standard deviation of w_max/8
             center *= self.w_max/center[-1] # Shift the vectors to make them strictly greater than zero, then rescale
             
             width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
-            height = np.ones(self.lor_peaks) # All peaks have the same height.
+            height = abs(center) + 0.05 # Have the heights equal to the center positions so the higher-frequency features don't disappear.
+            # The constant term prevents them from vanishing at zero.
 
             #normalize
             if self.normalize:
@@ -478,10 +491,10 @@ class DataGenerator():
                                 ).sum(axis=0)
 
             pi_of_wn_array[i] = self.lor_pi(
-                                self.wn_list[ np.newaxis,: ],
-                                center[ :, np.newaxis ], 
-                                height[ :, np.newaxis ],
-                                width[ :, np.newaxis  ]
+                                    self.wn_list[ np.newaxis,: ],
+                                    center[ :, np.newaxis ], 
+                                    height[ :, np.newaxis ],
+                                    width[ :, np.newaxis  ]
                                 ).sum(axis=0)
 
             # TODO: Modify the squareroot and cuberoot sampling for the Lorentzian case
@@ -558,7 +571,7 @@ class DataGenerator():
             ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
             ax[1,0].plot( self.wn_list, alpha[i] )
             if self.lorentz:
-                ax[0,1].plot( self.w_list , sig_of_w_array[i] * self.w_list)
+                ax[0,1].plot( self.w_list , sig_of_w_array[i])
             else:
                 ax[0,1].plot( self.w_list , sig_of_w_array[i] )
             ax[1,1].plot( self.w_list , s2avg[i] )
@@ -611,6 +624,11 @@ if __name__ == '__main__':
         'drude_width'  : [.02, .1],
         'peak_pos'     : [.2 , .8],
         'peak_width'   : [.05, .1],
+        'lor_peaks'    : int(1000000),
+        'lor_width'    : 0.001,
+        'N_seg'        : 8,
+        'center_method': -1,
+        'remove_nonphysical': False,
         'seed'         : int(time.time())
     }
     args = utils.parse_file_and_command(default_args, {})
