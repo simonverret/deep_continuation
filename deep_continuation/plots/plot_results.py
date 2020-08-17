@@ -14,6 +14,7 @@ import json
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import wandb
 
 from deep_continuation.simpler_mlp import MLP, default_parameters
 from deep_continuation import data
@@ -21,7 +22,9 @@ from deep_continuation import utils
 
 # try: filename = sys.argv[1]
 # except IndexError: raise IndexError('provide the filename as first argument')
-filename = 'results/last_simpler_mlp.pt'
+
+
+weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/simpler_mlp/9lwvg3ub")
 args = utils.ObjectView(default_parameters)
 
 try: datafile = sys.argv[2]
@@ -33,7 +36,7 @@ except: number = 1
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
-mlp.load_state_dict(torch.load(filename))
+mlp.load_state_dict(torch.load(weights_file.name))
 mlp.eval()
 
 ## RELOAD THE DATA

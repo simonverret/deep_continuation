@@ -34,7 +34,7 @@ rcParams['text.latex.preamble'] = [
         r'\usepackage{amssym}',
     ]
 
-import monotonous_functions as monofunc
+from deep_continuation import monotonous_functions as monofunc
 from deep_continuation import utils
 
 
