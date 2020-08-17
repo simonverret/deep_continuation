@@ -23,15 +23,26 @@ from deep_continuation import utils
 # try: filename = sys.argv[1]
 # except IndexError: raise IndexError('provide the filename as first argument')
 
-
-weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/simpler_mlp/9lwvg3ub")
 args = utils.ObjectView(default_parameters)
+
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/yvmgqz69")  # G1
+weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/wx4re7kd")  # G1
+args.data = "G1"
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/2k6y30k8")  # P1
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/sigcg270")  # P1
+# args.data = "P1"
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/3c68phvh")  # P2
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/2xvfxwlw")  # P2
+# args.data = "P2"
+# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/9omya0ju")  # B1
+# args.data = "B1"
+
 
 try: datafile = sys.argv[2]
 except IndexError: datafile = args.data
 
 try: number = int(sys.argv[3])
-except: number = 1
+except: number = 3
 
 
 ## IMPORT THE MODEL

@@ -350,8 +350,6 @@ class DataGenerator():
                 m = np.ones(num_peak)
                 n = np.ones(num_peak)
 
-            print(m, n)
-
             # Drude peaks adjustments
             c[:num_drude]  = 0.0 # The first num_drude peaks are put at 0
             w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0]) # The ranges of the widths and heights are adjusted to their proper values

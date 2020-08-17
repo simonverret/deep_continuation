@@ -40,7 +40,9 @@ default_parameters = {
         512
     ],
     'lr': 0.0008,
+    'initw': True,
     'stop': 40,
+    'warmup': True,
     'schedule': True,
     'factor': 0.4,
     'patience': 6,
@@ -130,7 +132,7 @@ def main():
     args = utils.parse_file_and_command(default_parameters, help_strings)
 
     if use_wandb: 
-        wandb.init(project="simpler_mlp", entity="deep_continuation")
+        wandb.init(project="nrm_smpl_mlp", entity="deep_continuation")
         wandb.config.update(args)
         wandb.save("*.pt")  # will sync .pt files as they are saved
 
@@ -174,7 +176,8 @@ def main():
 
 
     model = MLP(args).to(device)
-    model.apply(init_weights)
+    if args.initw:
+        model.apply(init_weights)
     if use_wandb: 
         wandb.watch(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -197,7 +200,15 @@ def main():
         model.train()
         avg_train_loss = 0
         train_n_iter = 0
+        
+        if args.warmup and epoch==1:
+            print('   linear warm-up of learning rate')
         for batch_number, (inputs, targets) in enumerate(train_loader):
+            if args.warmup and epoch==1:
+                tmp_lr = (batch_number+1)*args.lr/len(train_loader)
+                for g in optimizer.param_groups:
+                    g['lr'] = tmp_lr
+
             inputs = inputs.to(device).float()
             targets = targets.to(device).float()
 
