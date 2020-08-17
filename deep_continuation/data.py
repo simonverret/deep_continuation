@@ -672,15 +672,18 @@ class DataGenerator():
             center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size = 1))]) # Has a fifty-fifty chance of giving no offset or
             # offsetting the centres to the right by a random amount, normally distributed with a mean of 0 and standard deviation of w_max/8
             center *= self.w_max/center[-1] # Shift the vectors to make them strictly greater than zero, then rescale
+
+            constant = 0.05
             
             width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
-            height = abs(center) + 0.05 # Have the heights equal to the center positions so the higher-frequency features don't disappear.
+            height = abs(center) + constant # Have the heights equal to the center positions so the higher-frequency features don't disappear.
             # The constant term prevents them from vanishing at zero.
 
             #normalize
             if self.normalize:
-                height /= height.sum(axis=-1, keepdims=True) # -1 index is the last index
-            # height *= self.Pi0 * np.pi # Normalizing to something other than 1 (Pi0)
+                normalizer_vector = 2 * height * center / (center**2 + width**2) # This stores the area under each Lorentzian curve
+                height /= normalizer_vector.sum(axis=-1, keepdims=True) # -1 index is the last index
+            height *= self.Pi0 
 
             # sample real spectrum (training targets)
             sig_of_w_array[i] = self.peak(
@@ -824,8 +827,8 @@ if __name__ == '__main__':
         'drude_width'  : [.02, .1],
         'peak_pos'     : [.2 , .8],
         'peak_width'   : [.05, .1],
-        'lor_peaks'    : int(1000000),
-        'lor_width'    : 0.001,
+        'lor_peaks'    : int(1000),
+        'lor_width'    : 0.05,
         'N_seg'        : 8,
         'center_method': -1,
         'remove_nonphysical': False,
