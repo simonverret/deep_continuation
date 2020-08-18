@@ -30,6 +30,7 @@ default_parameters = {
     'data': 'P1',
     'noise': 0.00,
     'loss': 'MSELoss',
+    'smoothing':1.0,
     'batch_size': 300,
     'epochs': 500,
     'layers': [
@@ -102,8 +103,7 @@ def mse(outputs, targets):
 
 def mse_with_smoothing(outputs, targets, factor=1):
     ''' mean square error '''
-    roughness = outputs[]
-    return torch.mean((outputs-targets)**2 - factor*torch.abs(outputs[:,1:]-outputs[:,:-1]))
+    return torch.mean((outputs-targets)**2) + torch.mean(factor*torch.abs(outputs[:,1:]-outputs[:,:-1]))
 
 def dc_error(outputs, targets):
     ''' computes the 0th component difference (DC conductivity)'''
@@ -179,6 +179,7 @@ def main():
     if use_wandb: 
         wandb.watch(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+    train_criterion = lambda outputs,targets: mse_with_smoothing(outputs, targets, factor=args.smoothing)
     criterion = nn.MSELoss()
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -194,6 +195,7 @@ def main():
     best = TORCH_MAX
     for epoch in range(1, args.epochs+1):
         print(f' epoch {epoch}')
+
 
         model.train()
         avg_train_loss = 0
@@ -212,7 +214,7 @@ def main():
 
             optimizer.zero_grad()
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            loss = train_criterion(outputs, targets)
             loss.backward()
             optimizer.step()
 

@@ -23,29 +23,16 @@ from deep_continuation import utils
 # try: filename = sys.argv[1]
 # except IndexError: raise IndexError('provide the filename as first argument')
 
-args = utils.ObjectView(default_parameters)
-
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/yvmgqz69")  # G1
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/wx4re7kd")  # G1
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/2nua2bnd")  # G1
-# args.data = "G1"
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/2k6y30k8")  # P1
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/sigcg270")  # P1
-# args.data = "P1"
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/3c68phvh")  # P2
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/2xvfxwlw")  # P2
-# args.data = "P2"
-# weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/9omya0ju")  # B1
-weights_file = wandb.restore('best_weights.pt', run_path="deep_continuation/nrm_smpl_mlp/1emd0x4v")  # B1
-args.data = "B1"
-
-
-try: datafile = sys.argv[2]
-except IndexError: datafile = args.data
+try: run_name = sys.argv[1]
+except IndexError: print('requires a wandb run name as first arg, ex: 2k6y30k8')
 
 try: number = int(sys.argv[3])
 except: number = 3
 
+api = wandb.Api()
+run = api.run(f"deep_continuation/nrm_smpl_mlp/{run_name}")
+args = utils.ObjectView(run.config)
+weights_file = wandb.restore('best_weights.pt', run_path=f"deep_continuation/nrm_smpl_mlp/{run_name}")  # B1
 
 ## IMPORT THE MODEL
 mlp = MLP(args)
@@ -53,7 +40,7 @@ mlp.load_state_dict(torch.load(weights_file.name))
 mlp.eval()
 
 ## RELOAD THE DATA
-dataset = data.ContinuationData(f'data/{datafile}/valid/', noise=0.0)
+dataset = data.ContinuationData(f'data/{args.data}/train/', noise=0.0)
 
 ## PLOT RANDOM DATA
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=[4,8])
