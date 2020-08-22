@@ -41,48 +41,93 @@ def peak_sum(x, c, w, h, m, n):
         n = n[:, np.newaxis]
     return peak(x, c, w, h, m, n).sum(axis=0)
 
-def sigma(x):
-    c = np.array([-4,-2,0,2,4])
-    w = np.array([1,1,0.2,1,1])
-    h = np.array([0.15,0.25,0.3,0.25,0.15])
-    m = np.array([1,9,1,9,1])
-    n = np.array([0,7,0,2,0])
-    return peak_sum(x, c, w, h, m, n)
 
-def pi_integral(num_wn, spectral_func, beta):
+def pi_integral(num_wn, spectral_func, beta, wmax=10, N=2048, power=7):
     omega_n = (2*np.pi/beta) * np.arange(0,num_wn)
-    omega = np.linspace(-10,10,1000)
+    center = np.linspace(-wmax,wmax,N)
+    tail = np.logspace(np.log10(wmax), power, N//2)
+    omega = np.concatenate([-np.flip(tail)[:-1], center, tail[1:]]) 
     w_grid, wn_grid = np.meshgrid(omega, omega_n)
 
     integrand = (1/np.pi) * w_grid**2 * spectral_func(w_grid) / (w_grid**2+wn_grid**2)
     integral = integrate.simps( integrand, w_grid, axis=-1)
     return integral
 
-def tail_integral(spectral_func):
-    w_grid = np.linspace(-10,10,1000)
+
+def tail_integral(spectral_func, wmax=10, N=2048, power=7):
+    center = np.linspace(-wmax,wmax,N)
+    tail = np.logspace(np.log10(wmax), power, N//2)
+    w_grid = np.concatenate([-np.flip(tail)[:-1], center, tail[1:]]) 
+
     integrand = (1/np.pi) * w_grid**2 * spectral_func(w_grid)
     integral = integrate.simps( integrand, w_grid, axis=-1)
-    return round(integral,3)
+    return integral
 
-fac=3
-def sigma2(x): return fac*sigma(fac*x)
+
+def sigma1(x):
+    c = np.array([-3,-2,0,2,3])
+    w = np.array([1,0.6,0.2,0.6,1])
+    h = np.array([0.15,0.25,0.3,0.25,0.15])
+    m = np.array([1,9,1,9,1])
+    n = np.array([0,7,0,2,0])
+    return peak_sum(x, c, w, h, m, n)
+
+
 N_wn = 20
-beta = 10
-beta2 = fac*beta
+fac=2
+
+def sigma2(x): return fac*sigma1(fac*x)
+def sigma3(x): return sigma1(x/fac)/fac
+
+beta1 = 50
+beta2 = fac*beta1
+beta3 = beta1/fac
+
 
 X = np.linspace(-5,5,1000)
-S = sigma(X)
+S1 = sigma1(X)
 S2 = sigma2(X)
+S3 = sigma3(X)
 
-P = pi_integral(N_wn, sigma, beta)
+P1 = pi_integral(N_wn, sigma1, beta1)
 P2 = pi_integral(N_wn, sigma2, beta2)
+P3 = pi_integral(N_wn, sigma3, beta3)
+
+P4 = pi_integral(N_wn, sigma2, beta1)
+P5 = pi_integral(N_wn, sigma1, beta3)
+P6 = pi_integral(N_wn, sigma3, beta2)
 
 
-# lw = 0.3
+W1 = (2*np.pi/beta1) * np.arange(0,N_wn)
+W2 = (2*np.pi/beta2) * np.arange(0,N_wn)
+W3 = (2*np.pi/beta3) * np.arange(0,N_wn)
+
+# lw = 0.5
+# from cycler import cycler
 # plt.rcParams.update({
+#     'figure.subplot.bottom': 0.15,
+#     'figure.subplot.hspace': 0,
+#     'figure.subplot.left': 0.05,
+#     'figure.subplot.right': 0.99,
+#     'figure.subplot.top': 0.8,
+#     'figure.subplot.wspace': 0.1,
 #     'axes.xmargin': 0,
 #     'axes.ymargin': 0,
 #     'axes.linewidth': lw,
+#     'axes.prop_cycle': cycler('color', [
+#         '#d62728',
+#         '#1f77b4',
+#         '#555555',
+#         '#2ca02c',
+#         '#9467bd',
+#         '#ff7f0e',
+#         '#8c564b',
+#         '#e377c2',
+#         '#7f7f7f',
+#         '#bcbd22',
+#         '#17becf'
+#     ]),
+#     'lines.linewidth': 2*lw,
 #     'xtick.top': True,
 #     'ytick.right': True,
 #     'xtick.direction': 'in',
@@ -92,11 +137,13 @@ P2 = pi_integral(N_wn, sigma2, beta2)
 #     'ytick.major.width': lw,
 #     'xtick.major.width': lw,
 #     'font.family': 'serif',
-#     # 'font.serif': 'cm'
+#     'font.serif': 'Times',
 #     'font.size': 11.0,
 #     'text.usetex': True,
 #     'pgf.texsystem': "pdflatex",
 #     'legend.handlelength': 1.0,
+#     'legend.frameon': False,
+#     'legend.borderpad': 0.3,
 #     'text.latex.preamble': [
 #         # r'\usepackage[utf8]{inputenc}',
 #         r'\usepackage[T1]{fontenc}',
@@ -112,16 +159,37 @@ P2 = pi_integral(N_wn, sigma2, beta2)
 #     ],
 # })
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[7,2], dpi=80)
-ax1.plot(X,S, label=r"$\langle\omega^2\rangle=$"+f"{tail_integral(sigma)}")
-ax1.plot(X,S2, label=r"$\langle\omega^2\rangle=$"+f"{tail_integral(sigma2)}")
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=[10,3], dpi=80)
+ax1.plot(X, S1, label=r"$\langle\omega^2\rangle_1 = %4.3f$"%tail_integral(sigma1))
+ax1.plot(X, S2, label=r"$\langle\omega^2\rangle_2 = %4.3f$"%tail_integral(sigma2))
+ax1.plot(X, S3, label=r"$\langle\omega^2\rangle_2 = %4.3f$"%tail_integral(sigma3))
 ax1.set_xlabel(r"$\omega$")
-ax1.legend()
+ax1.legend(handlelength=1)
+# ax1.text(0.03, 0.95, r'$\sigma(\omega)$', ha='left', va='top', transform=ax1.transAxes)
 
-ax2.plot(P, marker='.', label=r"$\beta=$"+f"{beta}")
-ax2.plot(P2, marker='.', label=r"$\beta=$"+f"{beta2}")
+ax2.plot(P1, marker='.', markersize=12, linewidth=5, label=r"$\beta_1=%d$"%beta1)
+ax2.plot(P2, marker='.', markersize=11, linewidth=4, label=r"$\beta_2=%d$"%beta2)
+ax2.plot(P3, marker='.', markersize=10, linewidth=3, label=r"$\beta_3=%d$"%beta3)
+ax2.plot(P4, marker='.', markersize=9, linewidth=2, label=r"$\beta_1=%d$"%beta1)
+ax2.plot(P5, marker='.', markersize=8, linewidth=1, label=r"$\beta_2=%d$"%beta3)
+ax2.plot(P6, marker='.', markersize=7, linewidth=0.5, label=r"$\beta_3=%d$"%beta2)
+ax2.set_ylim(0,0.4)
 ax2.set_xlabel(r"$n$")
-ax2.legend()
+ax2.legend(handlelength=1)
+# ax2.text(0.05, 0.95, r'$\Pi(i\omega_n)$', ha='left', va='top', transform=ax2.transAxes)
 
-plt.tight_layout()
+ax3.plot(W1, P1, marker='.', markersize=12, linewidth=5, label=r"$\beta_1=%d$"%beta1)
+ax3.plot(W2, P2, marker='.', markersize=11, linewidth=4, label=r"$\beta_2=%d$"%beta2)
+ax3.plot(W3, P3, marker='.', markersize=10, linewidth=3, label=r"$\beta_3=%d$"%beta3)
+ax3.plot(W1, P4, marker='.', markersize=9, linewidth=2, label=r"$\beta_1=%d$"%beta1)
+ax3.plot(W3, P5, marker='.', markersize=8, linewidth=1, label=r"$\beta_2=%d$"%beta3)
+ax3.plot(W2, P6, marker='.', markersize=7, linewidth=0.5, label=r"$\beta_3=%d$"%beta2)
+ax3.set_ylim(0,0.4)
+ax3.set_xlabel(r"$\omega_n$")
+ax3.legend(handlelength=1)
+# ax2.text(0.05, 0.95, r'$\Pi(i\omega_n)$', ha='left', va='top', transform=ax2.transAxes)
+
+
+plt.suptitle(r"$\frac{\langle\omega^2\rangle_1}{\langle\omega^2\rangle_2} = %6.5f \approx %6.5f = \left(\frac{\beta_2}{\beta_1}\right)^2$"%(tail_integral(sigma1)/tail_integral(sigma2), beta2**2/beta1**2), y=0.97)
 plt.show()
+# plt.savefig("scale.pdf")
