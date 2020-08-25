@@ -42,65 +42,66 @@ def peak_sum(x, c, w, h, m, n):
     return peak(x, c, w, h, m, n).sum(axis=0)
 
 
-def pi_integral(num_wn, spectral_func, beta, wmax=10, N=2048, power=7):
+def log_reg_log_integral(integrand, N_reg=2048, N_log=1024, reg_max=10, log_pow=7):
+    reg_smpl = np.linspace(-reg_max, reg_max, N_reg)
+    log_smpl = np.logspace(np.log10(reg_max), log_pow, N_log)[1:]
+    smpl_arr = np.concatenate([-np.flip(log_smpl), reg_smpl, log_smpl]) 
+    return integrate.simps(integrand(smpl_arr), smpl_arr, axis=-1)
+
+
+def pi_integral(spectral_function, beta, num_wn=20):
     omega_n = (2*np.pi/beta) * np.arange(0,num_wn)
-    center = np.linspace(-wmax,wmax,N)
-    tail = np.logspace(np.log10(wmax), power, N//2)
-    omega = np.concatenate([-np.flip(tail)[:-1], center, tail[1:]]) 
-    w_grid, wn_grid = np.meshgrid(omega, omega_n)
-
-    integrand = (1/np.pi) * w_grid**2 * spectral_func(w_grid) / (w_grid**2+wn_grid**2)
-    integral = integrate.simps( integrand, w_grid, axis=-1)
-    return integral
+    omega_n = omega_n[:, np.newaxis]
+    integrand = lambda x: (1/np.pi) * x**2/(x**2+omega_n**2) * spectral_function(x)
+    return log_reg_log_integral(integrand)
 
 
-def tail_integral(spectral_func, wmax=10, N=2048, power=7):
-    center = np.linspace(-wmax,wmax,N)
-    tail = np.logspace(np.log10(wmax), power, N//2)
-    w_grid = np.concatenate([-np.flip(tail)[:-1], center, tail[1:]]) 
-
-    integrand = (1/np.pi) * w_grid**2 * spectral_func(w_grid)
-    integral = integrate.simps( integrand, w_grid, axis=-1)
-    return integral
+def second_moment(spectral_function):
+    integrand = lambda x: (1/np.pi) * x**2 * spectral_function(x)
+    return log_reg_log_integral(integrand)
 
 
 def sigma1(x):
-    c = np.array([-3,-2,0,2,3])
-    w = np.array([1,0.6,0.2,0.6,1])
-    h = np.array([0.15,0.25,0.3,0.25,0.15])
+    c = np.array([-3,-2,0,2,3])*100
+    w = np.array([1,0.6,0.2,0.6,1])*100
+    h = np.array([0.1,0.25,0.3,0.25,0.1]) * np.pi
     m = np.array([1,9,1,9,1])
     n = np.array([0,7,0,2,0])
     return peak_sum(x, c, w, h, m, n)
 
 
 N_wn = 20
-fac=2
+fac=1.8
 
-def sigma2(x): return fac*sigma1(fac*x)
-def sigma3(x): return sigma1(x/fac)/fac
 
-beta1 = 50
+def sigma2(x): 
+    return fac*sigma1(fac*x)
+
+
+def sigma3(x): 
+    return sigma1(x/fac)/fac
+
+
+beta1 = 1
 beta2 = fac*beta1
 beta3 = beta1/fac
 
-
-X = np.linspace(-5,5,1000)
+X = np.linspace(-1000,1000,1000)
 S1 = sigma1(X)
 S2 = sigma2(X)
 S3 = sigma3(X)
 
-P1 = pi_integral(N_wn, sigma1, beta1)
-P2 = pi_integral(N_wn, sigma2, beta2)
-P3 = pi_integral(N_wn, sigma3, beta3)
-
-P4 = pi_integral(N_wn, sigma2, beta1)
-P5 = pi_integral(N_wn, sigma1, beta3)
-P6 = pi_integral(N_wn, sigma3, beta2)
-
-
 W1 = (2*np.pi/beta1) * np.arange(0,N_wn)
 W2 = (2*np.pi/beta2) * np.arange(0,N_wn)
 W3 = (2*np.pi/beta3) * np.arange(0,N_wn)
+P11 = pi_integral(sigma1, beta1, N_wn)
+P22 = pi_integral(sigma2, beta2, N_wn)
+P33 = pi_integral(sigma3, beta3, N_wn)
+P21 = pi_integral(sigma2, beta1, N_wn)
+P13 = pi_integral(sigma1, beta3, N_wn)
+P12 = pi_integral(sigma1, beta2, N_wn)
+P31 = pi_integral(sigma3, beta1, N_wn)
+
 
 # lw = 0.5
 # from cycler import cycler
@@ -159,37 +160,39 @@ W3 = (2*np.pi/beta3) * np.arange(0,N_wn)
 #     ],
 # })
 
-fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=[10,3], dpi=80)
-ax1.plot(X, S1, label=r"$\langle\omega^2\rangle_1 = %4.3f$"%tail_integral(sigma1))
-ax1.plot(X, S2, label=r"$\langle\omega^2\rangle_2 = %4.3f$"%tail_integral(sigma2))
-ax1.plot(X, S3, label=r"$\langle\omega^2\rangle_2 = %4.3f$"%tail_integral(sigma3))
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=[15,5], dpi=80)
+ax1.plot(X, S1, label=r"$ \sigma( \omega  )  $")
+ax1.plot(X, S2, label=r"$s\sigma(s\omega  )  $")
+ax1.plot(X, S3, label=r"$ \sigma( \omega/s)/s$")
 ax1.set_xlabel(r"$\omega$")
 ax1.legend(handlelength=1)
 # ax1.text(0.03, 0.95, r'$\sigma(\omega)$', ha='left', va='top', transform=ax1.transAxes)
 
-ax2.plot(P1, marker='.', markersize=12, linewidth=5, label=r"$\beta_1=%d$"%beta1)
-ax2.plot(P2, marker='.', markersize=11, linewidth=4, label=r"$\beta_2=%d$"%beta2)
-ax2.plot(P3, marker='.', markersize=10, linewidth=3, label=r"$\beta_3=%d$"%beta3)
-ax2.plot(P4, marker='.', markersize=9, linewidth=2, label=r"$\beta_1=%d$"%beta1)
-ax2.plot(P5, marker='.', markersize=8, linewidth=1, label=r"$\beta_2=%d$"%beta3)
-ax2.plot(P6, marker='.', markersize=7, linewidth=0.5, label=r"$\beta_3=%d$"%beta2)
-ax2.set_ylim(0,0.4)
-ax2.set_xlabel(r"$n$")
-ax2.legend(handlelength=1)
-# ax2.text(0.05, 0.95, r'$\Pi(i\omega_n)$', ha='left', va='top', transform=ax2.transAxes)
-
-ax3.plot(W1, P1, marker='.', markersize=12, linewidth=5, label=r"$\beta_1=%d$"%beta1)
-ax3.plot(W2, P2, marker='.', markersize=11, linewidth=4, label=r"$\beta_2=%d$"%beta2)
-ax3.plot(W3, P3, marker='.', markersize=10, linewidth=3, label=r"$\beta_3=%d$"%beta3)
-ax3.plot(W1, P4, marker='.', markersize=9, linewidth=2, label=r"$\beta_1=%d$"%beta1)
-ax3.plot(W3, P5, marker='.', markersize=8, linewidth=1, label=r"$\beta_2=%d$"%beta3)
-ax3.plot(W2, P6, marker='.', markersize=7, linewidth=0.5, label=r"$\beta_3=%d$"%beta2)
-ax3.set_ylim(0,0.4)
-ax3.set_xlabel(r"$\omega_n$")
+ax3.plot(P11, '.', markersize=20, label=r"$ \sigma( \omega  )  , \beta  $")
+ax3.plot(P12, '.', markersize=17,  label=r"$ \sigma( \omega  )  ,s\beta  $")
+ax3.plot(P13, '.', markersize=14,  label=r"$ \sigma( \omega  )  , \beta/s$")
+ax3.plot(P21, '.', markersize=11,  label=r"$s\sigma(s\omega  )  , \beta  $")
+ax3.plot(P22, '.', markersize=8 ,  label=r"$s\sigma(s\omega  )  ,s\beta  $")
+ax3.plot(P31, '.', markersize=5 ,  label=r"$ \sigma( \omega/s)/s, \beta  $")
+ax3.plot(P33, '.', markersize=2 ,  label=r"$ \sigma( \omega/s)/s, \beta/s$")
+# ax3.set_ylim(0,0.4)
+ax3.set_xlabel(r"$n$")
 ax3.legend(handlelength=1)
 # ax2.text(0.05, 0.95, r'$\Pi(i\omega_n)$', ha='left', va='top', transform=ax2.transAxes)
 
+ax2.plot(W1, P11, '.', markersize=20, label=r"$ \sigma( \omega  )  , \beta  $")
+ax2.plot(W2, P12, '.', markersize=17,  label=r"$ \sigma( \omega  )  ,s\beta  $")
+ax2.plot(W3, P13, '.', markersize=14,  label=r"$ \sigma( \omega  )  , \beta/s$")
+ax2.plot(W1, P21, '.', markersize=11,  label=r"$s\sigma(s\omega  )  , \beta  $")
+ax2.plot(W2, P22, '.', markersize=8 ,  label=r"$s\sigma(s\omega  )  ,s\beta  $")
+ax2.plot(W1, P31, '.', markersize=5 ,  label=r"$ \sigma( \omega/s)/s, \beta  $")
+ax2.plot(W3, P33, '.', markersize=2 ,  label=r"$ \sigma( \omega/s)/s, \beta/s$")
+# ax2.set_ylim(0,0.4)
+ax2.set_xlabel(r"$\omega_n$")
+ax2.legend(handlelength=1)
+# ax2.text(0.05, 0.95, r'$\Pi(i\omega_n)$', ha='left', va='top', transform=ax2.transAxes)
 
-plt.suptitle(r"$\frac{\langle\omega^2\rangle_1}{\langle\omega^2\rangle_2} = %6.5f \approx %6.5f = \left(\frac{\beta_2}{\beta_1}\right)^2$"%(tail_integral(sigma1)/tail_integral(sigma2), beta2**2/beta1**2), y=0.97)
-plt.show()
-# plt.savefig("scale.pdf")
+
+# plt.suptitle(r"$\frac{\langle\omega^2\rangle_1}{\langle\omega^2\rangle_2} = %6.5f \approx %6.5f = \left(\frac{\beta_2}{\beta_1}\right)^2$"%(second_moment(sigma1)/second_moment(sigma2), beta2**2/beta1**2), y=0.97)
+# plt.show()
+plt.savefig("scale.pdf")
