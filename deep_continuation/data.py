@@ -531,11 +531,20 @@ class DataGenerator():
 
         return sigma_diff/(pi_diff+0.00001)
 
-    def plot(self, pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm):
-        alpha = np.sqrt(self.wn_list**2*pi_of_wn_array)
-        s2avg = np.sqrt(np.cumsum((self.w_list)**2*sig_of_w_array,axis=-1)*self.w_volume)
+    def plot(self, pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm, use_freq=True):
+        if use_freq:
+            alpha = np.sqrt(self.wn_list**2*pi_of_wn_array)
+            s2avg = np.sqrt(np.cumsum((self.w_list)**2*sig_of_w_array,axis=-1)*self.w_volume)
+        else:
+            n = np.arange(len(pi_of_wn_array[0]))
+            w = np.linspace(0,1,len(sig_of_w_array[0]))
+            alpha = np.sqrt(n**2*pi_of_wn_array)
+            s2avg = np.sqrt(np.cumsum(w**2*sig_of_w_array,axis=-1))
         
+
         print('\nnormalization')
+        print('2pi/beta = ', 2*np.pi/self.beta, ' =?= ', self.wn_list[1])
+        print('volume =', self.w_volume)
         print('sum =', sig_of_w_array.sum(axis=-1)*self.w_volume)
         print('Pi0 =', pi_of_wn_array[:,0].real)
         print('s2avg = ',s2avg[:,-1])
@@ -569,13 +578,16 @@ class DataGenerator():
         ax[1,3].set_xlabel(r"$m$")
 
         for i in range(len(pi_of_wn_array)):
-            ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
-            ax[1,0].plot( self.wn_list, alpha[i] )
-            if self.lorentz:
-                ax[0,1].plot( self.w_list , sig_of_w_array[i])
-            else:
+            if use_freq:
+                ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
+                ax[1,0].plot( self.wn_list, alpha[i] )
                 ax[0,1].plot( self.w_list , sig_of_w_array[i] )
-            ax[1,1].plot( self.w_list , s2avg[i] )
+                ax[1,1].plot( self.w_list , s2avg[i] )
+            else:
+                ax[0,0].plot(pi_of_wn_array[i])
+                ax[1,0].plot(alpha[i])
+                ax[0,1].plot(sig_of_w_array[i])
+                ax[1,1].plot(s2avg[i])
             # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
             
             integer_w_list = np.arange(len(self.w_list))
@@ -663,7 +675,7 @@ if __name__ == '__main__':
             pi, sigma, sigma2, sigma3 = generator.generate_lorentz_batch(batch_size=args.plot)
         else:
             pi, sigma, sigma2, sigma3 = generator.generate_gauss_batch(batch_size=args.plot)
-        generator.plot(pi, sigma, sigma2, sigma3)
+        generator.plot(pi, sigma, sigma2, sigma3, use_freq=False)
 
 
     if args.test:

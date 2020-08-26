@@ -72,8 +72,9 @@ def second_moment(spectral_function):
 
 
 class DataGenerator():
-    def __init__(self, out_size, in_size, beta, w_max, Pi0, use_bernstein, max_drude,
-        max_peaks, weight_ratio, peak_pos, peak_width, drude_width, seed, **kwargs):
+    def __init__(self, out_size, in_size, beta, w_max, Pi0, use_bernstein,
+        max_drude, max_peaks, weight_ratio, peak_pos, peak_width, drude_width,
+        seed, rescale, **kwargs):
         self.num_w = out_size 
         self.num_wn = in_size
         self.beta = beta
@@ -92,6 +93,7 @@ class DataGenerator():
         self.min_dw, self.max_dw = drude_width
 
         self.seed = seed
+        self.rescale = rescale
 
     def random_peak_parameters(self):
         num_drude = np.random.randint( 
@@ -147,69 +149,99 @@ class DataGenerator():
             self.beta = self.beta/2
             self.wn = (2*np.pi/self.beta) * np.arange(0,self.num_wn)
 
-    
             peak_parameters = self.random_peak_parameters()
             sigma_func = lambda x: peak_sum(x, *peak_parameters)
             Pi[i] = pi_integral(self.wn, sigma_func)
-            # sigma[i] = sigma_func(self.w)
             
-            s = np.sqrt(1e6**2*pi_integral(1e6, sigma_func))
-            new_w_max = np.pi*s
-            resampl_w = np.linspace(0, new_w_max, self.num_w)
-            sigma[i] = s*sigma_func(resampl_w)
+            if self.rescale:
+                s = np.sqrt(1e6**2*pi_integral(1e6, sigma_func))
+                new_w_max = np.pi*s
+                resampl_w = np.linspace(0, new_w_max, self.num_w)
+                sigma[i] = s*sigma_func(resampl_w)
+            else:
+                sigma[i] = sigma_func(self.w)
         return Pi, sigma
 
 
-    def continuation_data_plot(self, Pi, sigma):
-        fig, ax = plt.subplots(2, 2, figsize=[7,5])
+def unscaled_plot(Pi, sigma):
+    N = len(Pi[0])
+    M = len(sigma[0])
+    n2Pi = np.sqrt(np.arange(N)**2*Pi)
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0,1,M)**2*sigma, axis=-1))
+   
+    fig, ax = plt.subplots(2, 2, figsize=[7,5])
+    ax[0,0].set_ylabel(r"$\Pi_n$")
+    plt.setp(ax[0,0].get_xticklabels(), visible=False)
+    ax[1,0].set_ylabel(r"$\sqrt{n^2 \Pi_n}$")
+    ax[1,0].set_xlabel(r"$n$")
+    ax[0,1].set_ylabel(r"$\sigma_m$")
+    plt.setp(ax[0,1].get_xticklabels(), visible=False)
+    ax[1,1].set_ylabel(r"$\sqrt{ \sum_{r}^{n} n^2 \sigma_n }$")
+    ax[1,1].set_xlabel(r"$m$")
+    for i in range(len(Pi)):
+        ax[0,0].plot(Pi[i], '.')
+        ax[1,0].plot(n2Pi[i], '.')
+        ax[0,1].plot(sigma[i])
+        ax[1,1].plot(cumul_sum2[i] )    
+    fig.tight_layout()
+    plt.show()
 
-        ax[0,0].set_ylabel(r"$\Pi_n$")
-        plt.setp(ax[0,0].get_xticklabels(), visible=False)
-        ax[1,0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi_n}$")
-        ax[1,0].set_xlabel(r"$n$")
-        
-        ax[0,1].set_ylabel(r"$\sigma(\omega_m)$")
-        plt.setp(ax[0,1].get_xticklabels(), visible=False)
-        ax[1,1].set_ylabel(r"running $\sqrt{ \langle \omega^2 \rangle_{\sigma} }$")
-        ax[1,1].set_xlabel(r"$m$")
-        
-        alpha = np.sqrt(self.wn**2*Pi)
-        w_vol = 2*self.w_max/(np.pi*self.num_w)
-        s2avg = np.sqrt(np.cumsum((self.w)**2*sigma, axis=-1)*w_vol)
-        for i in range(len(Pi)):
-            ax[0,0].plot(Pi[i], '.')
-            ax[1,0].plot(alpha[i], '.')
-            ax[0,1].plot(sigma[i])
-            ax[1,1].plot(s2avg[i] )
-            
-        fig.tight_layout()
-        
-        print('\nnormalization')
-        print('sum =', sigma.sum(axis=-1)*w_vol)
-        print('Pi0 =', Pi[:,0].real)
-        print('s2avg = ',s2avg[:,-1])
-        print('alpha = ', alpha[:,-1],'\n')
-        plt.show()
+
+def infer_scale_plot(Pi, sigma, ):
+    N = len(Pi[0])
+    Pi0 = Pi[:,0]
+    PiN = Pi[:,-1]
+    
+    M = len(sigma[0])
+    sum1 = np.sum(sigma, axis=-1)
+    sum2 = np.sum(np.arange(M), axis=-1)
+
+    beta = 2*N*np.sqrt(PiN*sum1**3/(Pi0**3*sum2))
+    wn = (2*np.pi/beta[:,np.newaxis]) * np.arange(N)
+
+    w_max = np.pi*Pi0*M/sum1
+    w = w_max[:,np.newaxis] * np.linspace(0,1,M)
+
+    n2Pi = wn**2*Pi
+    cumul_sum2 = np.cumsum(w**2*sigma, axis=-1)
+
+    fig, ax = plt.subplots(2, 2, figsize=[7,5])
+    ax[0,0].set_ylabel(r"$\Pi(i\omega_n)$")
+    plt.setp(ax[0,0].get_xticklabels(), visible=False)
+    ax[1,0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi(i\omega_n)}$")
+    ax[1,0].set_xlabel(r"$\omega_n$")
+    ax[0,1].set_ylabel(r"$\sigma(\omega)$")
+    plt.setp(ax[0,1].get_xticklabels(), visible=False)
+    ax[1,1].set_ylabel(r"$\sqrt{ \int\frac{d\omega}{\pi} \omega^2 \sigma(\omega) }$")
+    ax[1,1].set_xlabel(r"$\omega$")
+    for i in range(len(Pi)):
+        ax[0,0].plot(wn[i], Pi[i], '.')
+        ax[1,0].plot(wn[i], n2Pi[i], '.')
+        ax[0,1].plot(w[i], sigma[i])
+        ax[1,1].plot(w[i], cumul_sum2[i] )    
+    fig.tight_layout()
+    plt.show()
 
 
 def main():
     default_args = {
-        'plot'         : 0,
-        'generate'     : 0,
-        'path'         : str(HERE),
-        'in_size'      : 128,
-        'out_size'     : 512,
-        'w_max'        : 20.0,
-        'beta'         : 10.0,#2*np.pi, # 2pi/beta = 1
-        'Pi0'          : 1.0,
-        'use_bernstein': False,
-        'max_drude'    : 4,
-        'max_peaks'    : 6,
-        'weight_ratio' : 0.50,
-        'drude_width'  : [.02, .1],
-        'peak_pos'     : [.2 , .8],
-        'peak_width'   : [.05, .1],
-        'seed'         : int(time.time())
+        'plot'          : 0,
+        'generate'      : 0,
+        'path'          : str(HERE),
+        'in_size'       : 128,
+        'out_size'      : 512,
+        'w_max'         : 20.0,
+        'beta'          : 10.0, #2*np.pi, # 2pi/beta = 1
+        'Pi0'           : 1.0,
+        'use_bernstein' : False,
+        'max_drude'     : 4,
+        'max_peaks'     : 6,
+        'weight_ratio'  : 0.50,
+        'drude_width'   : [.02, .1],
+        'peak_pos'      : [.2 , .8],
+        'peak_width'    : [.05, .1],
+        'seed'          : int(time.time()),
+        'rescale'       : False,
         # script parameters
         # 'test'         : False,
         # 'normalize'    : True,
@@ -228,10 +260,13 @@ def main():
     }
     args = utils.parse_file_and_command(default_args, {})
     np.random.seed(args.seed)
+    print(f"seed : {args.seed}")
+    
     generator = DataGenerator(**vars(args))
+    
     if args.plot > 0:
         Pi, sigma = generator.generate_batch(size=args.plot)
-        generator.continuation_data_plot(Pi, sigma)
+        infer_scale_plot(Pi, sigma)
 
 
 if __name__ == "__main__":
