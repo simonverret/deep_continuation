@@ -52,23 +52,29 @@ def peak_sum(x, c, w, h, m, n):
     return peak(x, c, w, h, m, n).sum(axis=0)
 
 
-def log_reg_log_integral(integrand, N_reg=2048, N_log=1024, reg_max=10, log_pow=7):
-    reg_smpl = np.linspace(-reg_max, reg_max, N_reg)
-    log_smpl = np.logspace(np.log10(reg_max), log_pow, N_log)[1:]
-    smpl_arr = np.concatenate([-np.flip(log_smpl), reg_smpl, log_smpl]) 
-    return integrate.simps(integrand(smpl_arr), smpl_arr, axis=-1)
+def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end=10, tail_power=7):
+    grid_sampling = np.linspace(-grid_end, grid_end, grid_points)
+    tail_sampling = np.logspace(np.log10(grid_end), tail_power, tail_points)[1:]
+    full_sampling = np.concatenate([
+        -np.flip(tail_sampling),
+        grid_sampling,
+        tail_sampling
+    ]) 
+    return integrate.simps(integrand(full_sampling), full_sampling, axis=-1)
 
 
 def pi_integral(wn, spectral_function):
     if isinstance(wn,np.ndarray):
         wn = wn[:, np.newaxis]
     integrand = lambda x: (1/np.pi) * x**2/(x**2+wn**2) * spectral_function(x)
-    return log_reg_log_integral(integrand)
+    return integrate_with_tails(integrand)
 
 
 def second_moment(spectral_function):
     integrand = lambda x: (1/np.pi) * x**2 * spectral_function(x)
-    return log_reg_log_integral(integrand)
+    return integrate_with_tails(integrand)
+
+
 
 
 class DataGenerator():
