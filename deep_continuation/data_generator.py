@@ -41,44 +41,23 @@ def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     return out
 
 
-def peak_sum(x, c, w, h, m, n):
-    if isinstance(x, np.ndarray):
-        x = x[np.newaxis, :]
-        while len(c.shape) < len(x.shape):
-            c = c[:, np.newaxis]
-            w = w[:, np.newaxis]
-            h = h[:, np.newaxis]
-            m = m[:, np.newaxis]
-            n = n[:, np.newaxis]
-    return peak(x, c, w, h, m, n).sum(axis=0)
-
-
 def even_lorentz(x, c=0, w=1, h=1):
     return (1/np.pi)*4*c*w*h/(((x-c)**2+w**2)*((x+c)**2+w**2))
-
-
-def even_lorentz_sum(x, c, w, h):
-    if isinstance(x, np.ndarray):
-        x = x[np.newaxis, :]
-        while len(c.shape) < len(x.shape):
-            c = c[:, np.newaxis]
-            w = w[:, np.newaxis]
-            h = h[:, np.newaxis]
-    return even_lorentz(x, c, w, h).sum(axis=0)
 
 
 def integrated_even_lorentz(x, c=0, w=0, h=0):
     return 2*h*c/(c**2+(x+w)**2)
 
 
-def integrated_lorentz_sum(x, c, w, h):
+def sum_on_args(f, x, *args):
     if isinstance(x, np.ndarray):
         x = x[np.newaxis, :]
-        while len(c.shape) < len(x.shape):
-            c = c[:, np.newaxis]
-            w = w[:, np.newaxis]
-            h = h[:, np.newaxis]
-    return integrated_even_lorentz(x, c, w, h).sum(axis=0)
+        args = [a for a in args] # copy args to allow reassign 
+        for i in range(len(args)):
+            if isinstance(args[i], np.ndarray):
+                while len(args[i].shape) < len(x.shape):
+                    args[i] = args[i][:, np.newaxis]
+    return f(x,*args).sum(axis=0)
 
 
 def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end=10, tail_power=7):
@@ -185,8 +164,8 @@ class LorentzGenerator():
                 print(f"sample {i+1}")
 
             c, w, h = self.distributed_peaks_parameters()
-            def sigma_func(x): return even_lorentz_sum(self.w, c, w, h)
-            Pi[i] = integrated_lorentz_sum(self.wn, c, w, h)
+            def sigma_func(x): return sum_on_args(even_lorentz, self.w, c, w, h)
+            Pi[i] = sum_on_args(integrated_even_lorentz, self.wn, c, w, h)
 
             if self.rescale > SMALL:
                 inf = 1e6
@@ -224,7 +203,7 @@ class GaussBernsteinGenerator():
         self.seed = seed
         self.rescale = rescale
 
-    def random_peak_parameters(self):
+    def random_peak_args(self):
         num_drude = np.random.randint(
             0 if self.max_peaks > 0 else 1,
             self.max_drude+1
@@ -278,8 +257,8 @@ class GaussBernsteinGenerator():
             # self.beta = self.beta/2
             # self.wn = (2*np.pi/self.beta) * np.arange(0,self.num_wn)
 
-            c, w, h, m, n = self.random_peak_parameters()
-            def sigma_func(x): return peak_sum(x, c, w, h, m, n)
+            c, w, h, m, n = self.random_peak_args()
+            def sigma_func(x): return sum_on_args(peak, x, c, w, h, m, n)
             Pi[i] = pi_integral(self.wn, sigma_func)
 
             if self.rescale > SMALL:
