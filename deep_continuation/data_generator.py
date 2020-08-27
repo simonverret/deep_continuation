@@ -151,21 +151,22 @@ class DataGenerator():
         sigma = np.zeros((size, self.num_w))
         for i in range(size):
             
-            np.random.seed(self.seed)
-            self.beta = self.beta/2
-            self.wn = (2*np.pi/self.beta) * np.arange(0,self.num_wn)
+            # np.random.seed(self.seed)
+            # self.beta = self.beta/2
+            # self.wn = (2*np.pi/self.beta) * np.arange(0,self.num_wn)
 
             peak_parameters = self.random_peak_parameters()
             sigma_func = lambda x: peak_sum(x, *peak_parameters)
             Pi[i] = pi_integral(self.wn, sigma_func)
             
-            if self.rescale:
+            if self.rescale > SMALL:
                 s = np.sqrt(1e6**2*pi_integral(1e6, sigma_func))
-                new_w_max = np.pi*s
+                new_w_max = self.rescale*s
                 resampl_w = np.linspace(0, new_w_max, self.num_w)
                 sigma[i] = s*sigma_func(resampl_w)
             else:
                 sigma[i] = sigma_func(self.w)
+
         return Pi, sigma
 
 
@@ -197,19 +198,22 @@ def infer_scale_plot(Pi, sigma, ):
     N = len(Pi[0])
     Pi0 = Pi[:,0]
     PiN = Pi[:,-1]
-    
     M = len(sigma[0])
     sum1 = np.sum(sigma, axis=-1)
     sum2 = np.sum(np.arange(M), axis=-1)
 
     beta = 2*N*np.sqrt(PiN*sum1**3/(Pi0**3*sum2))
     wn = (2*np.pi/beta[:,np.newaxis]) * np.arange(N)
-
     w_max = np.pi*Pi0*M/sum1
     w = w_max[:,np.newaxis] * np.linspace(0,1,M)
 
     n2Pi = wn**2*Pi
     cumul_sum2 = np.cumsum(w**2*sigma, axis=-1)
+
+    print(f'''
+    beta  = {beta}
+    w_max = {w_max}
+    ''')
 
     fig, ax = plt.subplots(2, 2, figsize=[7,5])
     ax[0,0].set_ylabel(r"$\Pi(i\omega_n)$")
@@ -247,7 +251,7 @@ def main():
         'peak_pos'      : [.2 , .8],
         'peak_width'    : [.05, .1],
         'seed'          : int(time.time()),
-        'rescale'       : False,
+        'rescale'       : 0.0,
         # script parameters
         # 'test'         : False,
         # 'normalize'    : True,
@@ -258,7 +262,7 @@ def main():
         # 'cbrt_ratio'   : 6,
         # spectrum parameters (relative)
         # 'lorentz'      : False,
-        # 'lor_peaks'    : int(1000),
+        # 'num_peaks'    : int(1000),
         # 'lor_width'    : 0.05,
         # 'N_seg'        : 8,
         # 'center_method': -1,
