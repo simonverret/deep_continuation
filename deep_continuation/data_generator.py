@@ -1,5 +1,6 @@
-from pathlib import Path
+import os
 import time
+from pathlib import Path
 
 import numpy as np
 from scipy import integrate
@@ -143,8 +144,7 @@ class LorentzGenerator():
 
         center -= center[0]
         # random gap
-        center += np.random.choice([0,
-                                    abs(np.random.normal(scale=self.w_max/8, size=1))])
+        center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size=1))])
         center *= self.w_max/center[-1]
 
         width = np.ones(self.num_peaks)*self.peak_widths
@@ -164,17 +164,18 @@ class LorentzGenerator():
                 print(f"sample {i+1}")
 
             c, w, h = self.distributed_peaks_parameters()
-            def sigma_func(x): return sum_on_args(even_lorentz, self.w, c, w, h)
+            def sigma_func(x): return sum_on_args(even_lorentz, x, c, w, h)
             Pi[i] = sum_on_args(integrated_even_lorentz, self.wn, c, w, h)
 
             if self.rescale > SMALL:
                 inf = 1e6
-                s = np.sqrt(inf**2*pi_integral(inf, sigma_func))
+                s = np.sqrt(inf**2*sum_on_args(integrated_even_lorentz, inf, c, w, h))
                 new_w_max = self.rescale*s
                 resampl_w = np.linspace(0, new_w_max, self.num_w)
                 sigma[i] = s*sigma_func(resampl_w)
             else:
                 sigma[i] = sigma_func(self.w)
+                print(sigma[i])
 
         return Pi, sigma
 
@@ -358,8 +359,8 @@ def main():
         # lorentz
         'rescale': 0.0,
         'lorentz': False,
-        'num_peaks': int(1000),
-        'peak_widths': 0.05,
+        'num_peaks': int(2048),
+        'peak_widths': 0.02,
         'N_seg': 8,
         'center_method': -1,
         'remove_nonphysical': False,
@@ -375,12 +376,30 @@ def main():
         generator = GaussBernsteinGenerator(**vars(args))
 
     if args.plot > 0:
+        print(f"ploting {args.plot}")
         Pi, sigma = generator.generate_batch(size=args.plot)
+        if args.scaled_plot:
+            infer_scale_plot(Pi, sigma)
+        else:
+            unscaled_plot(Pi, sigma)
+    
+    if args.generate > 0:
+        sigma_path = args.path+'SigmaRe.csv'
+        pi_path = args.path+'Pi.csv'
+        if (os.path.exists(sigma_path) or os.path.exists(pi_path)):
+            raise ValueError('ABORT GENERATION: there is already a dataset on this path')
+        
+        print(f"generating {args.generate}")
+        os.makedirs(args.path, exist_ok=True)
+        Pi, sigma = generator.generate_batch(size=args.generate)
+        np.savetxt(f"{args.path}/Pi.csv"     , Pi   , delimiter=',')
+        np.savetxt(f"{args.path}/SigmaRe.csv", sigma, delimiter=',')
+        
+        if args.plot > 0:
+            print('WARNING: examples printed are not part of the dataset')
 
-    if args.scaled_plot:
-        infer_scale_plot(Pi, sigma)
-    else:
-        unscaled_plot(Pi, sigma)
+    if args.generate==0 and args.plot==0:
+        print("nothing to do, use --plot 10 or --generate 10000")
 
 
 if __name__ == "__main__":
