@@ -204,7 +204,7 @@ def main():
         # plt.plot(k, arssum(k,n))
         # plt.plot(k, rootsum(k,n))
         # plt.plot(k, exparsinh(k,n))
-        # plt.plot(k, exparctan(k,n))
+        plt.plot(k, exparctan(k,n))
         # plt.plot(k, arssoft(k,n))
         # plt.plot(k, tanerf(k,n))
         # plt.plot(k, logarc(k,n))
