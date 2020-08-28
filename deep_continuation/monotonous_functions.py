@@ -1,5 +1,8 @@
+#%%
+
 import numpy as np
 from scipy.special import erf
+import matplotlib.pyplot as plt
 
 
 def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise linear function
@@ -188,3 +191,25 @@ def debug(x, N_seg): # A simple, non-randomizable function that is used to test 
     x_max = x[-1]
     return x**2
 # More center distribution functions to be added.
+
+
+def main():
+    k = np.linspace(0,20,1000)
+    n = 5
+    for i in range(15):
+        # plt.plot(k, piecelin(k,n))
+        # plt.plot(k, softp(k,n))
+        # plt.plot(k, arctsum(k,n))
+        # plt.plot(k, erfsum(k,n))
+        # plt.plot(k, arssum(k,n))
+        # plt.plot(k, rootsum(k,n))
+        # plt.plot(k, exparsinh(k,n))
+        plt.plot(k, exparctan(k,n))
+        # plt.plot(k, arssoft(k,n))
+        # plt.plot(k, tanerf(k,n))
+        # plt.plot(k, logarc(k,n))
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
