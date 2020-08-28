@@ -105,8 +105,8 @@ class ContinuationData(Dataset):
         train_sampler = SubsetRandomSampler(train_indices)
         validation_sampler = SubsetRandomSampler(val_indices)
 
-        train_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=train_sampler, shuffle=True)
-        valid_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=validation_sampler, shuffle=True)
+        train_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=train_sampler)
+        valid_loader = DataLoader(self, batch_size=batch_size, num_workers=num_workers, sampler=validation_sampler)
         return train_loader,valid_loader
 
     def single_loader(self, batch_size=0, num_workers=0):
@@ -196,420 +196,6 @@ class ContinuationData(Dataset):
         plt.show()
 
 
-def gaussian(x, c, w, h):
-    return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
-
-
-def lorentzian(x, c, w, h):
-    return (h/np.pi)*w/((x-c)**2+w**2)
-
-
-def bernstein(x, m, n):
-    return binom(m,n) * (x**n) * ((1-x)**(m-n)) * (x>=0) * (x<=1)
-
-
-def free_bernstein(x, m, n, c=0, w=1, h=1):
-    sq = np.sqrt(m+1)
-    xx = (x-c)/(w*sq) + n/m
-    return (h*sq/w)*bernstein(xx, m, n)
-
-
-def peak(omega, center=0, width=1, height=1, type_m=0, type_n=0):
-    out = 0
-    out += (type_m == 0) * lorentzian(omega, center, width, height)
-    out += (type_m == 1) * gaussian(omega, center, width, height)
-    out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
-    return out
-
-
-def peak_sum(x, c, w, h, m, n):
-        return peak(
-            x[np.newaxis, :],
-            c[:, np.newaxis],
-            w[:, np.newaxis],
-            h[:, np.newaxis],
-            m[:, np.newaxis],
-            n[:, np.newaxis]
-        ).sum(axis=0)
-
-
-def test_peak():
-    x = np.linspace(-1,2,1000)
-    c = np.array([-0.2, 0.3, 0.6, -0.9])
-    w = np.array([ 0.5, 0.5, 1.2,  0.8])
-    h = np.array([ 1/10, 2/10, 3/10, 4/10])
-    m = np.array([ 99, 99, 5, 5 ])
-    n = np.array([98, 2, 2, 3])
-
-    bs = peak_sum(x, c, w, h, m, n)
-    plt.plot(x, bs, lw=2, color='black')
-
-
-class DataGenerator():
-    def __init__(self, args):
-        self.N_wn = args.in_size        # Number of input datapoints
-        self.N_w  = args.out_size       # Number of output datapoints
-
-        self.wn_list, self.w_list = self.set_freq_grid( args.w_max, args.beta )
-        self.w_grid, self.wn_grid = self.set_integration_grid( args.w_max, args.tail_power, args.N_tail )
-        
-        self.w_max               = args.w_max       # These are all hyperparameters
-        self.Pi0                 = args.Pi0
-        self.beta                = args.beta
-        self.sqrt_ratio          = args.sqrt_ratio
-        self.cbrt_ratio          = args.cbrt_ratio
-        self.normalize           = args.normalize   # True or false flag for normalization
-        # default peaks characteristics
-        self.bernstein           = args.bernstein     # True or false flag for the use of Bernstein polynomials instead of Gaussians
-        self.max_drude           = args.max_drude
-        self.max_peaks           = args.max_peaks
-        self.weight_ratio        = args.weight_ratio
-        self.w_volume            = 2*self.w_max/(np.pi*self.N_w)            
-        self.drude_width_range   = np.array(args.drude_width)*args.w_max
-        self.peak_position_range = np.array(args.peak_pos)*args.w_max
-        self.peak_width_range    = np.array(args.peak_width)*args.w_max
-        # Lorentzian-specific characteristics
-        self.lorentz             = args.lorentz          # True or false flag for the use of Lorentzians instead of Gaussians
-        self.lor_peaks           = args.lor_peaks        # Number of Lorentzian peaks
-        self.lor_width           = args.lor_width        # Width of Lorentzian peaks 
-        self.N_seg               = args.N_seg            # The number of terms to include in the peak distribution functions
-        self.center_method       = args.center_method    # The center distribution function to use
-        self.remove_nonphysical  = args.remove_nonphysical # Excludes centre distribution functions that produce less desirable sigma functions
-
-    def peak(self, omega, center=0, width=1, height=1, type_m=0, type_n=0):
-        if self.lorentz:
-            return 4 * center * width * height/(np.pi * ((omega-center)**2 + width**2) * ((omega+center)**2 + width**2))
-            # Define peak function to be a Lorentzian if flag set to true. These Lorentzians are by design symmetrical, and have the
-            # centers in the denominator to cancel out the omega in the numerator of the integrand.
-            # The function will normally go to zero at 0 due to the subtraction of Lorentzians. This is undesirable behaviour, so the term at the 
-            # end will add in the correct value (found by taking the limit) in this specific case.
-        else:
-            out = 0
-            # out += (type_m == 0) * lorentzian(omega, center, width, height)
-            out += (type_m == 1) * gaussian(omega, center, width, height)
-            out += (type_m >= 2) * free_bernstein(omega, type_m, type_n, center, width, height)
-            return out
-    
-    def grid_integrand(self, omega, omega_n, c, w, h, m, n):
-        spectralw = self.peak(omega, c, w, h, m, n).sum(axis=0)
-        return (1/np.pi) * omega**2 * spectralw / (omega**2+omega_n**2)
-
-    def lor_pi(self, omega_n, center, height, width):
-        integrated_function = 2 * height * center / (center**2 + (omega_n + width)**2)
-        return integrated_function
-
-    def set_freq_grid(self, w_max, beta):
-        delta_w = w_max/self.N_w                # Grid size is largest value divided by number of datapoints
-        delta_wn = 2*np.pi/beta                 
-        wn_max = delta_wn * self.N_wn           # Max value is grid size multiplied by number of datapoints
-
-        self.wn_list = np.arange(0.0, wn_max, delta_wn, dtype=float)    # Equally-distributed points between 0 and the max value with separation equal to the grid sizes
-        self.w_list  = np.arange(0.0, w_max , delta_w, dtype=float)
-        return self.wn_list, self.w_list
-
-    def set_integration_grid(self, w_max, tail_power, N_tail):
-        pos_w_list = self.w_list
-        neg_w_list  = -np.flip(pos_w_list[1:]) # Reverse order of datapoints and make them negative, extending the list into the negatives
-        pos_tail = np.logspace(np.log10(w_max), tail_power, N_tail)         # The tail is a set of exponentially-spaced grid lines placed after the last peak, used as
-                                                                            # an integration tool.
-        neg_tail = -np.flip(pos_tail)[:-1]
-        
-        full_w_list = [ neg_tail, neg_w_list, pos_w_list, pos_tail ]
-        full_w_list = np.concatenate(full_w_list) + SMALL                   # Combine the positive and negative lists together. "SMALL" is a small offset value to prevent
-                                                                            # issues involving zero.
-
-        self.w_grid, self.wn_grid = np.meshgrid(full_w_list, self.wn_list)  
-        return  self.w_grid, self.wn_grid
-
-    def generate_gauss_batch(self, batch_size):
-        pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
-        sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
-        # alternative sampling (attempt for scale-free spectra)
-        sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
-        cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
-
-        for i in range(batch_size):
-            if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
-
-            # random spectrum characteristics
-            num_drude    = np.random.randint( 0 if self.max_peaks > 0 else 1,     self.max_drude+1 )    # max_peaks is the maximum number of non-Drude peaks
-            num_others   = np.random.randint( 0 if num_drude > 0 else 1,     self.max_peaks+1 )
-            weight_ratio = np.random.uniform( SMALL, self.weight_ratio)
-            num_peak = num_drude + num_others
-            
-            # random initialization (center, width, height, n, m) of peaks
-            min_c = self.peak_position_range[0]
-            max_c = self.peak_position_range[1]
-            c  = np.random.uniform( min_c, max_c, size=num_peak )
-            w  = np.random.uniform( 0.0  , 1.000, size=num_peak )   # The widths and heights are initialized as random numbers between 0 and 1
-            h  = np.random.uniform( 0.0  , 1.000, size=num_peak )
-            if self.bernstein:            
-                m = np.random.randint(2, 20, size=num_peak)
-                n = np.ceil(np.random.uniform( 0.0  , 1.000, size=num_peak ) * (m-1))
-            else:
-                m = np.ones(num_peak)
-                n = np.ones(num_peak)
-
-            # Drude peaks adjustments
-            c[:num_drude]  = 0.0 # The first num_drude peaks are put at 0
-            w[:num_drude] *= (self.drude_width_range[1] - self.drude_width_range[0]) # The ranges of the widths and heights are adjusted to their proper values
-            w[:num_drude] += self.drude_width_range[0] #min
-            h[:num_drude] *= weight_ratio/( h[:num_drude].sum() + SMALL ) # weight_ratio is the weight put into Drude peaks compared to other peaks
-            
-            # other peaks adjustments
-            w[num_drude:] *= (self.peak_width_range[1] - self.peak_width_range[0])
-            w[num_drude:] += self.peak_width_range[0] #min
-            h[num_drude:] *= (1-weight_ratio)/( h[num_drude:].sum() + SMALL )
-            
-            #symmetrize and normalize
-            c = np.hstack([c,-c])   # hstack is like concatenate but works in more general cases, such as for tensors instead of just vectors
-            w = np.hstack([w, w])
-            h = np.hstack([h, h])
-            n = np.hstack([n, m-n])
-            m = np.hstack([m, m])
-            if self.normalize:
-                h /= h.sum(axis=-1, keepdims=True) # -1 index is the last index
-            h *= self.Pi0 * np.pi # Normalizing to something other than 1 (Pi0)
-
-            # compute matsubara spectrum (training inputs)
-            matsubaraGrid = self.grid_integrand(                    # matsubaraGrid is a 3-d tensor, which is generated by adding axes to the arguments as needed.
-                                self.w_grid [ np.newaxis,:,: ], 
-                                self.wn_grid[ np.newaxis,:,: ],     
-                                c[ :, np.newaxis, np.newaxis ],
-                                w[ :, np.newaxis, np.newaxis ],
-                                h[ :, np.newaxis, np.newaxis ],
-                                m[ :, np.newaxis, np.newaxis ],
-                                n[ :, np.newaxis, np.newaxis ]
-                            )
-            pi_of_wn_array[i] = integrate.simps( matsubaraGrid[0], self.w_grid, axis=1) # Approximation of an integral (actually a sum over the discrete grid values)
-
-            # sample real spectrum (training targets)
-            sig_of_w_array[i] = self.peak(
-                                    self.w_list[np.newaxis,:], 
-                                    c[:,np.newaxis],
-                                    w[:,np.newaxis],
-                                    h[:,np.newaxis],
-                                    m[:,np.newaxis],
-                                    n[:,np.newaxis] 
-                                ).sum(axis=0)
-            
-            # squareroot sampling real spectrum (alternative training targets)
-            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
-            sqrt_w_max = self.sqrt_ratio * np.sqrt(second_moment)
-            sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
-            sqrt_smpl_sigm[i] = self.peak(
-                                    sqrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis],
-                                    w[:,np.newaxis],
-                                    h[:,np.newaxis],
-                                    m[:,np.newaxis],
-                                    n[:,np.newaxis]
-                                ).sum(axis=0)
-            
-            # cubicroot sampling real spectrum (alternative training targets)
-            cbrt_w_max = self.cbrt_ratio * np.cbrt(second_moment)
-            cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
-            cbrt_smpl_sigm[i] = self.peak(
-                                    cbrt_w_list[np.newaxis,:], 
-                                    c[:,np.newaxis],
-                                    w[:,np.newaxis],
-                                    h[:,np.newaxis],
-                                    m[:,np.newaxis],
-                                    n[:,np.newaxis]
-                                ).sum(axis=0)
-
-        return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
-
-    def generate_lorentz_batch(self, batch_size):
-        # center_function is the function that will determine the locations of the centres of the Lorentzians.
-        pi_of_wn_array = np.zeros([ batch_size, self.N_wn]) # Array stores the values of the integrated function
-        sig_of_w_array = np.zeros([ batch_size, self.N_w ]) # Array stores the values of the sigma function
-        # alternative
-        sqrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
-        cbrt_smpl_sigm = np.zeros([ batch_size, self.N_w ])
-
-        for i in range(batch_size):
-            if (i==0 or (i+1)%(max(1,batch_size//100))==0): print(f"sample {i+1}")
-            
-            # initialization (center, width, height) of peaks
-            if self.center_method == -1:            # If center_method = -1, the script will randomly choose centre distribution functions
-                if self.remove_nonphysical == True:
-                    method = np.random.randint(1,8)    # Excludes rootsum, arssum, and erfsum (which often produce unphysical-looking results)
-                else:
-                    method = np.random.randint(1,11)   # Includes all centre distribution functions
-            else:
-                method = self.center_method         # Otherwise, center_method can be used to specify the centre distribution function to use
-            
-            if method == 0:
-                center = monofunc.piecelin(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 1:
-                center = monofunc.softp(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 2:
-                center = monofunc.arctsum(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 3:
-                center = monofunc.erfsum(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 4:
-                center = monofunc.arssum(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 5:
-                center = monofunc.rootsum(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 6:
-                center = monofunc.exparsinh(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 7:
-                center = monofunc.exparctan(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 8:
-                center = monofunc.arssoft(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 9:
-                center = monofunc.tanerf(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == 10:
-                center = monofunc.logarc(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg)
-            elif method == -1:
-                center = monofunc.debug(np.linspace(0, self.w_max, self.lor_peaks), self.N_seg) # Used for debugging, should not normally be called
-            # Use center distribution functions to generate peaks spaced as necessary, starting from a linearly-spaced set from 0 to 1
-            # As more center distribution functions get completed, will need to add calls for them here.
-            center -= center[0] # Moves the centres so the leftmost one is at zero
-            center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size = 1))]) # Has a fifty-fifty chance of giving no offset or
-            # offsetting the centres to the right by a random amount, normally distributed with a mean of 0 and standard deviation of w_max/8
-            center *= self.w_max/center[-1] # Shift the vectors to make them strictly greater than zero, then rescale
-
-            constant = 0.05
-            
-            width = np.ones(self.lor_peaks) * self.lor_width # All peaks have the same width.
-            height = abs(center) + constant # Have the heights equal to the center positions so the higher-frequency features don't disappear.
-            # The constant term prevents them from vanishing at zero.
-
-            #normalize
-            if self.normalize:
-                normalizer_vector = 2 * height * center / (center**2 + width**2) # This stores the area under each Lorentzian curve
-                height /= normalizer_vector.sum(axis=-1, keepdims=True) # -1 index is the last index
-            height *= self.Pi0 
-
-            # sample real spectrum (training targets)
-            sig_of_w_array[i] = self.peak(
-                                    self.w_list[np.newaxis,:], 
-                                    center[:,np.newaxis], 
-                                    width[:,np.newaxis], 
-                                    height[:,np.newaxis] 
-                                ).sum(axis=0)
-
-            pi_of_wn_array[i] = self.lor_pi(
-                                    self.wn_list[ np.newaxis,: ],
-                                    center[ :, np.newaxis ], 
-                                    height[ :, np.newaxis ],
-                                    width[ :, np.newaxis  ]
-                                ).sum(axis=0)
-
-            # TODO: Modify the squareroot and cuberoot sampling for the Lorentzian case
-            # squareroot sampling real spectrum (alternative training targets)
-            second_moment = (self.wn_list[-1])**2*pi_of_wn_array[i][-1]
-            sqrt_w_max = self.sqrt_ratio * np.sqrt(second_moment)
-            sqrt_w_list = np.linspace(0.0, sqrt_w_max , self.N_w, dtype=float)
-            sqrt_smpl_sigm[i] = self.peak(
-                                    sqrt_w_list[np.newaxis,:], 
-                                    center[:,np.newaxis], 
-                                    width[:,np.newaxis], 
-                                    height[:,np.newaxis] 
-                                ).sum(axis=0)
-            
-            # cubicroot sampling real spectrum (alternative training targets)
-            cbrt_w_max = self.cbrt_ratio * np.cbrt(second_moment)
-            cbrt_w_list = np.linspace(0.0, cbrt_w_max , self.N_w, dtype=float)
-            cbrt_smpl_sigm[i] = self.peak(
-                                    cbrt_w_list[np.newaxis,:], 
-                                    center[:,np.newaxis], 
-                                    width[:,np.newaxis], 
-                                    height[:,np.newaxis] 
-                                ).sum(axis=0)
-
-        return pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm
-
-    def compute_tail_ratio(self, pi_of_wn_array, sig_of_w_array, N=10):
-        pi_tail = self.wn_list[-N:]**2*pi_of_wn_array[-N:]
-        pi_diff = pi_tail[1:]-pi_tail[:-1]
-
-        sigma_tail = np.cumsum(self.w_list[-N:]**2*sig_of_w_array[-N:])
-        sigma_diff = sigma_tail[1:]-sigma_tail[:-1]
-
-        return sigma_diff/(pi_diff+0.00001)
-
-    def plot(self, pi_of_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm, use_freq=True):
-        if use_freq:
-            alpha = np.sqrt(self.wn_list**2*pi_of_wn_array)
-            s2avg = np.sqrt(np.cumsum((self.w_list)**2*sig_of_w_array,axis=-1)*self.w_volume)
-        else:
-            n = np.arange(len(pi_of_wn_array[0]))
-            w = np.linspace(0,1,len(sig_of_w_array[0]))
-            alpha = np.sqrt(n**2*pi_of_wn_array)
-            s2avg = np.sqrt(np.cumsum(w**2*sig_of_w_array,axis=-1))
-        
-
-        print('\nnormalization')
-        print('2pi/beta = ', 2*np.pi/self.beta, ' =?= ', self.wn_list[1])
-        print('volume =', self.w_volume)
-        print('sum =', sig_of_w_array.sum(axis=-1)*self.w_volume)
-        print('Pi0 =', pi_of_wn_array[:,0].real)
-        print('s2avg = ',s2avg[:,-1])
-        print('alpha = ', alpha[:,-1],'\n')
-
-        if self.lorentz:
-            print('Using Lorentzians')
-        else:
-            print('Using Gaussians')
-    
-        fig, ax = plt.subplots(2, 4, figsize=[12,5])
-        
-        ax[0,0].set_ylabel(r"$\Pi_n = \Pi(\omega_n)$")
-        plt.setp(ax[0,0].get_xticklabels(), visible=False)
-        ax[1,0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi_n}$")
-        ax[1,0].set_xlabel(r"$i\omega_n$")
-        
-        ax[0,1].set_ylabel(r"$\sigma(\omega)$")
-        plt.setp(ax[0,1].get_xticklabels(), visible=False)
-        ax[1,1].set_ylabel(r"running $\sqrt{ \langle \omega^2 \rangle_{\sigma} }$") #"$\int_0^\omega dz z^2\sigma(z^2)$"
-        ax[1,1].set_xlabel(r"$\omega$")
-        
-        ax[0,2].set_ylabel(r"$\sigma_m$")
-        plt.setp(ax[0,2].get_xticklabels(), visible=False)
-        ax[1,2].set_ylabel(r"$\frac{\sqrt{\langle \omega^2 \rangle}}{M}\sum_{n=0}^{m}n^{2}\sigma_{n}$")
-        ax[1,2].set_xlabel(r"$m$")
-
-        ax[0,3].set_ylabel(r"$\sigma_m$")
-        plt.setp(ax[0,3].get_xticklabels(), visible=False)
-        ax[1,3].set_ylabel(r"$\frac{1}{M}\sum_{n=0}^{m}n^{2}\sigma_{n}$")
-        ax[1,3].set_xlabel(r"$m$")
-
-        for i in range(len(pi_of_wn_array)):
-            if use_freq:
-                ax[0,0].plot( self.wn_list, pi_of_wn_array[i] )
-                ax[1,0].plot( self.wn_list, alpha[i] )
-                ax[0,1].plot( self.w_list , sig_of_w_array[i] )
-                ax[1,1].plot( self.w_list , s2avg[i] )
-            else:
-                ax[0,0].plot(pi_of_wn_array[i])
-                ax[1,0].plot(alpha[i])
-                ax[0,1].plot(sig_of_w_array[i])
-                ax[1,1].plot(s2avg[i])
-            # ax[2,0].plot( self.compute_tail_ratio(pi_of_wn_array[i], sig_of_w_array[i]) )
-            
-            integer_w_list = np.arange(len(self.w_list))
-            ax[0,2].plot( sqrt_smpl_sigm[i] )
-            ax[1,2].plot( integer_w_list ,  (np.sqrt(alpha[i,-1]))*np.sqrt(np.cumsum((integer_w_list)**2*sqrt_smpl_sigm[i] ))/(self.N_w) )
-
-            ax[0,3].plot( cbrt_smpl_sigm[i] )
-            ax[1,3].plot( integer_w_list ,  np.sqrt(np.cumsum((integer_w_list)**2*cbrt_smpl_sigm[i] ))/(self.N_w) )
-
-        fig.tight_layout()
-        plt.show()
-
-    def generate_dataset(self, N, path='./'):
-        if self.lorentz:
-            pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_lorentz_batch(batch_size=N)
-        else:
-            pi_wn_array, sig_of_w_array, sqrt_smpl_sigm, cbrt_smpl_sigm = self.generate_gauss_batch(batch_size=N)
-        np.savetxt( path + 'Pi.csv'     , pi_wn_array   , delimiter=',')
-        np.savetxt( path + 'SigmaRe.csv', sig_of_w_array, delimiter=',')
-        np.savetxt( path + 'SigmaRe_sqrtScale.csv', sqrt_smpl_sigm, delimiter=',')
-        np.savetxt( path + 'SigmaRe_cbrtScale.csv', cbrt_smpl_sigm, delimiter=',')
-
 if __name__ == '__main__':
     default_args = {
         # script parameters
@@ -618,142 +204,84 @@ if __name__ == '__main__':
         'generate'     : 0,
         'path'         : './',
         'normalize'    : True,
-        # data generation parameters
-        'in_size'      : 128,
-        'out_size'     : 512,
-        'w_max'        : 20.0,
-        'beta'         : 10.0,#2*np.pi, # 2pi/beta = 1
-        'N_tail'       : 128,
-        'tail_power'   : 5,
-        'Pi0'          : 1.0,
-        'sqrt_ratio'   : 4,
-        'cbrt_ratio'   : 6,
-        # spectrum parameters (relative)
-        'lorentz'      : False,
-        'bernstein'    : False,
-        'max_drude'    : 4,
-        'max_peaks'    : 6,
-        'weight_ratio' : 0.50,
-        'drude_width'  : [.02, .1],
-        'peak_pos'     : [.2 , .8],
-        'peak_width'   : [.05, .1],
-        'lor_peaks'    : int(1000),
-        'lor_width'    : 0.05,
-        'N_seg'        : 8,
-        'center_method': -1,
-        'remove_nonphysical': False,
         'seed'         : int(time.time())
     }
     args = utils.parse_file_and_command(default_args, {})
-
     np.random.seed(args.seed)
-    print('seed :',args.seed)
-    sigma_path = args.path+'SigmaRe.csv'
-    pi_path = args.path+'Pi.csv'
+    my_dataset = ContinuationData(args.path, normalize=args.normalize)
 
+    # %% test squared mesh
+    meas   = my_dataset.measure
+    meas_f = my_dataset.make_measure(analytic=False)
+    plt.plot(my_dataset.mesh.numpy(), np.zeros(512), '.')
+    plt.plot(my_dataset.mesh.numpy(), meas.numpy()-meas_f.numpy(), '.')
+    plt.show()
+    print(meas.sum())
+    print(meas_f.sum())
+
+    #%% test makeloaders & normalization
+    train_loader, valid_loader = my_dataset.make_loaders(batch_size=64)
+    for batch_number, (inputs, targets) in enumerate(train_loader):
+        spectra = targets.float()
+        print(torch.sum(2*(spectra*my_dataset.measure),dim=-1)[0] )
+
+    # NOTE: as one can see, the dataset spectra are roughtly normalized to one, note
+    # also that this normalization is not guaranteed, because we do not use the full
+    # domain of omega used to generate the spectrum and because the tails are very 
+    # important
     
-    generator = DataGenerator(args)
-    
-    if not (os.path.exists(sigma_path) or os.path.exists(pi_path)):
-        print("generating",args.generate)
+    #%% test Reza with ContinuationData
+    reza_dataset = ContinuationData('../rdata/part/', measure='squared', L=20)
 
-        if args.generate > 0:
-            os.makedirs(args.path, exist_ok=True)
-            generator.generate_dataset(N=args.generate, path=args.path)
-            if args.plot > 0:
-                print('WARNING: examples printed are not part of the dataset')
+    # %% test measure for squared
+    meas   = reza_dataset.measure
+    meas_f = reza_dataset.make_measure(analytic=False)
+    plt.plot(reza_dataset.mesh.numpy(), np.zeros(512), '.')
+    plt.plot(reza_dataset.mesh.numpy(), meas.numpy()-meas_f.numpy(), '.')
+    plt.show()
+    print(meas.sum())
 
-    else:
-        if args.generate > 0:
-            raise ValueError('ABORT GENERATION: there is already a dataset on this path')
+    #%%
+    for ii in range(1,20):
+        y = reza_dataset[ii][0]
+        plt.plot(y)
+    plt.show()
 
-        #%% test dataset with ContinuationData
-        my_dataset = ContinuationData(args.path, normalize=args.normalize)
+    for ii in range(1,20):
+        x = reza_dataset.mesh.numpy()
+        y = reza_dataset[ii][1]
+        # chi0 = reza_dataset[ii][0][0]
+        # y *= (2/chi0*np.pi)
+        plt.plot(x,y)
+    plt.show()
 
-    if args.plot > 0:
-        if args.lorentz:
-            pi, sigma, sigma2, sigma3 = generator.generate_lorentz_batch(batch_size=args.plot)
-        else:
-            pi, sigma, sigma2, sigma3 = generator.generate_gauss_batch(batch_size=args.plot)
-        generator.plot(pi, sigma, sigma2, sigma3, use_freq=False)
+    #%% test makeloaders
+    r_train_loader, r_valid_loader = reza_dataset.make_loaders(batch_size=64)
+    for batch_number, (inputs, targets) in enumerate(r_train_loader):
+        chi0s = inputs[:,0].float().view(-1,1)
+        spectra = targets.float()
+        print(torch.sum((2/chi0s/np.pi)*(spectra*meas),dim=-1)[0] )
 
+    # NOTE: as one can see, the dataset spectra are roughly normalized 
+    # to 2*chi(w_n=0)/pi
 
-    if args.test:
-        # %% test squared mesh
-        meas   = my_dataset.measure
-        meas_f = my_dataset.make_measure(analytic=False)
-        plt.plot(my_dataset.mesh.numpy(), np.zeros(512), '.')
-        plt.plot(my_dataset.mesh.numpy(), meas.numpy()-meas_f.numpy(), '.')
-        plt.show()
-        print(meas.sum())
-        print(meas_f.sum())
-
-        #%% test makeloaders & normalization
-        train_loader, valid_loader = my_dataset.make_loaders(batch_size=64)
-        for batch_number, (inputs, targets) in enumerate(train_loader):
-            spectra = targets.float()
-            print(torch.sum(2*(spectra*my_dataset.measure),dim=-1)[0] )
-
-        # NOTE: as one can see, the dataset spectra are roughtly normalized to one, note
-        # also that this normalization is not guaranteed, because we do not use the full
-        # domain of omega used to generate the spectrum and because the tails are very 
-        # important
-        
-        #%% test Reza with ContinuationData
-        reza_dataset = ContinuationData('../rdata/part/', measure='squared', L=20)
-
-        # %% test measure for squared
-        meas   = reza_dataset.measure
-        meas_f = reza_dataset.make_measure(analytic=False)
-        plt.plot(reza_dataset.mesh.numpy(), np.zeros(512), '.')
-        plt.plot(reza_dataset.mesh.numpy(), meas.numpy()-meas_f.numpy(), '.')
-        plt.show()
-        print(meas.sum())
-
-        #%%
-        for ii in range(1,20):
-            y = reza_dataset[ii][0]
-            plt.plot(y)
-        plt.show()
-
-        for ii in range(1,20):
+    #%% 
+    for batch_number, (inputs, targets) in enumerate(r_train_loader):
+        batch_size = len(inputs)
+        for i in range(10,batch_size):
+            # spectra are normalized at chi0
+            matsubara = inputs[i].float()
+            plt.plot(matsubara.numpy())
+            plt.show()
+            chi0 = matsubara[0]
+            print(chi0)
+            spectrum = targets[i].float()
+            
             x = reza_dataset.mesh.numpy()
-            y = reza_dataset[ii][1]
-            # chi0 = reza_dataset[ii][0][0]
-            # y *= (2/chi0*np.pi)
+            y = (reza_dataset.measure*spectrum*(2/chi0/np.pi)).numpy()
             plt.plot(x,y)
-        plt.show()
-
-        #%% test makeloaders
-        r_train_loader, r_valid_loader = reza_dataset.make_loaders(batch_size=64)
-        for batch_number, (inputs, targets) in enumerate(r_train_loader):
-            chi0s = inputs[:,0].float().view(-1,1)
-            spectra = targets.float()
-            print(torch.sum((2/chi0s/np.pi)*(spectra*meas),dim=-1)[0] )
-
-        # NOTE: as one can see, the dataset spectra are roughly normalized 
-        # to 2*chi(w_n=0)/pi
-
-        #%% 
-        for batch_number, (inputs, targets) in enumerate(r_train_loader):
-            batch_size = len(inputs)
-            for i in range(10,batch_size):
-                # spectra are normalized at chi0
-                matsubara = inputs[i].float()
-                plt.plot(matsubara.numpy())
-                plt.show()
-                chi0 = matsubara[0]
-                print(chi0)
-                spectrum = targets[i].float()
-                
-                x = reza_dataset.mesh.numpy()
-                y = (reza_dataset.measure*spectrum*(2/chi0/np.pi)).numpy()
-                plt.plot(x,y)
-                plt.show()
-                
-                print(torch.sum(meas*spectrum*(2/chi0/np.pi)))
-                break
+            plt.show()
+            
+            print(torch.sum(meas*spectrum*(2/chi0/np.pi)))
             break
-
-    if args.generate==0 and args.plot==0 and not args.test:
-        print('nothing to do. try --help, --plot 10, or --generate 1000')
+        break

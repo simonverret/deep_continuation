@@ -175,7 +175,6 @@ class LorentzGenerator():
                 sigma[i] = s*sigma_func(resampl_w)
             else:
                 sigma[i] = sigma_func(self.w)
-                print(sigma[i])
 
         return Pi, sigma
 
