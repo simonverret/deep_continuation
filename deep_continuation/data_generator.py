@@ -55,13 +55,6 @@ def standardized_bernstein(x, m, n):
     return centered_bernstein(x*w, m, n)*w
 
 
-def test_plot_std_bernstein(m=4):
-    x = np.linspace(-5, 5, 1000)
-    for n in range(m+1):
-        plt.plot(x, standardized_bernstein(x, m, n))
-    plt.show()
-
-
 def fbernstein_norm(m, n, N=10000):
     x = np.linspace(-10, 10, N)
     return integrate.simps(standardized_bernstein(x, m, n), x)
