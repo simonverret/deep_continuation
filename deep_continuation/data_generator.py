@@ -1,10 +1,12 @@
+#%%
+
 import os
 import time
 from pathlib import Path
 
 import numpy as np
 from scipy import integrate
-from scipy.special import binom
+from scipy.special import binom, gamma, factorial, hyp2f1
 import matplotlib.pyplot as plt
 
 from deep_continuation import utils
@@ -33,12 +35,53 @@ def free_bernstein(x, m, n, c=0, w=1, h=1):
     return (h*sq/w)*bernstein(xx, m, n)
 
 
+def bernstein_center(m, n):
+    # from mathematica
+    return (1+n)/(2+m)
+
+
+def bernstein_width(m, n):
+    # from mathematica
+    return np.sqrt(-((1+n)**2/(2+m)**2)+((1+n)*(2+n))/((2+m)*(3+m)))
+
+
+def centered_bernstein(x, m, n):
+    c = bernstein_center(m,n)
+    return (m+1)*bernstein(x+c, m, n)
+
+
+def standardized_bernstein(x, m, n):
+    w = bernstein_width(m,n)
+    return centered_bernstein(x*w, m, n)*w
+
+
+def test_plot_std_bernstein(m=4):
+    x = np.linspace(-5, 5, 1000)
+    for n in range(m+1):
+        plt.plot(x, standardized_bernstein(x, m, n))
+    plt.show()
+
+
+def fbernstein_norm(m, n, N=10000):
+    x = np.linspace(-10, 10, N)
+    return integrate.simps(standardized_bernstein(x, m, n), x)
+
+
+def fbernstein_avg(m, n, N=10000):
+    x = np.linspace(-10, 10, N)
+    return integrate.simps(x*standardized_bernstein(x, m, n), x)
+
+
+def fbernstein_std(m, n, N=10000):
+    x = np.linspace(-10, 10, N)
+    return integrate.simps(x**2*standardized_bernstein(x, m, n), x)
+
+
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out = 0
     out += (type_m == 0) * lorentzian(w, center, width, height)
     out += (type_m == 1) * gaussian(w, center, width, height)
-    out += (type_m >= 2) * free_bernstein(w,
-                                          type_m, type_n, center, width, height)
+    out += (type_m >= 2) * free_bernstein(w, type_m, type_n, center, width, height)
     return out
 
 
