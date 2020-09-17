@@ -1,5 +1,3 @@
-#%%
-
 import os
 import time
 from pathlib import Path
@@ -30,14 +28,12 @@ def bernstein(x, m, n):
 
 
 def centered_bernstein(x, m, n):
-    # from mathematica
-    c = (1+n)/(2+m)
+    c = (1+n)/(2+m)   # mathematica
     return (m+1)*bernstein(x+c, m, n)
 
 
 def standardized_bernstein(x, m, n):
-    # from mathematica
-    w = np.sqrt(-((1+n)**2/(2+m)**2)+((1+n)*(2+n))/((2+m)*(3+m)))
+    w = np.sqrt(-((1+n)**2/(2+m)**2)+((1+n)*(2+n))/((2+m)*(3+m)))  # mathematica
     return centered_bernstein(x*w, m, n)*w
 
 
@@ -94,12 +90,6 @@ def test_plot_beta_dist(c, w, a, b):
     plt.plot(x, free_beta(x, c, w, a, b))
     plt.show()
 
-
-test_plot_beta_dist(-1.2,0.5,3,1.1)
-# test_plot_bernstein(1.1,0.5,23,22)
-
-
-#%%
 
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out = 0
