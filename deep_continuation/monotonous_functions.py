@@ -49,7 +49,8 @@ def softp(x, N_seg): # Each term has the form A*log(1+exp(x-c)), plus a linear t
     logmat = np.log(1+expmat)
     unsized = np.vstack((x,logmat)) # Add one more copy of x to the matrix to represent the linear term
     unsummed = unsized * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by a coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def arctsum(x, N_seg): # Each term has the form A*arctan(B*(x+c))
     x_max = x[-1]
@@ -63,7 +64,8 @@ def arctsum(x, N_seg): # Each term has the form A*arctan(B*(x+c))
     mat = mat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     arcmat = np.arctan(mat)
     unsummed = arcmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def erfsum(x, N_seg): # Each term has the form A*erf(B*(x-c)), plus a linear term
     x_max = x[-1]
@@ -78,7 +80,8 @@ def erfsum(x, N_seg): # Each term has the form A*erf(B*(x-c)), plus a linear ter
     erfmat = erf(mat)
     unsized = np.vstack((x,erfmat)) # Add one more copy of x to the matrix to represent the linear term
     unsummed = unsized * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def arssum(x, N_seg): # Each term has the form A*arsinh(B*(x+c))
     x_max = x[-1]
@@ -92,7 +95,8 @@ def arssum(x, N_seg): # Each term has the form A*arsinh(B*(x+c))
     mat = mat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     arsmat = np.arcsinh(mat)
     unsummed = arsmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def rootsum(x, N_seg): # Each term has the form A*sign(x+c)*(|x+c|)^(1/n)
     x_max = x[-1]
@@ -109,7 +113,8 @@ def rootsum(x, N_seg): # Each term has the form A*sign(x+c)*(|x+c|)^(1/n)
     powermat = np.power(np.abs(mat), np.transpose(np.tile(n,(len(x),1)))) # Take the relevant root for the absolute value of each element, row by row
     powermat = signmat * powermat # Restore the original signs after taking the root, so all negative inputs yield negative outputs
     unsummed = powermat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def exparsinh(x, N_seg): # Each term has the form A*exp(B*arsinh(x+c))
     x_max = x[-1]
@@ -124,7 +129,8 @@ def exparsinh(x, N_seg): # Each term has the form A*exp(B*arsinh(x+c))
     arsmat = arsmat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     expmat = np.exp(arsmat)
     unsummed = expmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def exparctan(x, N_seg): # Each term has the form A*exp(arctan(B(x+c)))
     x_max = x[-1]
@@ -139,7 +145,8 @@ def exparctan(x, N_seg): # Each term has the form A*exp(arctan(B(x+c)))
     arcmat = np.arctan(mat)
     expmat = np.exp(arcmat)
     unsummed = expmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def arssoft(x, N_seg): # Each term has the form A*arsinh(ln(1+exp(x+c)))
     x_max = x[-1]
@@ -153,7 +160,8 @@ def arssoft(x, N_seg): # Each term has the form A*arsinh(ln(1+exp(x+c)))
     logmat = np.log(1 + expmat)
     arsmat = np.arcsinh(logmat)
     unsummed = arsmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def tanerf(x, N_seg): # Each term has the form A*tan(B*erf(C*(x+c)))
     x_max = x[-1]
@@ -170,7 +178,8 @@ def tanerf(x, N_seg): # Each term has the form A*tan(B*erf(C*(x+c)))
     erfmat = erfmat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     tanmat = np.tan(erfmat)
     unsummed = tanmat * np.transpose(np.tile(A,(len(x),1))) # Multiply all the arguments by their coefficients
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def logarc(x, N_seg): # Each term has the form A*log(np.pi/2 + a + arctan(x+c))
     x_max = x[-1]
@@ -185,7 +194,8 @@ def logarc(x, N_seg): # Each term has the form A*log(np.pi/2 + a + arctan(x+c))
     arcmat = arcmat + np.pi/2 + np.transpose(np.tile(c,(len(x),1)))
     logmat = np.log(arcmat)
     unsummed = logmat * np.transpose(np.tile(A,(len(x),1))) # Multiply all the arguments by their coefficients
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
 
 def debug(x, N_seg): # A simple, non-randomizable function that is used to test whether the code is working. Should not be called normally
     x_max = x[-1]
@@ -193,18 +203,20 @@ def debug(x, N_seg): # A simple, non-randomizable function that is used to test 
 # More center distribution functions to be added.
 
 
+
+
 def main():
     k = np.linspace(0,20,1000)
-    n = 5
+    n = 100
     for i in range(15):
         # plt.plot(k, piecelin(k,n))
-        # plt.plot(k, softp(k,n))
+        plt.plot(k, softp(k,n))
         # plt.plot(k, arctsum(k,n))
         # plt.plot(k, erfsum(k,n))
         # plt.plot(k, arssum(k,n))
         # plt.plot(k, rootsum(k,n))
         # plt.plot(k, exparsinh(k,n))
-        plt.plot(k, exparctan(k,n))
+        # plt.plot(k, exparctan(k,n))
         # plt.plot(k, arssoft(k,n))
         # plt.plot(k, tanerf(k,n))
         # plt.plot(k, logarc(k,n))
@@ -212,4 +224,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    plot_base_functions()
