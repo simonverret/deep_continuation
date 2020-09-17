@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from scipy import integrate
-from scipy.special import binom, gamma, factorial, hyp2f1
+from scipy.special import binom, gamma, beta
 import matplotlib.pyplot as plt
 
 from deep_continuation import utils
@@ -29,52 +29,83 @@ def bernstein(x, m, n):
     return binom(m, n) * (x**n) * ((1-x)**(m-n)) * (x >= 0) * (x <= 1)
 
 
-def free_bernstein(x, m, n, c=0, w=1, h=1):
+def centered_bernstein(x, m, n):
+    # from mathematica
+    c = (1+n)/(2+m)
+    return (m+1)*bernstein(x+c, m, n)
+
+
+def standardized_bernstein(x, m, n):
+    # from mathematica
+    w = np.sqrt(-((1+n)**2/(2+m)**2)+((1+n)*(2+n))/((2+m)*(3+m)))
+    return centered_bernstein(x*w, m, n)*w
+
+
+def free_bernstein(x, c, w, a, b):
+    return standardized_bernstein((x-c)/w, a, b)/w
+
+
+def old_free_bernstein(x, m, n, c=0, w=1, h=1):
     sq = np.sqrt(m+1)
     xx = (x-c)/(w*sq) + n/m
     return (h*sq/w)*bernstein(xx, m, n)
 
 
-def bernstein_center(m, n):
-    # from mathematica
-    return (1+n)/(2+m)
+def test_plot_bernstein(c, w, a, b):
+    avg = integrate.quad(lambda x: x*free_bernstein(x, c, w, a, b), -np.inf, np.inf)[0]
+    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_bernstein(x, c, w, a, b), -np.inf, np.inf)[0])
+    print("avg =", avg)
+    print("std =", std)
+    x = np.linspace(-3, 3, 1000)
+    plt.plot(x, bernstein(x, a, b))
+    plt.plot(x, centered_bernstein(x, a, b))
+    plt.plot(x, standardized_bernstein(x, a, b))
+    plt.plot(x, free_bernstein(x, c, w, a, b))
+    plt.show()
 
 
-def bernstein_width(m, n):
-    # from mathematica
-    return np.sqrt(-((1+n)**2/(2+m)**2)+((1+n)*(2+n))/((2+m)*(3+m)))
+def beta_dist(x, a, b):
+    return np.nan_to_num((x**(a-1))*((1-x)**(b-1))/beta(a,b) * (x>0) * (x<1), copy=False)
 
 
-def centered_bernstein(x, m, n):
-    c = bernstein_center(m,n)
-    return (m+1)*bernstein(x+c, m, n)
+def centered_beta(x, a, b):
+    c = a/(a+b)
+    return beta_dist(x+c, a, b)
 
 
-def standardized_bernstein(x, m, n):
-    w = bernstein_width(m,n)
-    return centered_bernstein(x*w, m, n)*w
+def standardized_beta(x, a, b):
+    w = np.sqrt(a*b/((a+b+1)*(a+b)**2))
+    return centered_beta(x*w, a, b)*w
 
 
-def fbernstein_norm(m, n, N=10000):
-    x = np.linspace(-10, 10, N)
-    return integrate.simps(standardized_bernstein(x, m, n), x)
+def free_beta(x, c, w, a, b):
+    return standardized_beta((x-c)/w, a, b)/w
 
 
-def fbernstein_avg(m, n, N=10000):
-    x = np.linspace(-10, 10, N)
-    return integrate.simps(x*standardized_bernstein(x, m, n), x)
+def test_plot_beta_dist(c, w, a, b):
+    avg = integrate.quad(lambda x: x*free_beta(x, c, w, a, b), -np.inf, np.inf)[0]
+    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_beta(x, c, w, a, b), -np.inf, np.inf)[0])
+    print("avg =", avg)
+    print("std =", std)
+    x = np.linspace(-3, 3, 1000)
+    plt.plot(x, beta_dist(x, a, b))
+    plt.plot(x, centered_beta(x, a, b))
+    plt.plot(x, standardized_beta(x, a, b))
+    plt.plot(x, free_beta(x, c, w, a, b))
+    plt.show()
 
 
-def fbernstein_std(m, n, N=10000):
-    x = np.linspace(-10, 10, N)
-    return integrate.simps(x**2*standardized_bernstein(x, m, n), x)
+test_plot_beta_dist(-1.2,0.5,3,1.1)
+# test_plot_bernstein(1.1,0.5,23,22)
 
+
+#%%
 
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out = 0
     out += (type_m == 0) * lorentzian(w, center, width, height)
     out += (type_m == 1) * gaussian(w, center, width, height)
-    out += (type_m >= 2) * free_bernstein(w, type_m, type_n, center, width, height)
+    out += (type_m >= 2) * old_free_bernstein(w, type_m, type_n, center, width, height)
     return out
 
 
