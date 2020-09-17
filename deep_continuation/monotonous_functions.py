@@ -204,6 +204,19 @@ def debug(x, N_seg): # A simple, non-randomizable function that is used to test 
 
 
 
+def plot_base_functions(c=0, A=1, B=1, C=1, r=2, a=0):
+    x = np.linspace(-10,10,200)
+    # plt.plot(x, A*np.log(1+np.exp(x-c)))  #softp
+    # plt.plot(x, A*np.arctan(B*(x-c)))  #arct
+    # plt.plot(x, A*erf(B*(x-c)))  #erf
+    # plt.plot(x, A*np.arcsinh(B*(x+c)))  #arsinh
+    # plt.plot(x, A*np.sign(x)*np.power(np.abs(x),1/r))  #root
+    # plt.plot(x, A*np.exp(B*np.arcsinh(x+c)))  #exparsinh
+    # plt.plot(x, A*np.exp(np.arctan(B*(x+c))))  #expartan
+    # plt.plot(x, A*np.arcsinh(np.log(1+np.exp(x+c))))  #arssoft
+    # plt.plot(x, A*np.tan(B*erf(C*(x+c))))
+    plt.plot(x, A*np.log(np.pi/2 + a + np.arctan(x+c)))
+    plt.show()
 
 def main():
     k = np.linspace(0,20,1000)
