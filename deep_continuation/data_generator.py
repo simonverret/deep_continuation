@@ -23,6 +23,8 @@ def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
 
+# Bernstein polynomials
+
 def bernstein(x, m, n):
     return binom(m, n) * (x**n) * ((1-x)**(m-n)) * (x >= 0) * (x <= 1)
 
@@ -60,6 +62,8 @@ def test_plot_bernstein(c, w, a, b):
     plt.show()
 
 
+# Beta distribution
+
 def beta_dist(x, a, b):
     return np.nan_to_num((x**(a-1))*((1-x)**(b-1))/beta(a,b) * (x>0) * (x<1), copy=False)
 
@@ -89,6 +93,8 @@ def test_plot_beta_dist(c, w, a, b):
     plt.plot(x, standardized_beta(x, a, b))
     plt.plot(x, free_beta(x, c, w, a, b))
     plt.show()
+
+
 
 
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
@@ -203,6 +209,7 @@ class LorentzGenerator():
         # random gap
         center += np.random.choice([0,abs(np.random.normal(scale=self.w_max/8, size=1))])
         center *= self.w_max/center[-1]
+        plt.plot(k,center)
 
         width = np.ones(self.num_peaks)*self.peak_widths
         # countering 1/w
@@ -354,7 +361,7 @@ def unscaled_plot(Pi, sigma):
     plt.show()
 
 
-def infer_scale_plot(Pi, sigma, ):
+def infer_scale_plot(Pi, sigma, figname=None):
     N = len(Pi[0])
     Pi0 = Pi[:, 0]
     PiN = Pi[:, -1]
@@ -381,6 +388,7 @@ def infer_scale_plot(Pi, sigma, ):
     ax[1, 0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi(i\omega_n)}$")
     ax[1, 0].set_xlabel(r"$\omega_n$")
     ax[0, 1].set_ylabel(r"$\sigma(\omega)$")
+    ax[0, 1].set_ylim(0,0.5)
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
     ax[1, 1].set_ylabel(
         r"$\sqrt{ \int\frac{d\omega}{\pi} \omega^2 \sigma(\omega) }$")
@@ -391,7 +399,10 @@ def infer_scale_plot(Pi, sigma, ):
         ax[0, 1].plot(w[i], sigma[i])
         ax[1, 1].plot(w[i], cumul_sum2[i])
     fig.tight_layout()
-    plt.show()
+    if figname is not None:
+        plt.savefig(figname)
+    else:
+        plt.show()
 
 
 def main():
@@ -434,8 +445,11 @@ def main():
     if args.plot > 0:
         print(f"ploting {args.plot}")
         Pi, sigma = generator.generate_batch(size=args.plot)
+
+        plt.savefig(f'monotone_{args.center_method}.pdf')
+
         if args.scaled_plot:
-            infer_scale_plot(Pi, sigma)
+            infer_scale_plot(Pi, sigma, f"monotone_{args.center_method}_results.pdf")
         else:
             unscaled_plot(Pi, sigma)
     
