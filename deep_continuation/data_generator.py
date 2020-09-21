@@ -23,6 +23,15 @@ def gaussian(x, c, w, h):
 def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
+
+def even_lorentzian(x, c=0, w=1, h=1):
+    return (1/np.pi)*4*c*w*h/(((x-c)**2+w**2)*((x+c)**2+w**2))
+
+
+def analytic_pi(x, c=0, w=0, h=0):
+    return 2*h*c/(c**2+(x+w)**2)
+
+
 def bernstein(x, m, n):
     return binom(m, n) * (x**n) * ((1-x)**(m-n)) * (x >= 0) * (x <= 1)
 
@@ -137,7 +146,7 @@ def random_ab(num, ra=[0.5,20], rb=[0.5,20], even=False):
     return a, b
 
 
-def test_plot_random_gauss_sum(xmax=1, drudes=4, others=12):
+def test_plot_spectra(xmax=1, drudes=4, others=12):
     plt.figure(num=None, figsize=(8, 6))
     x = np.linspace(-xmax, xmax, 1000)
     
@@ -160,7 +169,6 @@ def test_plot_random_gauss_sum(xmax=1, drudes=4, others=12):
     a = np.hstack([a1, a2])
     b = np.hstack([b1, b2])
     plt.plot(x, sum_on_args(free_beta, x, c, w, h, a, b), linewidth=1)
-
     plt.show()
 
 
@@ -173,14 +181,6 @@ def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out += (type_m == 1) * gaussian(w, center, width, height)
     out += (type_m >= 2) * free_beta(w, center, width, height, type_m, type_n)
     return out
-
-
-def even_lorentz(x, c=0, w=1, h=1):
-    return (1/np.pi)*4*c*w*h/(((x-c)**2+w**2)*((x+c)**2+w**2))
-
-
-def integrated_even_lorentz(x, c=0, w=0, h=0):
-    return 2*h*c/(c**2+(x+w)**2)
 
 
 def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end=10, tail_power=7):
@@ -198,7 +198,6 @@ def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end
 def pi_integral(wn, spectral_function):
     if isinstance(wn, np.ndarray):
         wn = wn[:, np.newaxis]
-
     def integrand(x): return (1/np.pi) * x**2 / \
         (x**2+wn**2) * spectral_function(x)
     return integrate_with_tails(integrand)
@@ -287,12 +286,12 @@ class LorentzGenerator():
                 print(f"sample {i+1}")
 
             c, w, h = self.distributed_peaks_parameters()
-            def sigma_func(x): return sum_on_args(even_lorentz, x, c, w, h)
-            Pi[i] = sum_on_args(integrated_even_lorentz, self.wn, c, w, h)
+            def sigma_func(x): return sum_on_args(even_lorentzian, x, c, w, h)
+            Pi[i] = sum_on_args(analytic_pi, self.wn, c, w, h)
 
             if self.rescale > SMALL:
                 inf = 1e6
-                s = np.sqrt(inf**2*sum_on_args(integrated_even_lorentz, inf, c, w, h))
+                s = np.sqrt(inf**2*sum_on_args(analytic_pi, inf, c, w, h))
                 new_w_max = self.rescale*s
                 resampl_w = np.linspace(0, new_w_max, self.num_w)
                 sigma[i] = s*sigma_func(resampl_w)
