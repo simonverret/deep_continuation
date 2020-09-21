@@ -23,9 +23,6 @@ def gaussian(x, c, w, h):
 def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
-
-#%% Bernstein polynomials
-
 def bernstein(x, m, n):
     return binom(m, n) * (x**n) * ((1-x)**(m-n)) * (x >= 0) * (x <= 1)
 
@@ -56,8 +53,6 @@ def test_plot_bernstein(c, w, h, m, n):
     plt.plot(x, free_bernstein(x, c, w, h, m, n))
     plt.show()
 
-
-#%% Beta distribution
 
 def beta_dist(x, a, b):
     return (gamma(a+b)/(gamma(a)*gamma(b))) * np.nan_to_num((x**(a-1))*((1-x)**(b-1)) * (x>0) * (x<1), copy=False)
@@ -98,10 +93,79 @@ def test_plot_compare(c, w, h, a,b, xmax=3):
     plt.plot(x, free_bernstein(x, c, w, h, int(a+b-2),int(a-1)))
     plt.show()
 
-test_plot_compare(0,1,1, 0.9,3, xmax=5)
-
 
 #%% Peak generation and integration
+
+
+def sum_on_args(f, x, *args):
+    if isinstance(x, np.ndarray):
+        x = x[np.newaxis, :]
+        args = [a for a in args] # copy args to allow reassign 
+        for i in range(len(args)):
+            if isinstance(args[i], np.ndarray):
+                while len(args[i].shape) < len(x.shape):
+                    args[i] = args[i][:, np.newaxis]
+    return f(x,*args).sum(axis=0)
+
+
+def random_cwh(num, cr=[0,1], wr=[.05,.5], hr=[0,1], norm=1, even=False):
+    c = np.random.uniform(cr[0], cr[1], size=num)
+    w = np.random.uniform(0.0, 1.0, size=num)*(wr[1]-wr[0])+wr[0]
+    h = np.random.uniform(hr[0], hr[1], size=num)
+    if norm:
+        h *= norm/h.sum(axis=-1, keepdims=True)
+    if even:
+        c = np.hstack([c, -c])
+        w = np.hstack([w, w])
+        h = np.hstack([h, h])
+    return c, w, h
+
+
+def random_mn(num, rm=[1,20], even=False):
+    m = np.random.randint(rm[0], rm[1], size=num)
+    n = np.ceil(np.random.uniform(0.0, 1.000, size=num)*(m-1))
+    n = np.hstack([n, m-n])
+    m = np.hstack([m, m])
+    return m, n
+
+
+def random_ab(num, ra=[0.5,20], rb=[0.5,20], even=False):
+    aa = np.random.randint(ra[0], ra[1], size=num)
+    bb = np.random.randint(rb[0], rb[1], size=num)
+    a = np.hstack([aa, bb])
+    b = np.hstack([bb, aa])
+    return a, b
+
+
+def test_plot_random_gauss_sum(xmax=1, drudes=4, others=12):
+    plt.figure(num=None, figsize=(8, 6))
+    x = np.linspace(-xmax, xmax, 1000)
+    
+    c1, w1, h1 = random_cwh(drudes, cr=[0.,0.], wr=[0.01,0.05], even=True)
+    c2, w2, h2 = random_cwh(others, cr=[0.2,0.8], wr=[0.01,0.05], even=True)
+    ratio = np.random.choice([0, np.random.uniform(0.2,0.8)])
+    c = np.hstack([c1, c2])
+    w = np.hstack([w1, w2])
+    h = np.hstack([h1*ratio, h2*(1-ratio)])
+    plt.plot(x, sum_on_args(gaussian, x, c, w, h), linewidth=2)
+
+    m1, n1 = random_mn(drudes, even=True)
+    m2, n2 = random_mn(others, even=True)
+    m = np.hstack([m1, m2])
+    n = np.hstack([n1, n2])
+    plt.plot(x, sum_on_args(free_bernstein, x, c, w, h, m, n), linewidth=1)
+
+    a1, b1 = random_ab(drudes, even=True)
+    a2, b2 = random_ab(others, even=True)
+    a = np.hstack([a1, a2])
+    b = np.hstack([b1, b2])
+    plt.plot(x, sum_on_args(free_beta, x, c, w, h, a, b), linewidth=1)
+
+    plt.show()
+
+
+#%%
+
 
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out = 0
@@ -117,17 +181,6 @@ def even_lorentz(x, c=0, w=1, h=1):
 
 def integrated_even_lorentz(x, c=0, w=0, h=0):
     return 2*h*c/(c**2+(x+w)**2)
-
-
-def sum_on_args(f, x, *args):
-    if isinstance(x, np.ndarray):
-        x = x[np.newaxis, :]
-        args = [a for a in args] # copy args to allow reassign 
-        for i in range(len(args)):
-            if isinstance(args[i], np.ndarray):
-                while len(args[i].shape) < len(x.shape):
-                    args[i] = args[i][:, np.newaxis]
-    return f(x,*args).sum(axis=0)
 
 
 def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end=10, tail_power=7):
