@@ -1,10 +1,11 @@
+#%% Data generator
 import os
 import time
 from pathlib import Path
 
 import numpy as np
 from scipy import integrate
-from scipy.special import binom, gamma, beta
+from scipy.special import binom, gamma
 import matplotlib.pyplot as plt
 
 from deep_continuation import utils
@@ -16,14 +17,14 @@ SMALL = 1e-10
 
 
 def gaussian(x, c, w, h):
-    return (h/(np.sqrt(np.pi)*w))*np.exp(-((x-c)/w)**2)
+    return (h/(np.sqrt(2*np.pi)*w))*np.exp(-((x-c)/w)**2/2)
 
 
 def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
 
-# Bernstein polynomials
+#%% Bernstein polynomials
 
 def bernstein(x, m, n):
     return binom(m, n) * (x**n) * ((1-x)**(m-n)) * (x >= 0) * (x <= 1)
@@ -39,33 +40,27 @@ def standardized_bernstein(x, m, n):
     return centered_bernstein(x*w, m, n)*w
 
 
-def free_bernstein(x, c, w, a, b):
-    return standardized_bernstein((x-c)/w, a, b)/w
+def free_bernstein(x, c, w, h, m, n):
+    return h*standardized_bernstein((x-c)/w, m, n)/w
 
 
-def old_free_bernstein(x, m, n, c=0, w=1, h=1):
-    sq = np.sqrt(m+1)
-    xx = (x-c)/(w*sq) + n/m
-    return (h*sq/w)*bernstein(xx, m, n)
-
-
-def test_plot_bernstein(c, w, a, b):
-    avg = integrate.quad(lambda x: x*free_bernstein(x, c, w, a, b), -np.inf, np.inf)[0]
-    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_bernstein(x, c, w, a, b), -np.inf, np.inf)[0])
+def test_plot_bernstein(c, w, h, m, n):
+    avg = integrate.quad(lambda x: x*free_bernstein(x, c, w, h, m, n), -np.inf, np.inf)[0]
+    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_bernstein(x, c, w, h, m, n), -np.inf, np.inf)[0])
     print("avg =", avg)
     print("std =", std)
     x = np.linspace(-3, 3, 1000)
-    plt.plot(x, bernstein(x, a, b))
-    plt.plot(x, centered_bernstein(x, a, b))
-    plt.plot(x, standardized_bernstein(x, a, b))
-    plt.plot(x, free_bernstein(x, c, w, a, b))
+    plt.plot(x, bernstein(x, m, n))
+    plt.plot(x, centered_bernstein(x, m, n))
+    plt.plot(x, standardized_bernstein(x, m, n))
+    plt.plot(x, free_bernstein(x, c, w, h, m, n))
     plt.show()
 
 
-# Beta distribution
+#%% Beta distribution
 
 def beta_dist(x, a, b):
-    return np.nan_to_num((x**(a-1))*((1-x)**(b-1))/beta(a,b) * (x>0) * (x<1), copy=False)
+    return (gamma(a+b)/(gamma(a)*gamma(b))) * np.nan_to_num((x**(a-1))*((1-x)**(b-1)) * (x>0) * (x<1), copy=False)
 
 
 def centered_beta(x, a, b):
@@ -78,30 +73,41 @@ def standardized_beta(x, a, b):
     return centered_beta(x*w, a, b)*w
 
 
-def free_beta(x, c, w, a, b):
-    return standardized_beta((x-c)/w, a, b)/w
+def free_beta(x, c, w, h, a, b):
+    return h*standardized_beta((x-c)/w, a, b)/w
 
 
-def test_plot_beta_dist(c, w, a, b):
-    avg = integrate.quad(lambda x: x*free_beta(x, c, w, a, b), -np.inf, np.inf)[0]
-    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_beta(x, c, w, a, b), -np.inf, np.inf)[0])
+def test_plot_beta_dist(c, w, h, a, b):
+    avg = integrate.quad(lambda x: x*free_beta(x, c, w, h, a, b), -np.inf, np.inf)[0]
+    std = np.sqrt(integrate.quad(lambda x: (x-avg)**2*free_beta(x, c, w, h, a, b), -np.inf, np.inf)[0])
     print("avg =", avg)
     print("std =", std)
     x = np.linspace(-3, 3, 1000)
     plt.plot(x, beta_dist(x, a, b))
     plt.plot(x, centered_beta(x, a, b))
     plt.plot(x, standardized_beta(x, a, b))
-    plt.plot(x, free_beta(x, c, w, a, b))
+    plt.plot(x, free_beta(x, c, w, h, a, b))
     plt.show()
 
 
+def test_plot_compare(c, w, h, a,b, xmax=3):
+    x = np.linspace(-xmax, xmax, 1000)
+    plt.plot(x, gaussian(x, c, w, h))
+    plt.plot(x, lorentzian(x, c, w, h))
+    plt.plot(x, free_beta(x, c, w, h, a,b))
+    plt.plot(x, free_bernstein(x, c, w, h, int(a+b-2),int(a-1)))
+    plt.show()
 
+test_plot_compare(0,1,1, 0.9,3, xmax=5)
+
+
+#%% Peak generation and integration
 
 def peak(w, center=0, width=1, height=1, type_m=0, type_n=0):
     out = 0
     out += (type_m == 0) * lorentzian(w, center, width, height)
     out += (type_m == 1) * gaussian(w, center, width, height)
-    out += (type_m >= 2) * old_free_bernstein(w, type_m, type_n, center, width, height)
+    out += (type_m >= 2) * free_beta(w, center, width, height, type_m, type_n)
     return out
 
 
@@ -317,6 +323,7 @@ class GaussBernsteinGenerator():
         sigma = np.zeros((size, self.num_w))
         for i in range(size):
 
+            # to generate the same spectrum at multiple temperatures
             # np.random.seed(self.seed)
             # self.beta = self.beta/2
             # self.wn = (2*np.pi/self.beta) * np.arange(0,self.num_wn)
