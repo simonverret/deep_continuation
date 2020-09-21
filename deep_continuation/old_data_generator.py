@@ -25,10 +25,10 @@ class LorentzGenerator():
         self.w = np.linspace(0, self.w_max, self.num_w)
         self.wn = (2*np.pi/self.beta) * np.arange(0, self.num_wn)
 
-        self.Pi0 = Pi0
         self.seed = seed
         self.rescale = rescale
 
+        self.Pi0 = Pi0
         self.num_peaks = num_peaks
         self.N_seg = N_seg
         self.peak_widths = peak_widths
@@ -187,6 +187,8 @@ class GaussBernsteinGenerator():
         Pi = np.zeros((size, self.num_wn))
         sigma = np.zeros((size, self.num_w))
         for i in range(size):
+            if (i == 0 or (i+1) % (max(1, size//100)) == 0):
+                print(f"sample {i+1}")
 
             # to generate the same spectrum at multiple temperatures
             # np.random.seed(self.seed)
@@ -249,7 +251,6 @@ def main():
     if args.plot > 0:
         print(f"ploting {args.plot}")
         Pi, sigma = generator.generate_batch(size=args.plot)
-        # plt.savefig(f'monotone_{args.center_method}.pdf')
         if args.scaled_plot:
             infer_scale_plot(Pi, sigma)
         else:

@@ -6,38 +6,58 @@ from pathlib import Path
 HERE = Path(__file__).parent
 PLOT = HERE/"plots"
 
-def piecelin_unit(x, n, soft=0):
-    flx_pts = np.sort(np.random.uniform(0, 1, size=n))
-    slopes = np.random.uniform(0, 1, size=n+1)
-    slopes[0] = 0
-    slopes[n] = 0 
-    slp_chg = slopes[1:] - slopes[:-1]
-    nomalize = ((flx_pts[1:]-flx_pts[:-1])*slopes[1:-1]).sum()
+# def piecelin_unit_bkp(x, n, soft=0):
+#     flx_pts = np.sort(np.random.uniform(0, 1, size=n))
+#     slopes = np.random.uniform(0, 10e5, size=n+1)
+#     slopes[0] = 0.001
+#     slopes[n] = 0.999 
+#     slp_chg = slopes[1:] - slopes[:-1]
+#     nomalize = ((flx_pts[1:]-flx_pts[:-1])*slopes[1:-1]).sum()
 
+#     x = x[np.newaxis, :]
+#     slp_chg = slp_chg[:, np.newaxis]
+#     flx_pts = flx_pts[:, np.newaxis]
+#     if soft:  # using softplus
+#         y = (slp_chg * np.logaddexp(0,(x - flx_pts)/soft)*soft).sum(axis=0)
+#     else:  # using relu
+#         y = (slp_chg * (x - flx_pts) * (x > flx_pts)).sum(axis=0)
+    
+#     return y/nomalize
+
+def piecelin_unit(x, n, soft=0):
+    xflex = np.sort(np.random.uniform(0, 1, size=n+1))
+    xflex[0] = 0
+    xflex[n] = 1
+    yflex = np.sort(np.random.uniform(0, 1, size=n+1))
+    yflex[0] = 0
+    yflex[n] = 1
+    
+    slopes = (yflex[1:]-yflex[:n])/(xflex[1:]-xflex[:n])
+    slp_chg = slopes[1:] - slopes[:-1]
+    
+    y = slopes[0]*x
     x = x[np.newaxis, :]
     slp_chg = slp_chg[:, np.newaxis]
-    flx_pts = flx_pts[:, np.newaxis]
+    flx = xflex[1:n, np.newaxis]
     if soft:  # using softplus
-        y = (slp_chg * np.logaddexp(0,(x - flx_pts)/soft)*soft).sum(axis=0)
+        y += (slp_chg * np.logaddexp(0,(x - flx)/soft)*soft).sum(axis=0)
     else:  # using relu
-        y = (slp_chg * (x - flx_pts) * (x > flx_pts)).sum(axis=0)
-    
-    return y/nomalize
-
+        y += (slp_chg * (x - flx) * (x > flx)).sum(axis=0)
+    return y
 
 def piecetan_unit(x, n, soft=0):
-    jmp_pts = np.random.uniform(0, 1, size=n)
-    amps = np.random.uniform(0, 1, size=n)
-    normalize = amps.sum()
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    amps /= amps.sum()
 
     x = x[np.newaxis, :]
-    jmp_pts = jmp_pts[:, np.newaxis]
+    jmps = jmps[:, np.newaxis]
     amps = amps[:, np.newaxis]
     if soft:  # using sigmoid
-        y = (amps * expit((x-jmp_pts)/(soft))).sum(axis=0)
+        y = (amps * expit((x-jmps)/(soft))).sum(axis=0)
     else:  # using heavyside
-        y = (amps * (x > jmp_pts)).sum(axis=0)
-    return y/normalize
+        y = (amps * (x > jmps)).sum(axis=0)
+    return y
 
 
 def piecewise_tan(x, xlims=[0,1], ylims=[0,1], **kwargs):
@@ -48,6 +68,27 @@ def piecewise_tan(x, xlims=[0,1], ylims=[0,1], **kwargs):
 def piecewise_lin(x, xlims=[0,1], ylims=[0,1], **kwargs):
     (l,r),(b,t) = xlims,ylims
     return b+(t-b)*piecelin_unit((x-l)/(r-l), **kwargs)
+
+
+
+def test_plot_piecewise():
+    x = np.linspace(-3,3,1000)
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,3))
+    seed = np.random.randint(1000)
+    for soft in np.linspace(0,0.03,3):
+        np.random.seed(seed)
+        ax1.plot(x, piecewise_lin(x, n=8, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.plot(x, piecewise_tan(x, n=8, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.set_xlim(-2,2)
+        ax2.set_ylim(-1,1)
+    ax1.set_title("relu and softplus")
+    ax2.set_title("heavysides and sigmoid")
+    plt.show()
+    # plt.savefig(PLOT/"monofunc__my_piecewise.pdf")
+    # plt.clf()
+
+# test_plot_piecewise()
+#%%
 
 
 def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise linear function
