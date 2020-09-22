@@ -6,44 +6,30 @@ from pathlib import Path
 HERE = Path(__file__).parent
 PLOT = HERE/"plots"
 
-# def piecelin_unit_bkp(x, n, soft=0):
-#     flx_pts = np.sort(np.random.uniform(0, 1, size=n))
-#     slopes = np.random.uniform(0, 10e5, size=n+1)
-#     slopes[0] = 0.001
-#     slopes[n] = 0.999 
-#     slp_chg = slopes[1:] - slopes[:-1]
-#     nomalize = ((flx_pts[1:]-flx_pts[:-1])*slopes[1:-1]).sum()
-
-#     x = x[np.newaxis, :]
-#     slp_chg = slp_chg[:, np.newaxis]
-#     flx_pts = flx_pts[:, np.newaxis]
-#     if soft:  # using softplus
-#         y = (slp_chg * np.logaddexp(0,(x - flx_pts)/soft)*soft).sum(axis=0)
-#     else:  # using relu
-#         y = (slp_chg * (x - flx_pts) * (x > flx_pts)).sum(axis=0)
-    
-#     return y/nomalize
 
 def piecelin_unit(x, n, soft=0):
-    xflex = np.sort(np.random.uniform(0, 1, size=n+1))
-    xflex[0] = 0
-    xflex[n] = 1
-    yflex = np.sort(np.random.uniform(0, 1, size=n+1))
-    yflex[0] = 0
-    yflex[n] = 1
-    
-    slopes = (yflex[1:]-yflex[:n])/(xflex[1:]-xflex[:n])
+    flx_pts = np.sort(np.random.uniform(0, 1, size=n))
+    slopes = np.random.uniform(0, 10e5, size=n+1)
+    slopes[0] = 0.001
+    slopes[n] = 0.999 
     slp_chg = slopes[1:] - slopes[:-1]
-    
-    y = slopes[0]*x
+    nomalize = ((flx_pts[1:]-flx_pts[:-1])*slopes[1:-1]).sum()
+
     x = x[np.newaxis, :]
     slp_chg = slp_chg[:, np.newaxis]
-    flx = xflex[1:n, np.newaxis]
+    flx_pts = flx_pts[:, np.newaxis]
     if soft:  # using softplus
-        y += (slp_chg * np.logaddexp(0,(x - flx)/soft)*soft).sum(axis=0)
+        y = (slp_chg * np.logaddexp(0,(x - flx_pts)/soft)*soft).sum(axis=0)
     else:  # using relu
-        y += (slp_chg * (x - flx) * (x > flx)).sum(axis=0)
-    return y
+        y = (slp_chg * (x - flx_pts) * (x > flx_pts)).sum(axis=0)
+    
+    return y/nomalize
+
+
+def piecewise_lin(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*piecelin_unit((x-l)/(r-l), **kwargs)
+
 
 def piecetan_unit(x, n, soft=0):
     jmps = np.random.uniform(0, 1, size=n+1)
@@ -65,29 +51,75 @@ def piecewise_tan(x, xlims=[0,1], ylims=[0,1], **kwargs):
     return b+(t-b)*piecetan_unit((x-l)/(r-l), **kwargs)
 
 
-def piecewise_lin(x, xlims=[0,1], ylims=[0,1], **kwargs):
-    (l,r),(b,t) = xlims,ylims
-    return b+(t-b)*piecelin_unit((x-l)/(r-l), **kwargs)
-
-
-
 def test_plot_piecewise():
     x = np.linspace(-3,3,1000)
     fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,3))
     seed = np.random.randint(1000)
     for soft in np.linspace(0,0.03,3):
         np.random.seed(seed)
-        ax1.plot(x, piecewise_lin(x, n=8, soft=soft, xlims=[-2,2], ylims=[-1,1]))
-        ax2.plot(x, piecewise_tan(x, n=8, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax1.plot(x, piecewise_lin(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.plot(x, piecewise_tan(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
         ax2.set_xlim(-2,2)
         ax2.set_ylim(-1,1)
     ax1.set_title("relu and softplus")
     ax2.set_title("heavysides and sigmoid")
-    plt.show()
-    # plt.savefig(PLOT/"monofunc__my_piecewise.pdf")
-    # plt.clf()
+    plt.savefig(PLOT/"monofunc__my_piecewise.pdf")
+    plt.clf()
 
 # test_plot_piecewise()
+
+
+#%%
+
+def piecewise_gap_unit(x, n, soft=0):
+    N = n
+    n = np.random.randint(1,n)
+    N = N-n
+    flx = np.sort(np.random.uniform(0, 1, size=n+1))
+    flx[0] = 0
+    flx[n] = 1
+    yflex = np.sort(np.random.uniform(0, 1, size=n+1))
+    yflex[0] = 0
+    yflex[n] = 1    
+    slopes = (yflex[1:]-yflex[:n])/(flx[1:]-flx[:n])
+    chg = slopes[1:] - slopes[:-1]
+    y = slopes[0]*x
+    
+    x = x[np.newaxis, :]
+    chg = chg[ : , np.newaxis]
+    flx = flx[1:n, np.newaxis]
+    y += (chg * np.logaddexp(0,(x - flx)/soft)*soft).sum(axis=0)
+
+    n = np.random.randint(0,N)
+    N = N-n
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    jmps = jmps[:, np.newaxis]
+    amps = amps[:, np.newaxis]
+    y += (amps * expit((x-jmps)/(soft))).sum(axis=0)
+
+    n = np.random.randint(0,N)
+    N = N-n
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    jmps = jmps[:, np.newaxis]
+    amps = amps[:, np.newaxis]
+    y += (amps * (x > jmps)).sum(axis=0)
+    return y/y.max()
+    
+def piecewise_gap(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*piecewise_gap_unit((x-l)/(r-l), **kwargs)
+
+def test_plot_piecewise2():
+    x = np.linspace(-2,2,1000)
+    seed = np.random.randint(1000)
+    plt.plot(x, piecewise_gap(x, n=18, soft=0.01, xlims=[-2,2], ylims=[-1,1]))
+    plt.show()
+
+# test_plot_piecewise2()
+
+
 #%%
 
 

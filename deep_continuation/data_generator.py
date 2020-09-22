@@ -384,7 +384,7 @@ class LorentzComb(DataGenerator):
 
     def random_functions(self):
         k = np.linspace(0, 1, self.num_peaks)
-        c = monofunc.piecewise_tan(k, n=8, soft=0.05, xlims=[-0.1,1.1], ylims=[0,self.w_max])
+        c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.w_max])
         w = np.ones(self.num_peaks)*self.peak_widths        
         h = abs(c) + 0.05
         h *= self.norm/h.sum(axis=-1, keepdims=True)
@@ -418,7 +418,7 @@ def main():
         'lorentz': False,
         'num_peaks': 10000,
         'peak_widths': 0.01,
-        'N_seg': 8,
+        'N_seg': 2,
         'center_method': -1,
         'remove_nonphysical': False,
         'scaled_plot': False
