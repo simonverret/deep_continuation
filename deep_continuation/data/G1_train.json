@@ -1,5 +1,6 @@
 {
     "seed": 11111,
+    "generate": 50000,
     "path": "data/G1/train/",
     "peak_type": "Gaussian",
     "max_peaks": 6,
