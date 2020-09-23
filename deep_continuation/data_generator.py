@@ -1,4 +1,3 @@
-#%% Data generator
 import os
 import time
 from pathlib import Path
@@ -11,7 +10,7 @@ import matplotlib.pyplot as plt
 from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
 
-np.set_printoptions(precision=3)
+np.set_printoptions(precision=4)
 HERE = Path(__file__).parent
 SMALL = 1e-10
 
@@ -118,9 +117,6 @@ def test_plot_beta_dist(c, w, h, a, b):
     plt.plot(x, free_beta(x, c, w, h, a, b))
     plt.show()
 
-# test_plot_beta_dist(0.6, 0.81, 1, 0.5, 20)
-
-#%%
 
 def test_plot_compare(c, w, h, a,b, xmax=3):
     x = np.linspace(-xmax, xmax, 1000)
@@ -129,6 +125,7 @@ def test_plot_compare(c, w, h, a,b, xmax=3):
     plt.plot(x, free_beta(x, c, w, h, a,b))
     plt.plot(x, free_bernstein(x, c, w, h, int(a+b-2),int(a-1)))
     plt.show()
+
 
 def sum_on_args(f, x, *args):
     if isinstance(x, np.ndarray):
@@ -163,9 +160,9 @@ def random_mn(num, rm=[1,20], even=True):
     return m, n
 
 
-def random_ab(num, ra=[1,20], rb=[1,20], even=True):
-    a = np.random.randint(ra[0], ra[1], size=num)
-    b = np.random.randint(rb[0], rb[1], size=num)
+def random_ab(num, ra=[0.5,20], rb=[0.5,20], even=True):
+    a = np.random.uniform(ra[0], ra[1], size=num)
+    b = np.random.uniform(rb[0], rb[1], size=num)
     if even:
         aa, bb = a, b
         a = np.hstack([aa, bb])
@@ -240,7 +237,6 @@ def scale_plot(Pi, sigma, beta, w_max, filename=None):
     ax[1, 0].set_ylabel(r"$\sqrt{\omega_n^2 \Pi(i\omega_n)}$")
     ax[1, 0].set_xlabel(r"$\omega_n$")
     ax[0, 1].set_ylabel(r"$\sigma(\omega)$")
-    ax[0, 1].set_ylim(0,0.5)
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
     ax[1, 1].set_ylabel(
         r"$\sqrt{ \int\frac{d\omega}{\pi} \omega^2 \sigma(\omega) }$")
@@ -259,15 +255,18 @@ def scale_plot(Pi, sigma, beta, w_max, filename=None):
 
 def infer_scale_plot(Pi, sigma, filename=None):
     N = len(Pi[0])
+    M = len(sigma[0])
     Pi0 = Pi[:, 0]
     PiN = Pi[:, -1]
-    M = len(sigma[0])
-    sum1 = np.sum(sigma, axis=-1)
-    sum2 = np.sum(np.arange(M), axis=-1)
-    beta = 2*N*np.sqrt(PiN*sum1**3/(Pi0**3*sum2))
-    w_max = np.pi*Pi0*M/sum1
-    print(f"infered scales:\n  beta  = {beta}\n  w_max = {w_max}")
-    scale_plot(Pi, sigma, beta, w_max)
+    sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
+    dm = np.pi*Pi0/sum1
+    wmaxs = M*dm
+    m = np.arange(M)
+    sum2 = 2*np.sum(m**2*sigma, axis=-1)
+    betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
+    print(f" infered pieces:\n  PiN  = {PiN}\n  Pi0  = {Pi0}\n  sum1 = {sum1}\n  sum2 = {sum2}")
+    print(f" infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
+    scale_plot(Pi, sigma, betas, wmaxs, filename)
 
 
 class DataGenerator():
@@ -286,40 +285,56 @@ class DataGenerator():
     def generate_batch(self, size):
         Pi = np.zeros((size, self.num_wn))
         sigma = np.zeros((size, self.num_w))
+        betas = np.zeros(size)
+        wmaxs = np.zeros(size)
+
         for i in range(size):
             if (i == 0 or (i+1)%(max(1,size//100)) == 0): 
                 print(f"sample {i+1}")
             sigma_func, pi_func = self.random_functions()
+            
+            Pi[i] = pi_func(self.wn)
+            
             if self.rescale > SMALL:
                 inf = 1e6
-                s = np.sqrt(inf**2*pi_integral(inf, sigma_func))
+                s = np.cbrt(inf**2*pi_integral(inf, sigma_func))
+                # N = self.num_wn-1
+                # s = np.cbrt(Pi[i,N]*N*2)
                 new_w_max = self.rescale*s
                 resampl_w = np.linspace(0, new_w_max, self.num_w)
-                sigma[i] = s*sigma_func(resampl_w)
+                sigma[i] = sigma_func(resampl_w)
+                betas[i] = self.beta
+                wmaxs[i] = new_w_max
             else:
                 sigma[i] = sigma_func(self.w)
-            Pi[i] = pi_func(self.wn)
-        return Pi, sigma
+                betas[i] = self.beta
+                wmaxs[i] = self.w_max
 
-    def generate_files(self, size, sigma_path, pi_path):
+        return Pi, sigma, betas, wmaxs
+
+    def generate_files(self, size, sigma_path, pi_path, scale_path=None):
         if (os.path.exists(sigma_path) or os.path.exists(pi_path)):
             raise ValueError('there is already a dataset on this path')
-        Pi, sigma = self.generate_batch(size)
+        Pi, sigma, betas, wmaxs = self.generate_batch(size)
         np.savetxt(pi_path, Pi, delimiter=',')
         np.savetxt(sigma_path, sigma, delimiter=',')
+        if scale_path:
+            scales = np.vstack(betas, wmaxs)
+            np.savetxt(scale_path, scales, delimiter=',', header="beta, w_max")
 
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
-        Pi, sigma = self.generate_batch(size)
-        print(Pi[:,0])
+        Pi, sigma, betas, wmaxs = self.generate_batch(size)
+        print(f" true scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
+        print(f" normalization check {Pi[:,0]}")
         if basic: 
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale: 
-            scale_plot(Pi, sigma, self.beta, self.w_max, name+"_scale.pdf" if name else None)
+            scale_plot(Pi, sigma, betas, wmaxs, name+"_scale.pdf" if name else None)
         if infer: 
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
         
 
-class PeakMixIntegrator(DataGenerator):
+class PeakMix(DataGenerator):
     def __init__(self, 
         kind="Gaussian", 
         kernel="Matsubara",
@@ -366,6 +381,8 @@ class PeakMixIntegrator(DataGenerator):
             sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
         elif self.kind in ["B", "Beta", "beta"]:
             sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        elif self.kind in ["L", "Lorentzian", "lorentzian"]:
+            sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
         else: 
             raise ValueError(f"kind {self.kind} not recognized")
         
@@ -424,7 +441,11 @@ def main():
         'N_seg': 2,
         'center_method': -1,
         'remove_nonphysical': False,
-        'scaled_plot': False
+        # plot
+        'plot_name': "",
+        'basic_plot': True,
+        'scaled_plot': False,
+        'infer_scale': False,
     }
     args = utils.parse_file_and_command(default_args, {})
     print(f"seed : {args.seed}")
@@ -433,10 +454,17 @@ def main():
     if args.lorentz:
         generator = LorentzComb(**vars(args))
     else:
-        generator = PeakMixIntegrator(**vars(args))
+        generator = PeakMix(**vars(args))
 
     if args.plot > 0: 
-        generator.plot(args.plot)
+        generator.plot(
+            args.plot, 
+            name=args.plot_name if args.plot_name else None,
+            basic=args.basic_plot, 
+            scale=args.scaled_plot, 
+            infer=args.infer_scale
+        )
+
     elif args.generate > 0:
         os.makedirs(args.path, exist_ok=True)
         generator.generate_files(
@@ -447,6 +475,7 @@ def main():
         
     if args.generate==0 and args.plot==0:
         print("nothing to do, use --plot 10 or --generate 10000")
+
 
 if __name__ == "__main__":
     main()
