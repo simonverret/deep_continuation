@@ -1,6 +1,7 @@
 {
-    "seed": 11111,
-    "path": "data/G1/train/",
+    "seed": 22222,
+    "generate": 50000,
+    "path": "data/G2/train/",
     "peak_type": "Gaussian",
     "max_peaks": 6,
     "peaks_position_range": [
@@ -15,14 +16,5 @@
         0.0,
         1.0
     ],
-    "max_drude": 4,
-    "drude_ratio": 0.50,
-    "drude_width_range": [
-        0.01,
-        0.20
-    ],
-    "drude_weight_range": [
-        0.0,
-        1.0
-    ]
+    "max_drude": 0
 }

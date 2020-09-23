@@ -26,7 +26,7 @@ def sum_on_args(f, x, *args):
     return f(x, *args).sum(axis=0)
 
 
-def integrate_with_tails(integrand, grid_points=2048, tail_points=1024, grid_end=10, tail_power=7):
+def integrate_with_tails(integrand, grid_points=4096, tail_points=1024, grid_end=10, tail_power=7):
     grid_sampling = np.linspace(-grid_end, grid_end, grid_points)
     tail_sampling = np.logspace(
         np.log10(grid_end), tail_power, tail_points)[1:]
@@ -272,24 +272,28 @@ class DataGenerator():
 class PeakMix(DataGenerator):
     def __init__(self,
                  Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, position_range, width_range,
+                 peak_type, norm, max_peaks, peaks_position_range, 
+                 peaks_width_range, peaks_weight_range, beta_ab_range,
+                 **kwargs
                  ):
         super().__init__(Nwn, Nw, beta, wmax, rescale)
+        self.peak_type = peak_type
         self.norm = norm
         self.max_peaks = max_peaks
-        self.position_range = position_range
-        self.width_range = width_range
-        self.peak_type = peak_type
+        self.peaks_position_range = peaks_position_range
+        self.peaks_width_range = peaks_width_range
+        self.peaks_weight_range = peaks_weight_range
+        self.beta_ab_range = beta_ab_range
 
     def generate_cwhab(self):
-        num = np.random.randint(0, self.max_peaks+1)
+        num = np.random.randint(1, self.max_peaks+1)
         c, w, h = random_cwh(
-            num, self.position_range, self.width_range, norm=self.norm
+            num, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, self.norm
         )
         c = c*self.wmax
         w = w*self.wmax
         h = h*self.norm*np.pi
-        a, b = random_ab(num)
+        a, b = random_ab(num, ra=self.beta_ab_range, rb=self.beta_ab_range)
         return c, w, h, a, b
 
     def generate_functions(self):
@@ -310,15 +314,20 @@ class PeakMix(DataGenerator):
 class DrudePeakMix(PeakMix):
     def __init__(self,
                  Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, position_range, width_range,
-                 max_drude, drude_ratio, drude_width_range,
+                 peak_type, norm, max_peaks, peaks_position_range,
+                 peaks_width_range, peaks_weight_range, beta_ab_range,
+                 max_drude, drude_ratio, drude_width_range, drude_weight_range,
+                 **kwargs
                  ):
         super().__init__(Nwn, Nw, beta, wmax, rescale,
-                         peak_type, norm, max_peaks, position_range, width_range)
+                         peak_type, norm, max_peaks, peaks_position_range, 
+                         peaks_width_range, peaks_weight_range, beta_ab_range)
         self.max_drude = max_drude
         self.max_peaks = max_peaks
         self.drude_ratio = drude_ratio
         self.drude_width_range = drude_width_range
+        self.drude_weight_range = drude_weight_range
+
 
     def generate_cwhab(self):
         drudes = np.random.randint(
@@ -337,17 +346,17 @@ class DrudePeakMix(PeakMix):
             rest = 1
 
         c1, w1, h1 = random_cwh(
-            drudes, [0, 0], self.drude_width_range, norm=drude_weight
+            drudes, [0, 0], self.drude_width_range, self.drude_weight_range, drude_weight
         )
         c2, w2, h2 = random_cwh(
-            others, self.position_range, self.width_range, norm=rest
+            others, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, rest
         )
         c = np.hstack([c1, c2])*self.wmax
         w = np.hstack([w1, w2])*self.wmax
         h = np.hstack([h1, h2])*self.norm*np.pi
 
-        a1, b1 = random_ab(drudes)
-        a2, b2 = random_ab(others)
+        a1, b1 = random_ab(drudes, ra=self.beta_ab_range, rb=self.beta_ab_range)
+        a2, b2 = random_ab(others, ra=self.beta_ab_range, rb=self.beta_ab_range)
         a = np.hstack([a1, a2])
         b = np.hstack([b1, b2])
 
@@ -357,7 +366,8 @@ class DrudePeakMix(PeakMix):
 class LorentzComb(DataGenerator):
     def __init__(self,
                  Nwn, Nw, beta, wmax, rescale,
-                 norm, num_peaks, width, **kwargs
+                 norm, num_peaks, width, 
+                 **kwargs
                  ):
         super().__init__(Nwn, Nw, beta, wmax, rescale)
         self.norm = norm
@@ -389,14 +399,17 @@ def main():
         'norm': 1.0,
         'rescale': 0.0,
         # peaks
-        'max_peaks': 6,
-        'position_range': [.2, .8],
-        'width_range': [.01, .1],
         'peak_type': "Gaussian",
+        'max_peaks': 8,
+        'peaks_position_range': [.2, .8],
+        'peaks_width_range': [.01, .1],
+        'peaks_weight_range': [0.0,1],
+        'beta_ab_range': [0.5,10],
         # drude
         'max_drude': 4,
         'drude_ratio': 0.50,
         'drude_width_range': [.01, .05],
+        'drude_weight_range': [0.0, 1],
         # lorentz
         'lorentz': False,
         'num_peaks': 10000,
@@ -420,13 +433,15 @@ def main():
     elif args.max_drude:
         generator = DrudePeakMix(
             args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.position_range, args.width_range,
-            args.max_drude, args.drude_ratio, args.drude_width_range,
+            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
+            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range,
+            args.max_drude, args.drude_ratio, args.drude_width_range, args.drude_weight_range
         )
     else:
         generator = PeakMix(
             args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.position_range, args.width_range,
+            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
+            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range
         )
 
     if args.plot > 0:

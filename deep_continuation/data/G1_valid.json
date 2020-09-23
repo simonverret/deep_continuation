@@ -1,6 +1,7 @@
 {
-    "seed": 11111,
-    "path": "data/G1/train/",
+    "seed": 111,
+    "generate": 10000,
+    "path": "data/G2/valid/",
     "peak_type": "Gaussian",
     "max_peaks": 6,
     "peaks_position_range": [
