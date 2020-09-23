@@ -34,6 +34,7 @@ def pi_integral(wn, spectral_function):
     def integrand(x): return (1/np.pi) * x**2 / (x**2+wn**2) * spectral_function(x)
     return integrate_with_tails(integrand)
 
+
 def second_moment(spectral_function):
     def integrand(x): return (1/np.pi) * x**2 * spectral_function(x)
     return integrate_with_tails(integrand)
@@ -309,6 +310,7 @@ class DataGenerator():
 
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
         Pi, sigma = self.generate_batch(size)
+        print(Pi[:,0])
         if basic: 
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale: 
@@ -377,17 +379,18 @@ class PeakMixIntegrator(DataGenerator):
 class LorentzComb(DataGenerator):
     def __init__(self, Pi0=1, num_peaks=2048, peak_widths=0.02, N_seg=8, **args):
         super().__init__(**args)
-        self.norm = Pi0*np.pi
+        self.norm = Pi0
         self.num_peaks = num_peaks
         self.N_seg = N_seg
         self.peak_widths = peak_widths
 
     def random_functions(self):
         k = np.linspace(0, 1, self.num_peaks)
-        c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.w_max])
+        # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.w_max])
+        c = monofunc.random_climb(k, xlims=[0,1], ylims=[0,0.8*self.w_max])
         w = np.ones(self.num_peaks)*self.peak_widths        
         h = abs(c) + 0.05
-        h *= self.norm/h.sum(axis=-1, keepdims=True)
+        h *= self.norm/(2*h*c/(c**2+w**2)).sum()
         sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
         pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
         return sigma_func, pi_func
@@ -417,7 +420,7 @@ def main():
         # lorentz
         'lorentz': False,
         'num_peaks': 10000,
-        'peak_widths': 0.01,
+        'peak_widths': 0.05,
         'N_seg': 2,
         'center_method': -1,
         'remove_nonphysical': False,
@@ -438,8 +441,8 @@ def main():
         os.makedirs(args.path, exist_ok=True)
         generator.generate_files(
             args.generate,
-            pi_path = args.path+'Pi.csv',
-            sigma_path = args.path+'SigmaRe.csv',
+            pi_path = args.path+'/Pi.csv',
+            sigma_path = args.path+'/SigmaRe.csv',
         )
         
     if args.generate==0 and args.plot==0:

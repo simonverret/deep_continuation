@@ -1,6 +1,7 @@
 #%% 
 import numpy as np
-from scipy.special import erf, expit  # expit = sigmoid
+from scipy.special import erf, erfinv, expit  # expit = sigmoid
+from scipy.stats import beta
 import matplotlib.pyplot as plt
 from pathlib import Path
 HERE = Path(__file__).parent
@@ -123,6 +124,37 @@ def test_plot_piecewise2():
 #%%
 
 
+def random_climb_unit(x, a=0.01, b=20, smooth=0., gaps=2, gapr=[0.2,1]):
+    s = (int(x.size*smooth)-1 if smooth else 0)
+    N = x.size + s
+    y = beta.rvs(a, b, size=N).cumsum()
+    y = (y - y[0])/y[-1]
+    
+    if smooth:
+        y = np.convolve(y, np.ones((s+1,))/(s+1), mode='valid')
+    
+    if gaps:
+        jmps = np.random.uniform(0, 1, size=(gaps,1))
+        amps = np.random.uniform(gapr[0], gapr[1], size=(gaps,1))
+        y += (amps * (x > jmps)).sum(axis=0)
+    
+    return (y - y[0])/y[-1]
+
+def random_climb(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*random_climb_unit((x-l)/(r-l), **kwargs)
+
+def test_plot_random_climb():
+    x = np.linspace(-2,2,1000)
+    for i in range(1):
+        plt.plot(x, random_climb(x, xlims=[-2,2], ylims=[0,1]))
+    plt.show()
+
+# test_plot_random_climb()
+
+#%%
+
+
 def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise linear function
     v_max = v[-1]
     angles = np.random.uniform(0, np.pi/2, size=N_seg) # Generates a list of random angles of length N_seg in the interval [0,pi/2).
@@ -147,7 +179,8 @@ def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise line
     x_diffs = x_upper - x_lower
     y_diffs = y_upper - y_lower
     slopes = y_diffs/x_diffs # These three lines find the slope of the line segment each point exists on
-    return slopes*v + y_lower - slopes*x_lower # This outputs the heights of the piecewise function at each point. 
+    out = slopes*v + y_lower - slopes*x_lower
+    return (out-out.min())/(out.max()-out.min()) # This outputs the heights of the piecewise function at each point. 
                                                 # This is derived from expressing the line segment in point-slope form.
 
 
