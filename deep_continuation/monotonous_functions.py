@@ -1,8 +1,158 @@
+#%% 
+import numpy as np
+from scipy.special import erf, erfinv, expit  # expit = sigmoid
+from scipy.stats import beta
+import matplotlib.pyplot as plt
+from pathlib import Path
+HERE = Path(__file__).parent
+PLOT = HERE/"plots"
+
+
+def piecelin_unit(x, n, soft=0):
+    flx_pts = np.sort(np.random.uniform(0, 1, size=n))
+    slopes = np.random.uniform(0, 10e5, size=n+1)
+    slopes[0] = 0.001
+    slopes[n] = 0.999 
+    slp_chg = slopes[1:] - slopes[:-1]
+    nomalize = ((flx_pts[1:]-flx_pts[:-1])*slopes[1:-1]).sum()
+
+    x = x[np.newaxis, :]
+    slp_chg = slp_chg[:, np.newaxis]
+    flx_pts = flx_pts[:, np.newaxis]
+    if soft:  # using softplus
+        y = (slp_chg * np.logaddexp(0,(x - flx_pts)/soft)*soft).sum(axis=0)
+    else:  # using relu
+        y = (slp_chg * (x - flx_pts) * (x > flx_pts)).sum(axis=0)
+    
+    return y/nomalize
+
+
+def piecewise_lin(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*piecelin_unit((x-l)/(r-l), **kwargs)
+
+
+def piecetan_unit(x, n, soft=0):
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    amps /= amps.sum()
+
+    x = x[np.newaxis, :]
+    jmps = jmps[:, np.newaxis]
+    amps = amps[:, np.newaxis]
+    if soft:  # using sigmoid
+        y = (amps * expit((x-jmps)/(soft))).sum(axis=0)
+    else:  # using heavyside
+        y = (amps * (x > jmps)).sum(axis=0)
+    return y
+
+
+def piecewise_tan(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*piecetan_unit((x-l)/(r-l), **kwargs)
+
+
+def test_plot_piecewise():
+    x = np.linspace(-3,3,1000)
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,3))
+    seed = np.random.randint(1000)
+    for soft in np.linspace(0,0.03,3):
+        np.random.seed(seed)
+        ax1.plot(x, piecewise_lin(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.plot(x, piecewise_tan(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.set_xlim(-2,2)
+        ax2.set_ylim(-1,1)
+    ax1.set_title("relu and softplus")
+    ax2.set_title("heavysides and sigmoid")
+    plt.savefig(PLOT/"monofunc__my_piecewise.pdf")
+    plt.clf()
+
+# test_plot_piecewise()
+
+
 #%%
 
-import numpy as np
-from scipy.special import erf
-import matplotlib.pyplot as plt
+def piecewise_gap_unit(x, n, soft=0):
+    N = n
+    n = np.random.randint(1,n)
+    N = N-n
+    flx = np.sort(np.random.uniform(0, 1, size=n+1))
+    flx[0] = 0
+    flx[n] = 1
+    yflex = np.sort(np.random.uniform(0, 1, size=n+1))
+    yflex[0] = 0
+    yflex[n] = 1    
+    slopes = (yflex[1:]-yflex[:n])/(flx[1:]-flx[:n])
+    chg = slopes[1:] - slopes[:-1]
+    y = slopes[0]*x
+    
+    x = x[np.newaxis, :]
+    chg = chg[ : , np.newaxis]
+    flx = flx[1:n, np.newaxis]
+    y += (chg * np.logaddexp(0,(x - flx)/soft)*soft).sum(axis=0)
+
+    n = np.random.randint(0,N)
+    N = N-n
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    jmps = jmps[:, np.newaxis]
+    amps = amps[:, np.newaxis]
+    y += (amps * expit((x-jmps)/(soft))).sum(axis=0)
+
+    n = np.random.randint(0,N)
+    N = N-n
+    jmps = np.random.uniform(0, 1, size=n+1)
+    amps = np.random.uniform(0, 1, size=n+1)
+    jmps = jmps[:, np.newaxis]
+    amps = amps[:, np.newaxis]
+    y += (amps * (x > jmps)).sum(axis=0)
+    return y/y.max()
+    
+def piecewise_gap(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*piecewise_gap_unit((x-l)/(r-l), **kwargs)
+
+def test_plot_piecewise2():
+    x = np.linspace(-2,2,1000)
+    seed = np.random.randint(1000)
+    plt.plot(x, piecewise_gap(x, n=18, soft=0.01, xlims=[-2,2], ylims=[-1,1]))
+    plt.show()
+
+# test_plot_piecewise2()
+
+
+#%%
+
+
+def random_climb_unit(x, a=0.01, b=20, smooth=0., gaps=2, gapr=[0.2,1]):
+    s = (int(x.size*smooth)-1 if smooth else 0)
+    N = x.size + s
+    y = beta.rvs(a, b, size=N).cumsum()
+    y = (y - y[0])/y[-1]
+    
+    if smooth:
+        y = np.convolve(y, np.ones((s+1,))/(s+1), mode='valid')
+    
+    if gaps:
+        jmps = np.random.uniform(0, 1, size=(gaps,1))
+        amps = np.random.uniform(gapr[0], gapr[1], size=(gaps,1))
+        y += (amps * (x > jmps)).sum(axis=0)
+    
+    return (y - y[0])/y[-1]
+
+def random_climb(x, xlims=[0,1], ylims=[0,1], **kwargs):
+    (l,r),(b,t) = xlims,ylims
+    return b+(t-b)*random_climb_unit((x-l)/(r-l), **kwargs)
+
+def test_plot_random_climb():
+    x = np.linspace(-2,2,1000)
+    for i in range(1):
+        plt.plot(x, random_climb(x, xlims=[-2,2], ylims=[0,1]))
+    plt.show()
+
+# test_plot_random_climb()
+
+#%%
 
 
 def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise linear function
@@ -29,8 +179,10 @@ def piecelin(v, N_seg): # A randomizable monotonically increasing piecewise line
     x_diffs = x_upper - x_lower
     y_diffs = y_upper - y_lower
     slopes = y_diffs/x_diffs # These three lines find the slope of the line segment each point exists on
-    return slopes*v + y_lower - slopes*x_lower # This outputs the heights of the piecewise function at each point. 
+    out = slopes*v + y_lower - slopes*x_lower
+    return (out-out.min())/(out.max()-out.min()) # This outputs the heights of the piecewise function at each point. 
                                                 # This is derived from expressing the line segment in point-slope form.
+
 
 def softp(x, N_seg): # Each term has the form A*log(1+exp(x-c)), plus a linear term 
     x_max = x[-1]
@@ -49,7 +201,9 @@ def softp(x, N_seg): # Each term has the form A*log(1+exp(x-c)), plus a linear t
     logmat = np.log(1+expmat)
     unsized = np.vstack((x,logmat)) # Add one more copy of x to the matrix to represent the linear term
     unsummed = unsized * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by a coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def arctsum(x, N_seg): # Each term has the form A*arctan(B*(x+c))
     x_max = x[-1]
@@ -63,7 +217,9 @@ def arctsum(x, N_seg): # Each term has the form A*arctan(B*(x+c))
     mat = mat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     arcmat = np.arctan(mat)
     unsummed = arcmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def erfsum(x, N_seg): # Each term has the form A*erf(B*(x-c)), plus a linear term
     x_max = x[-1]
@@ -78,7 +234,9 @@ def erfsum(x, N_seg): # Each term has the form A*erf(B*(x-c)), plus a linear ter
     erfmat = erf(mat)
     unsized = np.vstack((x,erfmat)) # Add one more copy of x to the matrix to represent the linear term
     unsummed = unsized * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def arssum(x, N_seg): # Each term has the form A*arsinh(B*(x+c))
     x_max = x[-1]
@@ -92,7 +250,9 @@ def arssum(x, N_seg): # Each term has the form A*arsinh(B*(x+c))
     mat = mat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     arsmat = np.arcsinh(mat)
     unsummed = arsmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def rootsum(x, N_seg): # Each term has the form A*sign(x+c)*(|x+c|)^(1/n)
     x_max = x[-1]
@@ -109,7 +269,9 @@ def rootsum(x, N_seg): # Each term has the form A*sign(x+c)*(|x+c|)^(1/n)
     powermat = np.power(np.abs(mat), np.transpose(np.tile(n,(len(x),1)))) # Take the relevant root for the absolute value of each element, row by row
     powermat = signmat * powermat # Restore the original signs after taking the root, so all negative inputs yield negative outputs
     unsummed = powermat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def exparsinh(x, N_seg): # Each term has the form A*exp(B*arsinh(x+c))
     x_max = x[-1]
@@ -124,7 +286,9 @@ def exparsinh(x, N_seg): # Each term has the form A*exp(B*arsinh(x+c))
     arsmat = arsmat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     expmat = np.exp(arsmat)
     unsummed = expmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def exparctan(x, N_seg): # Each term has the form A*exp(arctan(B(x+c)))
     x_max = x[-1]
@@ -139,7 +303,9 @@ def exparctan(x, N_seg): # Each term has the form A*exp(arctan(B(x+c)))
     arcmat = np.arctan(mat)
     expmat = np.exp(arcmat)
     unsummed = expmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def arssoft(x, N_seg): # Each term has the form A*arsinh(ln(1+exp(x+c)))
     x_max = x[-1]
@@ -153,7 +319,9 @@ def arssoft(x, N_seg): # Each term has the form A*arsinh(ln(1+exp(x+c)))
     logmat = np.log(1 + expmat)
     arsmat = np.arcsinh(logmat)
     unsummed = arsmat * np.transpose(np.tile(A,(len(x),1))) # Multiply each term by its coefficient before summing
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def tanerf(x, N_seg): # Each term has the form A*tan(B*erf(C*(x+c)))
     x_max = x[-1]
@@ -170,7 +338,9 @@ def tanerf(x, N_seg): # Each term has the form A*tan(B*erf(C*(x+c)))
     erfmat = erfmat * np.transpose(np.tile(B,(len(x),1))) # Multiply all the arguments by their coefficients
     tanmat = np.tan(erfmat)
     unsummed = tanmat * np.transpose(np.tile(A,(len(x),1))) # Multiply all the arguments by their coefficients
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def logarc(x, N_seg): # Each term has the form A*log(np.pi/2 + a + arctan(x+c))
     x_max = x[-1]
@@ -185,7 +355,9 @@ def logarc(x, N_seg): # Each term has the form A*log(np.pi/2 + a + arctan(x+c))
     arcmat = arcmat + np.pi/2 + np.transpose(np.tile(c,(len(x),1)))
     logmat = np.log(arcmat)
     unsummed = logmat * np.transpose(np.tile(A,(len(x),1))) # Multiply all the arguments by their coefficients
-    return unsummed.sum(axis=0)
+    out = unsummed.sum(axis=0)
+    return (out-out.min())/(out.max()-out.min())
+
 
 def debug(x, N_seg): # A simple, non-randomizable function that is used to test whether the code is working. Should not be called normally
     x_max = x[-1]
@@ -193,23 +365,103 @@ def debug(x, N_seg): # A simple, non-randomizable function that is used to test 
 # More center distribution functions to be added.
 
 
+
+def plot_base_functions(c=0, A=1, B=1, C=1, r=2, a=0):
+    x = np.linspace(-3,3,200)
+    # kink-type
+    plt.plot(x, A*np.log(1+np.exp(x-c)))  #softp
+    plt.plot(x, A*np.exp(B*np.arcsinh(x+c)))  #exparsinh
+    ## s-type
+    plt.plot(x, A*np.arctan(B*(x-c)))  #arct
+    plt.plot(x, A*erf(B*(x-c)))  #erf
+    plt.plot(x, A*np.tan(B*erf(C*(x+c))))  #tanerf
+    ## slope-s-type
+    plt.plot(x, A*np.sign(x)*np.power(np.abs(x),1/r))  #root
+    plt.plot(x, A*np.arcsinh(B*(x+c)))  #arsinh
+    ## kink-s-type
+    plt.plot(x, A*np.exp(np.arctan(B*(x+c))))  #expartan
+    plt.plot(x, A*np.arcsinh(np.log(1+np.exp(x+c))))  #arssoft
+    plt.plot(x, A*np.log(np.pi/2 + a + np.arctan(x+c)))  #logarc  (looks like a flipped arssoft)
+    plt.savefig(PLOT/"monofunc__base_funcs.pdf")
+    plt.clf()
+
+
+
 def main():
     k = np.linspace(0,20,1000)
-    n = 5
-    for i in range(15):
-        # plt.plot(k, piecelin(k,n))
-        # plt.plot(k, softp(k,n))
-        # plt.plot(k, arctsum(k,n))
-        # plt.plot(k, erfsum(k,n))
-        # plt.plot(k, arssum(k,n))
-        # plt.plot(k, rootsum(k,n))
-        # plt.plot(k, exparsinh(k,n))
+    n = 100
+    for i in range(3):
+        plt.plot(k, piecelin(k,n))
+    plt.title("piecelin")
+    plt.savefig(PLOT/"monofunc_piecelin.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, softp(k,n))
+    plt.title("softp")
+    plt.savefig(PLOT/"monofunc_softp.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, arctsum(k,n))
+    plt.title("arctsum")
+    plt.savefig(PLOT/"monofunc_arctsum.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, erfsum(k,n))
+    plt.title("erfsum")
+    plt.savefig(PLOT/"monofunc_erfsum.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, arssum(k,n))
+    plt.title("arssum")
+    plt.savefig(PLOT/"monofunc_arssum.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, rootsum(k,n))
+    plt.title("rootsum")
+    plt.savefig(PLOT/"monofunc_rootsum.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, exparsinh(k,n))
+    plt.title("exparsinh")
+    plt.savefig(PLOT/"monofunc_exparsinh.pdf")
+    plt.clf()
+    for i in range(3):
         plt.plot(k, exparctan(k,n))
-        # plt.plot(k, arssoft(k,n))
-        # plt.plot(k, tanerf(k,n))
-        # plt.plot(k, logarc(k,n))
-    plt.show()
+    plt.title("exparctan")
+    plt.savefig(PLOT/"monofunc_exparctan.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, arssoft(k,n))
+    plt.title("arssoft")
+    plt.savefig(PLOT/"monofunc_arssoft.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, tanerf(k,n))
+    plt.title("tanerf")
+    plt.savefig(PLOT/"monofunc_tanerf.pdf")
+    plt.clf()
+    for i in range(3):
+        plt.plot(k, logarc(k,n))
+    plt.title("logarc")
+    plt.savefig(PLOT/"monofunc_logarc.pdf")
+    plt.clf()
+
+
+def test_plot_piecewise():
+    x = np.linspace(-3,3,1000)
+    fig, (ax1, ax2) = plt.subplots(1,2, figsize=(10,3))
+    for soft in np.linspace(0,0.1,5):
+        np.random.seed(111)
+        ax1.plot(x, piecewise_lin(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+        ax2.plot(x, piecewise_tan(x, n=4, soft=soft, xlims=[-2,2], ylims=[-1,1]))
+    ax1.set_title("relu and softplus")
+    ax2.set_title("heavysides and sigmoid")
+    plt.savefig(PLOT/"monofunc__my_piecewise.pdf")
+    plt.clf()
+
 
 
 if __name__ == "__main__":
+    plot_base_functions()
     main()
+    test_plot_piecewise()
