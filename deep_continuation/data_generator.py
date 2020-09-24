@@ -66,6 +66,10 @@ def gaussian(x, c, w, h):
     return (h/(np.sqrt(2*np.pi)*w))*np.exp(-((x-c)/w)**2/2)
 
 
+def unnormed_gaussian(x, c, w, h):
+    return np.exp(-((x-c)/w)**2/2)
+
+
 def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
@@ -107,15 +111,6 @@ def random_cwh(num, cr=[0, 1], wr=[.05, .5], hr=[0, 1], norm=1.0, even=True):
     if norm is not None:
         h *= norm/(h.sum()+SMALL)
     return c, w, h
-
-
-def random_mn(num, rm=[1, 20], even=True):
-    m = np.random.randint(rm[0], rm[1], size=num)
-    n = np.ceil(np.random.uniform(0.0, 1.000, size=num)*(m-1))
-    if even:
-        n = np.hstack([n, m-n])
-        m = np.hstack([m, m])
-    return m, n
 
 
 def random_ab(num, ra=[0.5, 20], rb=[0.5, 20], even=True):
@@ -203,7 +198,7 @@ def infer_scale_plot(Pi, sigma, filename=None):
 
 
 class DataGenerator():
-    def __init__(self, Nwn, Nw, beta, wmax, rescale, **kwargs):
+    def __init__(self, Nwn=128, Nw=512, beta=10, wmax=20, rescale=0, **kwargs):
         self.num_wn = Nwn
         self.num_w = Nw
         self.beta = beta
@@ -269,13 +264,98 @@ class DataGenerator():
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
 
 
+class GaussianNestedMix(DataGenerator):
+    def __init__(self, 
+                 nmbrs=[[0,4],[0,6]],
+                 cntrs=[[0.00, 0.00], [4.00, 16.0]],
+                 wdths=[[0.04, 0.40], [0.04, 0.40]],
+                 wgths=[[0.00, 1.00], [0.00, 1.00]],
+                 norm=1, even=True,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.nmbrs = nmbrs
+        self.cntrs = cntrs
+        self.wdths = wdths
+        self.wgths = wgths
+        self.norm = norm
+        self.even = even
+        
+        self.tmp_num_per_group = None
+
+    def new_random_num_per_group(self):
+        num_per_group = [np.random.randint(n[0], n[1]) for n in self.nmbrs]
+        if all(num_per_group) == 0:
+            lucky_group = np.random.randint(0,len(num_per_group)-1)
+            num_per_group[lucky_group] = 1
+        self.tmp_num_per_group = num_per_group
+        return num_per_group
+
+    def random_cwh(self):
+        for grp, num in enumerate(self.tmp_num_per_group):
+            c = [np.random.uniform(self.cntrs[grp][0], self.cntrs[grp][1], num)]
+            w = [np.random.uniform(self.wdths[grp][0], self.wdths[grp][1], num)]
+            h = [np.random.uniform(self.wgths[grp][0], self.wgths[grp][1], num)]
+            c = np.hstack(c)
+            w = np.hstack(w)
+            h = np.hstack(h)
+        
+        if self.even:
+            c = np.hstack([-c, c])
+            w = np.hstack([w, w])
+            h = np.hstack([h, h])
+
+        if self.norm is not None:
+            h *= self.norm/(h.sum()+SMALL)
+
+        return c, w, h
+
+    def generate_functions(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
+
+
+class BetaNestedMix(GaussianNestedMix):
+    def __init__(self, 
+                 arngs=[[0.00, 0.00], [4.00, 16.0]],
+                 brths=[[0.04, 0.40], [0.04, 0.40]],
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.arngs = arngs
+        self.brths = brths
+
+    def random_ab(self):
+        for grp, num in enumerate(self.tmp_num_per_group):
+            a = [np.random.uniform(self.cntrs[grp][0], self.cntrs[grp][1], num)]
+            b = [np.random.uniform(self.wdths[grp][0], self.wdths[grp][1], num)]
+            a = np.hstack(c)
+            b = np.hstack(w)
+        
+        if self.even:
+            aa, bb = a, b
+            a = np.hstack([aa, bb])
+            b = np.hstack([bb, aa])
+
+        return a, b
+
+    def generate_functions(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        a, b = random_ab()
+        sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
+    
+
 class PeakMix(DataGenerator):
     def __init__(self,
                  Nwn, Nw, beta, wmax, rescale,
                  peak_type, norm, max_peaks, peaks_position_range, 
                  peaks_width_range, peaks_weight_range, beta_ab_range,
                  **kwargs
-                 ):
+                ):
         super().__init__(Nwn, Nw, beta, wmax, rescale)
         self.peak_type = peak_type
         self.norm = norm
@@ -284,6 +364,7 @@ class PeakMix(DataGenerator):
         self.peaks_width_range = peaks_width_range
         self.peaks_weight_range = peaks_weight_range
         self.beta_ab_range = beta_ab_range
+
 
     def generate_cwhab(self):
         num = np.random.randint(1, self.max_peaks+1)
@@ -300,6 +381,8 @@ class PeakMix(DataGenerator):
         c, w, h, a, b = self.generate_cwhab()
         if self.peak_type in ["G", "Gaussian", "gaussian"]:
             def sigma_func(x): return sum_on_args(gaussian, x, c, w, h)
+        if self.peak_type in ["UG", "unnormed_Gaussian", "unnormed_gaussian"]:
+            def sigma_func(x): return sum_on_args(unnormed_gaussian, x, c, w, h)
         elif self.peak_type in ["B", "Beta", "beta"]:
             def sigma_func(x): return sum_on_args(free_beta, x, c, w, h, a, b)
         elif self.peak_type in ["L", "Lorentzian", "lorentzian"]:
@@ -316,12 +399,13 @@ class DrudePeakMix(PeakMix):
                  Nwn, Nw, beta, wmax, rescale,
                  peak_type, norm, max_peaks, peaks_position_range,
                  peaks_width_range, peaks_weight_range, beta_ab_range,
-                 max_drude, drude_ratio, drude_width_range, drude_weight_range,
+                 min_drude, max_drude, drude_ratio, drude_width_range, drude_weight_range,
                  **kwargs
                  ):
         super().__init__(Nwn, Nw, beta, wmax, rescale,
                          peak_type, norm, max_peaks, peaks_position_range, 
                          peaks_width_range, peaks_weight_range, beta_ab_range)
+        self.min_drude = min_drude
         self.max_drude = max_drude
         self.max_peaks = max_peaks
         self.drude_ratio = drude_ratio
@@ -330,12 +414,13 @@ class DrudePeakMix(PeakMix):
 
 
     def generate_cwhab(self):
-        drudes = np.random.randint(
-            0 if self.max_peaks > 0 else 1, self.max_drude+1
-        )
-        others = np.random.randint(
-            0 if drudes > 0 else 1, self.max_peaks+1
-        )
+        if self.max_peaks > 0:
+            min_drude = self.min_drude
+        else:
+            min_drude = np.max(1, self.min_drude)
+        drudes = np.random.randint(min_drude, self.max_drude+1)
+        others = np.random.randint(0 if drudes > 0 else 1, self.max_peaks+1)
+
         if drudes and others:
             drude_weight = np.random.choice(
                 [0, np.random.uniform(0, self.drude_ratio)]
@@ -400,12 +485,13 @@ def main():
         'rescale': 0.0,
         # peaks
         'peak_type': "Gaussian",
-        'max_peaks': 8,
+        'max_peaks': [[0,4], [0,10]],
         'peaks_position_range': [.2, .8],
         'peaks_width_range': [.01, .1],
         'peaks_weight_range': [0.0,1],
         'beta_ab_range': [0.5,10],
         # drude
+        'min_drude': 0,
         'max_drude': 4,
         'drude_ratio': 0.50,
         'drude_width_range': [.01, .05],
@@ -435,7 +521,7 @@ def main():
             args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
             args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
             args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range,
-            args.max_drude, args.drude_ratio, args.drude_width_range, args.drude_weight_range
+            args.min_drude, args.max_drude, args.drude_ratio, args.drude_width_range, args.drude_weight_range
         )
     else:
         generator = PeakMix(
@@ -463,7 +549,8 @@ def main():
 
     if args.generate == 0 and args.plot == 0:
         print("nothing to do, use --plot 10 or --generate 10000")
-
+    
+    print(args.max_peaks)
 
 if __name__ == "__main__":
     main()

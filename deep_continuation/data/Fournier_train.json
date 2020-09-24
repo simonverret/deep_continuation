@@ -1,0 +1,29 @@
+{
+    "generate": 100000,
+    "path": "data/Fournier/train/",
+    "peak_type": "unnormed_Gaussian",
+    "max_peaks": 11,
+    "wmax": 15,
+    "peaks_position_range": [
+        0.0,
+        0.4
+    ],
+    "peaks_width_range": [
+        0.00666667,
+        0.06666667
+    ],
+    "peaks_weight_range": [
+        1.0,
+        1.0
+    ],
+    "min_drude": 1,
+    "max_drude": 1,
+    "drude_width_range": [
+        0.00666667,
+        0.06666667
+    ],
+    "drude_weight_range": [
+        1.0,
+        1.0
+    ]
+}

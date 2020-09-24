@@ -29,6 +29,15 @@ def free_bernstein(x, c, w, h, m, n):
     return h*standardized_bernstein((x-c)/w, m, n)/w
 
 
+def random_mn(num, rm=[1, 20], even=True):
+    m = np.random.randint(rm[0], rm[1], size=num)
+    n = np.ceil(np.random.uniform(0.0, 1.000, size=num)*(m-1))
+    if even:
+        n = np.hstack([n, m-n])
+        m = np.hstack([m, m])
+    return m, n
+
+
 def test_plot_bernstein(c, w, h, m, n, **kwargs):
     nrm1 = integrate.quad(lambda x: free_bernstein(x, c, w, h, m, n), -np.inf, np.inf)[0]
     avg1 = integrate.quad(lambda x: x*free_bernstein(x, c, w, h, m, n), -np.inf, np.inf)[0]
@@ -104,6 +113,10 @@ def test_plot_spectra(xmax=1, drudes=4, others=12):
     b = np.hstack([b1, b2])
     plt.plot(x, sum_on_args(free_beta, x, c, w, h, a, b), linewidth=1)
     plt.show()
+
+
+def test_plot_arsenault():
+
 
 
 if __name__ == "__main__":

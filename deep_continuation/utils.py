@@ -32,8 +32,11 @@ def parse_file_and_command(default_dict, help_dict):
         try: help_str = help_dict[name]
         except KeyError: help_str = 'no help available'
 
-        if   type(default) is list:   
-            parser.add_argument('--'+name, nargs='+', type=type(default[0]), default=default, help=help_str)
+        if type(default) is list:
+            if type(default[0]) is list:
+                parser.add_argument('--'+name, type=json.loads, default=default, help=help_str)
+            else:
+                parser.add_argument('--'+name, nargs='+', type=type(default[0]), default=default, help=help_str)
         elif type(default) is bool:
             parser.add_argument('--'+name, action='store_true', default=default, help=help_str)
             parser.add_argument('--no_'+name, dest=name, action='store_false', default=default, help='disables '+name)  
