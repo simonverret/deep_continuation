@@ -29,6 +29,29 @@ def free_bernstein(x, c, w, h, m, n):
     return h*standardized_bernstein((x-c)/w, m, n)/w
 
 
+def random_cwh(num, cr=[0, 1], wr=[.05, .5], hr=[0, 1], norm=1.0, even=True):
+    c = np.random.uniform(cr[0], cr[1], size=num)
+    w = np.random.uniform(0.0, 1.0, size=num)*(wr[1]-wr[0])+wr[0]
+    h = np.random.uniform(hr[0], hr[1], size=num)
+    if even:
+        c = np.hstack([c, -c])
+        w = np.hstack([w, w])
+        h = np.hstack([h, h])
+    if norm is not None:
+        h *= norm/(h.sum()+SMALL)
+    return c, w, h
+
+
+def random_ab(num, ra=[0.5, 20], rb=[0.5, 20], even=True):
+    a = np.random.uniform(ra[0], ra[1], size=num)
+    b = np.random.uniform(rb[0], rb[1], size=num)
+    if even:
+        aa, bb = a, b
+        a = np.hstack([aa, bb])
+        b = np.hstack([bb, aa])
+    return a, b
+
+
 def random_mn(num, rm=[1, 20], even=True):
     m = np.random.randint(rm[0], rm[1], size=num)
     n = np.ceil(np.random.uniform(0.0, 1.000, size=num)*(m-1))

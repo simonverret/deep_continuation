@@ -66,10 +66,6 @@ def gaussian(x, c, w, h):
     return (h/(np.sqrt(2*np.pi)*w))*np.exp(-((x-c)/w)**2/2)
 
 
-def unnormed_gaussian(x, c, w, h):
-    return np.exp(-((x-c)/w)**2/2)
-
-
 def lorentzian(x, c, w, h):
     return (h/np.pi)*w/((x-c)**2+w**2)
 
@@ -98,29 +94,6 @@ def standardized_beta(x, a, b):
 
 def free_beta(x, c, w, h, a, b):
     return h*standardized_beta((x-c)/w, a, b)/w
-
-
-def random_cwh(num, cr=[0, 1], wr=[.05, .5], hr=[0, 1], norm=1.0, even=True):
-    c = np.random.uniform(cr[0], cr[1], size=num)
-    w = np.random.uniform(0.0, 1.0, size=num)*(wr[1]-wr[0])+wr[0]
-    h = np.random.uniform(hr[0], hr[1], size=num)
-    if even:
-        c = np.hstack([c, -c])
-        w = np.hstack([w, w])
-        h = np.hstack([h, h])
-    if norm is not None:
-        h *= norm/(h.sum()+SMALL)
-    return c, w, h
-
-
-def random_ab(num, ra=[0.5, 20], rb=[0.5, 20], even=True):
-    a = np.random.uniform(ra[0], ra[1], size=num)
-    b = np.random.uniform(rb[0], rb[1], size=num)
-    if even:
-        aa, bb = a, b
-        a = np.hstack([aa, bb])
-        b = np.hstack([bb, aa])
-    return a, b
 
 
 def unscaled_plot(Pi, sigma, filename=None):
@@ -264,7 +237,7 @@ class DataGenerator():
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
 
 
-class GaussianNestedMix(DataGenerator):
+class GaussianMix(DataGenerator):
     def __init__(self, 
                  nmbrs=[[0,4],[0,6]],
                  cntrs=[[0.00, 0.00], [4.00, 16.0]],
@@ -305,7 +278,7 @@ class GaussianNestedMix(DataGenerator):
             h = np.hstack([h, h])
 
         if self.norm is not None:
-            h *= self.norm/(h.sum()+SMALL)
+            h *= np.pi*self.norm/(h.sum()+SMALL)
 
         return c, w, h
 
@@ -317,7 +290,19 @@ class GaussianNestedMix(DataGenerator):
         return sigma_func, pi_func
 
 
-class BetaNestedMix(GaussianNestedMix):
+class LorentzMix(GaussianMix):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def generate_functions(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
+
+
+class BetaMix(GaussianMix):
     def __init__(self, 
                  arngs=[[0.00, 0.00], [4.00, 16.0]],
                  brths=[[0.04, 0.40], [0.04, 0.40]],
@@ -330,8 +315,8 @@ class BetaNestedMix(GaussianNestedMix):
         for grp, num in enumerate(self.tmp_num_per_group):
             a = [np.random.uniform(self.cntrs[grp][0], self.cntrs[grp][1], num)]
             b = [np.random.uniform(self.wdths[grp][0], self.wdths[grp][1], num)]
-            a = np.hstack(c)
-            b = np.hstack(w)
+            a = np.hstack(a)
+            b = np.hstack(b)
         
         if self.even:
             aa, bb = a, b
@@ -343,118 +328,15 @@ class BetaNestedMix(GaussianNestedMix):
     def generate_functions(self):
         self.new_random_num_per_group()
         c, w, h = self.random_cwh()
-        a, b = random_ab()
+        a, b = self.random_ab()
         sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
         pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
         return sigma_func, pi_func
     
 
-class PeakMix(DataGenerator):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, peaks_position_range, 
-                 peaks_width_range, peaks_weight_range, beta_ab_range,
-                 **kwargs
-                ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale)
-        self.peak_type = peak_type
-        self.norm = norm
-        self.max_peaks = max_peaks
-        self.peaks_position_range = peaks_position_range
-        self.peaks_width_range = peaks_width_range
-        self.peaks_weight_range = peaks_weight_range
-        self.beta_ab_range = beta_ab_range
-
-
-    def generate_cwhab(self):
-        num = np.random.randint(1, self.max_peaks+1)
-        c, w, h = random_cwh(
-            num, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, self.norm
-        )
-        c = c*self.wmax
-        w = w*self.wmax
-        h = h*self.norm*np.pi
-        a, b = random_ab(num, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        return c, w, h, a, b
-
-    def generate_functions(self):
-        c, w, h, a, b = self.generate_cwhab()
-        if self.peak_type in ["G", "Gaussian", "gaussian"]:
-            def sigma_func(x): return sum_on_args(gaussian, x, c, w, h)
-        if self.peak_type in ["UG", "unnormed_Gaussian", "unnormed_gaussian"]:
-            def sigma_func(x): return sum_on_args(unnormed_gaussian, x, c, w, h)
-        elif self.peak_type in ["B", "Beta", "beta"]:
-            def sigma_func(x): return sum_on_args(free_beta, x, c, w, h, a, b)
-        elif self.peak_type in ["L", "Lorentzian", "lorentzian"]:
-            def sigma_func(x): return sum_on_args(lorentzian, x, c, w, h)
-        else:
-            raise ValueError(f"peak_type {self.peak_type} not recognized")
-
-        def pi_func(x): return pi_integral(x, sigma_func, grid_end=self.wmax)
-        return sigma_func, pi_func
-
-
-class DrudePeakMix(PeakMix):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, peaks_position_range,
-                 peaks_width_range, peaks_weight_range, beta_ab_range,
-                 min_drude, max_drude, drude_ratio, drude_width_range, drude_weight_range,
-                 **kwargs
-                 ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale,
-                         peak_type, norm, max_peaks, peaks_position_range, 
-                         peaks_width_range, peaks_weight_range, beta_ab_range)
-        self.min_drude = min_drude
-        self.max_drude = max_drude
-        self.max_peaks = max_peaks
-        self.drude_ratio = drude_ratio
-        self.drude_width_range = drude_width_range
-        self.drude_weight_range = drude_weight_range
-
-
-    def generate_cwhab(self):
-        if self.max_peaks > 0:
-            min_drude = self.min_drude
-        else:
-            min_drude = np.max(1, self.min_drude)
-        drudes = np.random.randint(min_drude, self.max_drude+1)
-        others = np.random.randint(0 if drudes > 0 else 1, self.max_peaks+1)
-
-        if drudes and others:
-            drude_weight = np.random.choice(
-                [0, np.random.uniform(0, self.drude_ratio)]
-            )
-            rest = 1-drude_weight
-        else:
-            drude_weight = 1
-            rest = 1
-
-        c1, w1, h1 = random_cwh(
-            drudes, [0, 0], self.drude_width_range, self.drude_weight_range, drude_weight
-        )
-        c2, w2, h2 = random_cwh(
-            others, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, rest
-        )
-        c = np.hstack([c1, c2])*self.wmax
-        w = np.hstack([w1, w2])*self.wmax
-        h = np.hstack([h1, h2])*self.norm*np.pi
-
-        a1, b1 = random_ab(drudes, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        a2, b2 = random_ab(others, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        a = np.hstack([a1, a2])
-        b = np.hstack([b1, b2])
-
-        return c, w, h, a, b
-
-
 class LorentzComb(DataGenerator):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 norm, num_peaks, width, 
-                 **kwargs
-                 ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale)
+    def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
+        super().__init__(**kwargs)
         self.norm = norm
         self.num_peaks = num_peaks
         self.width = width
@@ -484,20 +366,15 @@ def main():
         'norm': 1.0,
         'rescale': 0.0,
         # peaks
-        'peak_type': "Gaussian",
-        'max_peaks': [[0,4], [0,10]],
-        'peaks_position_range': [.2, .8],
-        'peaks_width_range': [.01, .1],
-        'peaks_weight_range': [0.0,1],
-        'beta_ab_range': [0.5,10],
-        # drude
-        'min_drude': 0,
-        'max_drude': 4,
-        'drude_ratio': 0.50,
-        'drude_width_range': [.01, .05],
-        'drude_weight_range': [0.0, 1],
+        "variant": "Gaussian",
+        "wmax": 20.0,
+        "nmbrs": [[0, 4],[0, 6]],
+        "cntrs": [[0.00, 0.00], [4.00, 16.0]],
+        "wdths": [[0.40, 4.00], [0.40, 4.00]],
+        "wghts": [[0.00, 1.00], [0.00, 1.00]],
+        "arngs": [[0.00, 0.00], [4.00, 16.0]],
+        "brths": [[0.04, 0.40], [0.04, 0.40]],
         # lorentz
-        'lorentz': False,
         'num_peaks': 10000,
         'width': 0.05,
         # plot
@@ -510,25 +387,16 @@ def main():
     print(f"seed : {args.seed}")
     np.random.seed(args.seed)
 
-    if args.lorentz:
-        print("YESS")
-        generator = LorentzComb(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.norm, args.num_peaks, args.width,
-        )
-    elif args.max_drude:
-        generator = DrudePeakMix(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
-            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range,
-            args.min_drude, args.max_drude, args.drude_ratio, args.drude_width_range, args.drude_weight_range
-        )
+    if args.variant in ["G", "Gaussian", "gaussian"]:
+        generator = GaussianMix(**vars(args))
+    elif args.variant in ["B", "Beta", "beta"]:
+        generator = BetaMix(**vars(args))
+    elif args.variant in ["L", "Lorentzian", "lorentzian"]:
+        generator = LorentzMix(**vars(args))
+    elif args.variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
+        generator = LorentzComb(**vars(args))
     else:
-        generator = PeakMix(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
-            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range
-        )
+        raise ValueError(f"variant {args.variant} not recognized")
 
     if args.plot > 0:
         generator.plot(
@@ -550,7 +418,5 @@ def main():
     if args.generate == 0 and args.plot == 0:
         print("nothing to do, use --plot 10 or --generate 10000")
     
-    print(args.max_peaks)
-
 if __name__ == "__main__":
     main()
