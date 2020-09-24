@@ -1,12 +1,12 @@
 {
-    "seed": 56401,
+    "seed": 10430,
     "generate": 100000,
-    "path": "data/Fournier/train",
+    "path": "data/Xie/train",
     "peak_type": "Gaussian",
-    "wmax": 15.0,
+    "wmax": 10.0,
     "beta": 2,
     "nmbrs": [[1, 1],[1, 21]],
-    "cntrs": [[0.00, 0.50], [0.00, 6.00]],
+    "cntrs": [[0.00, 0.50], [0.00, 5.00]],
     "wdths": [[0.10, 1.00], [0.10, 1.00]],
     "wghts": [[1.00, 1.00], [1.00, 1.00]]
 }

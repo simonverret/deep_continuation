@@ -1,29 +1,12 @@
 {
     "seed": 111,
     "generate": 10000,
-    "path": "data/G1/valid/",
+    "path": "data/G1/valid",
     "peak_type": "Gaussian",
-    "max_peaks": 6,
-    "peaks_position_range": [
-        0.20,
-        0.80
-    ],
-    "peaks_width_range": [
-        0.02,
-        0.20
-    ],
-    "peaks_weight_range": [
-        0.0,
-        1.0
-    ],
-    "max_drude": 4,
-    "drude_ratio": 0.50,
-    "drude_width_range": [
-        0.01,
-        0.20
-    ],
-    "drude_weight_range": [
-        0.0,
-        1.0
-    ]
+    "wmax": 20.0,
+    "beta": 10.0,
+    "nmbrs": [[0, 4],[0, 6]],
+    "cntrs": [[0.00, 0.00], [4.00, 16.0]],
+    "wdths": [[0.20, 4.00], [0.40, 4.00]],
+    "wghts": [[0.00, 1.00], [0.00, 1.00]]
 }

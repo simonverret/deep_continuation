@@ -96,6 +96,21 @@ def free_beta(x, c, w, h, a, b):
     return h*standardized_beta((x-c)/w, a, b)/w
 
 
+def infer_scales(Pi, sigma):
+    N = len(Pi[0])
+    M = len(sigma[0])
+    norm = Pi[:, 0]
+    PiN = Pi[:, -1]
+    sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
+    dm = np.pi*norm/sum1
+    m = np.arange(M)
+    sum2 = 2*np.sum(m**2*sigma, axis=-1)
+    
+    wmaxs = M*dm
+    betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
+    return wmaxs, betas
+
+
 def unscaled_plot(Pi, sigma, filename=None):
     N = len(Pi[0])
     M = len(sigma[0])
@@ -154,18 +169,8 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
 
 
 def infer_scale_plot(Pi, sigma, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    norm = Pi[:, 0]
-    PiN = Pi[:, -1]
-    sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
-    dm = np.pi*norm/sum1
-    wmaxs = M*dm
-    m = np.arange(M)
-    sum2 = 2*np.sum(m**2*sigma, axis=-1)
-    betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
-    print(
-        f" infered pieces:\n  PiN  = {PiN}\n  norm  = {norm}\n  sum1 = {sum1}\n  sum2 = {sum2}")
+    wmaxs, betas = infer_scales(Pi, sigma)
+    print(f" infered pieces:\n  PiN  = {PiN}\n  norm  = {norm}\n  sum1 = {sum1}\n  sum2 = {sum2}")
     print(f" infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
     scale_plot(Pi, sigma, betas, wmaxs, filename)
 
