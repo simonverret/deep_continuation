@@ -264,14 +264,14 @@ class GaussianMix(DataGenerator):
         return num_per_group
 
     def random_cwh(self):
-        c, w, h = [], [], []
+        cl, wl, hl = [], [], []
         for i, n in enumerate(self.tmp_num_per_group):
-            c.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
-            w.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
-            h.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
-        c = np.hstack(c)
-        w = np.hstack(w)
-        h = np.hstack(h)
+            cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
+            wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
+            hl.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
+        c = np.hstack(cl)
+        w = np.hstack(wl)
+        h = np.hstack(hl)
 
         if self.even:
             c = np.hstack([-c, c])
@@ -314,12 +314,12 @@ class BetaMix(GaussianMix):
         self.brths = brths
 
     def random_ab(self):
-        a, b = [], []
+        al, bl = [], []
         for i, n in enumerate(self.tmp_num_per_group):
-            a.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
-            b.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
-        a = np.hstack(a)
-        b = np.hstack(b)
+            al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
+            bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
+        a = np.hstack(al)
+        b = np.hstack(bl)
         
         if self.even:
             aa, bb = a, b
@@ -346,13 +346,13 @@ class LorentzComb(DataGenerator):
 
     def generate_functions(self):
         k = np.linspace(0, 1, self.num_peaks)
-        # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
-        c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
+        c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
+        # c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
         w = np.ones(self.num_peaks)*self.width
         h = abs(c) + 0.05
         h *= self.norm/(2*h*c/(c**2+w**2)).sum()
-        def sigma_func(x): return sum_on_args(even_lorentzian, x, c, w, h)
-        def pi_func(x): return sum_on_args(analytic_pi, x, c, w, h)
+        sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
+        pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
         return sigma_func, pi_func
 
 
