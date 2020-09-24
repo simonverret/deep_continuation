@@ -252,32 +252,33 @@ class GaussianMix(DataGenerator):
         self.wgths = wgths
         self.norm = norm
         self.even = even
-        
         self.tmp_num_per_group = None
 
     def new_random_num_per_group(self):
-        num_per_group = [np.random.randint(n[0], n[1]) for n in self.nmbrs]
+        num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
         if all(num_per_group) == 0:
             lucky_group = np.random.randint(0,len(num_per_group)-1)
             num_per_group[lucky_group] = 1
         self.tmp_num_per_group = num_per_group
+
         return num_per_group
 
     def random_cwh(self):
-        for grp, num in enumerate(self.tmp_num_per_group):
-            c = [np.random.uniform(self.cntrs[grp][0], self.cntrs[grp][1], num)]
-            w = [np.random.uniform(self.wdths[grp][0], self.wdths[grp][1], num)]
-            h = [np.random.uniform(self.wgths[grp][0], self.wgths[grp][1], num)]
-            c = np.hstack(c)
-            w = np.hstack(w)
-            h = np.hstack(h)
-        
+        c, w, h = [], [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            c.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
+            w.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
+            h.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
+        c = np.hstack(c)
+        w = np.hstack(w)
+        h = np.hstack(h)
+
         if self.even:
             c = np.hstack([-c, c])
             w = np.hstack([w, w])
             h = np.hstack([h, h])
 
-        if self.norm is not None:
+        if self.norm:
             h *= np.pi*self.norm/(h.sum()+SMALL)
 
         return c, w, h
@@ -287,6 +288,7 @@ class GaussianMix(DataGenerator):
         c, w, h = self.random_cwh()
         sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
         pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+
         return sigma_func, pi_func
 
 
@@ -304,19 +306,20 @@ class LorentzMix(GaussianMix):
 
 class BetaMix(GaussianMix):
     def __init__(self, 
-                 arngs=[[0.00, 0.00], [4.00, 16.0]],
-                 brths=[[0.04, 0.40], [0.04, 0.40]],
+                 arngs=[[2.00, 5.00], [0.50, 5.00]],
+                 brths=[[2.00, 5.00], [0.50, 5.00]],
                  **kwargs):
         super().__init__(**kwargs)
         self.arngs = arngs
         self.brths = brths
 
     def random_ab(self):
-        for grp, num in enumerate(self.tmp_num_per_group):
-            a = [np.random.uniform(self.cntrs[grp][0], self.cntrs[grp][1], num)]
-            b = [np.random.uniform(self.wdths[grp][0], self.wdths[grp][1], num)]
-            a = np.hstack(a)
-            b = np.hstack(b)
+        a, b = [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            a.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
+            b.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
+        a = np.hstack(a)
+        b = np.hstack(b)
         
         if self.even:
             aa, bb = a, b
@@ -372,8 +375,9 @@ def main():
         "cntrs": [[0.00, 0.00], [4.00, 16.0]],
         "wdths": [[0.40, 4.00], [0.40, 4.00]],
         "wghts": [[0.00, 1.00], [0.00, 1.00]],
-        "arngs": [[0.00, 0.00], [4.00, 16.0]],
-        "brths": [[0.04, 0.40], [0.04, 0.40]],
+        "arngs": [[2.00, 5.00], [0.50, 5.00]],
+        "brths": [[2.00, 5.00], [0.50, 5.00]],
+        "even": True,
         # lorentz
         'num_peaks': 10000,
         'width': 0.05,
