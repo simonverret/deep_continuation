@@ -13,6 +13,7 @@ from deep_continuation import monotonous_functions as monofunc
 np.set_printoptions(precision=4)
 HERE = Path(__file__).parent
 SMALL = 1e-10
+INF = 1e10
 
 
 def sum_on_args(f, x, *args):
@@ -170,52 +171,47 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
 
 def infer_scale_plot(Pi, sigma, filename=None):
     wmaxs, betas = infer_scales(Pi, sigma)
-    print(f" infered pieces:\n  PiN  = {PiN}\n  norm  = {norm}\n  sum1 = {sum1}\n  sum2 = {sum2}")
     print(f" infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
     scale_plot(Pi, sigma, betas, wmaxs, filename)
 
 
 class DataGenerator():
-    def __init__(self, Nwn=128, Nw=512, beta=10, wmax=20, rescale=0, **kwargs):
-        self.num_wn = Nwn
-        self.num_w = Nw
+    def __init__(self, Nwn=128, Nw=512, beta=[10], wmax=20, rescale=0.0, **kwargs):
+        self.Nwn = Nwn
+        self.Nn = Nw
         self.beta = beta
         self.wmax = wmax
-        self.w = np.linspace(0, self.wmax, self.num_w)
-        self.wn = (2*np.pi/self.beta) * np.arange(0, self.num_wn)
         self.rescale = rescale
 
     def generate_functions(self):
         raise NotImplementedError
 
     def generate_batch(self, size):
-        Pi = np.zeros((size, self.num_wn))
-        sigma = np.zeros((size, self.num_w))
+        Pi = np.zeros((size, self.Nwn))
+        sigma = np.zeros((size, self.Nn))
         betas = np.zeros(size)
         wmaxs = np.zeros(size)
 
+        beta = [2,5,9,12,15,19,23,18,19,20]
+        sigma_func, pi_func = self.generate_functions()
         for i in range(size):
             if (i == 0 or (i+1) % (max(1, size//100)) == 0):
                 print(f"sample {i+1}")
-            sigma_func, pi_func = self.generate_functions()
-
-            Pi[i] = pi_func(self.wn)
 
             if self.rescale > SMALL:
-                inf = 1e6
-                s = np.cbrt(
-                    inf**2*pi_integral(inf, sigma_func, grid_end=self.wmax))
-                # N = self.num_wn-1
-                # s = np.cbrt(Pi[i,N]*N*2)
-                new_w_max = self.rescale*s
-                resampl_w = np.linspace(0, new_w_max, self.num_w)
-                sigma[i] = sigma_func(resampl_w)
-                betas[i] = self.beta
-                wmaxs[i] = new_w_max
+                s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
+                wmax = np.cbrt(s) * self.rescale
             else:
-                sigma[i] = sigma_func(self.w)
-                betas[i] = self.beta
-                wmaxs[i] = self.wmax
+                wmax = self.wmax
+            
+            self.beta = beta[i]
+            omega_n = (2*np.pi/self.beta) * np.arange(0, self.Nwn)
+            Pi[i] = pi_func(omega_n)
+            betas[i] = self.beta
+
+            omega = np.linspace(0, wmax, self.Nn)
+            sigma[i] = sigma_func(omega)
+            wmaxs[i] = wmax
 
         return Pi, sigma, betas, wmaxs
 
@@ -236,8 +232,7 @@ class DataGenerator():
         if basic:
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale:
-            scale_plot(Pi, sigma, betas, wmaxs, name +
-                       "_scale.pdf" if name else None)
+            scale_plot(Pi, sigma, betas, wmaxs, name +"_scale.pdf" if name else None)
         if infer:
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
 
@@ -248,7 +243,7 @@ class GaussianMix(DataGenerator):
                  cntrs=[[0.00, 0.00], [4.00, 16.0]],
                  wdths=[[0.04, 0.40], [0.04, 0.40]],
                  wgths=[[0.00, 1.00], [0.00, 1.00]],
-                 norm=1, even=True,
+                 norm=1, even=True, anormal=False,
                  **kwargs):
         super().__init__(**kwargs)
         self.nmbrs = nmbrs
@@ -257,6 +252,7 @@ class GaussianMix(DataGenerator):
         self.wgths = wgths
         self.norm = norm
         self.even = even
+        self.anormal = anormal
         self.tmp_num_per_group = None
 
     def new_random_num_per_group(self):
@@ -283,6 +279,8 @@ class GaussianMix(DataGenerator):
             w = np.hstack([w, w])
             h = np.hstack([h, h])
 
+        if self.anormal:
+            h *= w  # In some papers the gaussians are not normalized
         if self.norm:
             h *= np.pi*self.norm/(h.sum()+SMALL)
 
@@ -375,6 +373,7 @@ def main():
         'rescale': 0.0,
         # peaks
         "variant": "Gaussian",
+        "anormal": False,
         "wmax": 20.0,
         "nmbrs": [[0, 4],[0, 6]],
         "cntrs": [[0.00, 0.00], [4.00, 16.0]],

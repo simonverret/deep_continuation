@@ -3,6 +3,7 @@
     "generate": 100000,
     "path": "data/Xie/train",
     "peak_type": "Gaussian",
+    "anormal": true,
     "wmax": 10.0,
     "beta": 2,
     "nmbrs": [[1, 1],[1, 21]],

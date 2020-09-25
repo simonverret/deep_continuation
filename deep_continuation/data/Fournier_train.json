@@ -3,6 +3,7 @@
     "generate": 100000,
     "path": "data/Fournier/train",
     "peak_type": "Gaussian",
+    "anormal": true,
     "wmax": 15.0,
     "beta": 2,
     "nmbrs": [[1, 1],[1, 21]],
