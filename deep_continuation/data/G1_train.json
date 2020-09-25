@@ -1,8 +1,8 @@
 {
     "seed": 11111,
-    "generate": 50000,
+    "generate": 100000,
     "path": "data/G1/train",
-    "peak_type": "Gaussian",
+    "variant": "Gaussian",
     "wmax": 20.0,
     "beta": [10.0],
     "nmbrs": [[0, 4],[0, 6]],

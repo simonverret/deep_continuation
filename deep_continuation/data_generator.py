@@ -239,7 +239,7 @@ class DataGenerator():
             new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale}.csv")
             np.savetxt(new_path, sigma_r, delimiter=',')
         if wmaxs_path:
-            np.savetxt(wmaxs_path, wmaxs, delimiter=',', header="wmax, beta")
+            np.savetxt(wmaxs_path, wmaxs, delimiter=',')
 
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
         Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
@@ -439,7 +439,7 @@ def main():
             args.generate,
             pi_path=args.path+'/Pi.csv',
             sigma_path=args.path+'/SigmaRe.csv',
-            wmaxs_path=args.path+'/wmaxs.csv'
+            wmaxs_path=args.path+'/wmaxs.csv' if args.rescale > SMALL else None
         )
 
     if args.generate == 0 and args.plot == 0:

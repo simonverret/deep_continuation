@@ -20,10 +20,11 @@ pip install --no-index matplotlib
 pip install --no-index torch
 
 mkdir job
-cp -r ~/codes/deep_continuation/mlp/* job/
-
+cp -r ~/codes/deep_continuation/* job/
 cd job
-python data.py data/G3_train.json --generate 50000
-python data.py data/G3_valid.json --generate 10000
+pip install --no-index -e .
+cd deep_continuation
+python data_generator.py data/G1_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
+python data_generator.py data/G1_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
 
-cp -r data/G3 ~/scratch/deep_continuation/data/
+cp -r data/* ~/scratch/deep_continuation/data/
