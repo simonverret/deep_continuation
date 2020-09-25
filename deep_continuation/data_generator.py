@@ -1,3 +1,14 @@
+#!/usr/bin/env python
+#
+#   deep_continuation
+#
+#   Simon Verret
+#   Quinton Weyrich
+#   Reza Nourafkan
+#   Andre-Marie Tremblay
+#
+
+
 import os
 import time
 from pathlib import Path
@@ -7,6 +18,7 @@ from scipy import integrate
 from scipy.special import binom, gamma
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from torch
 
 from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
@@ -375,6 +387,49 @@ class LorentzComb(DataGenerator):
         sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
         pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
         return sigma_func, pi_func
+
+
+class ContinuationData(torch.utils.data.Dataset):
+    def __init__(self, path, noise=0.0, temperature=False, rescaled=False):
+        self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
+        self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
+        self.noise = noise
+        
+        self.temperature = temperature
+        if self.temperature:
+            self.xT_data = [self.x_data]
+            temperatures = [2.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0]
+            for t in temperatures[1:]:
+                self.xT_data.append(
+                    np.loadtxt(open(path+f"Pi_beta_{t}.csv", "rb"), delimiter=",")
+                )
+            self.xT_data = np.stack(self.xT_data)
+            self.nT = len(self.xT_data)
+
+        self.rescaled = rescaled
+        if self.rescaled:
+            scaled_path = path+"SigmaRe_scaled_4.0.csv"
+            self.scaled_y_data = np.loadtxt(open(scaled_path, "rb"), delimiter=",")
+            self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
+        
+        self.N = self.y_data.shape[-1]
+
+    def __len__(self):
+        return len(self.x_data)
+
+    def __getitem__(self, index):
+        if self.temperature:
+            x = self.xT_data[np.randint(self.nT), index]
+            x += np.random.normal(0,1, size=x.shape)*self.noise
+        else:
+            x = self.x_data[index] 
+            x += np.random.normal(0,1, size=x.shape)*self.noise
+
+        if self.rescaled:
+            y = self.scaled_y_data[index]
+        else: 
+            y = self.y_data[index]
+        return x, y
 
 
 def main():
