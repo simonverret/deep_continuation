@@ -6,6 +6,7 @@ import numpy as np
 from scipy import integrate
 from scipy.special import binom, gamma
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
@@ -14,7 +15,7 @@ np.set_printoptions(precision=4)
 HERE = Path(__file__).parent
 SMALL = 1e-10
 INF = 1e10
-
+COLORS = list(mcolors.TABLEAU_COLORS)
 
 def sum_on_args(f, x, *args):
     if isinstance(x, np.ndarray):
@@ -98,10 +99,10 @@ def free_beta(x, c, w, h, a, b):
 
 
 def infer_scales(Pi, sigma):
-    N = len(Pi[0])
+    N = len(Pi[0,0])
     M = len(sigma[0])
-    norm = Pi[:, 0]
-    PiN = Pi[:, -1]
+    norm = Pi[0, :, 0]  # Pi0 is independent from temperature
+    PiN = Pi[:, :, -1]
     sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
     dm = np.pi*norm/sum1
     m = np.arange(M)
@@ -109,15 +110,12 @@ def infer_scales(Pi, sigma):
     
     wmaxs = M*dm
     betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
+    print(betas.shape)
+    print(wmaxs.shape)
     return wmaxs, betas
 
 
 def unscaled_plot(Pi, sigma, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    n2Pi = np.sqrt(np.arange(N)**2*Pi)
-    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
-
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi_n$")
     plt.setp(ax[0, 0].get_xticklabels(), visible=False)
@@ -127,11 +125,19 @@ def unscaled_plot(Pi, sigma, filename=None):
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
     ax[1, 1].set_ylabel(r"$\sqrt{ \sum_{r}^{n} n^2 \sigma_n }$")
     ax[1, 1].set_xlabel(r"$m$")
-    for i in range(len(Pi)):
-        ax[0, 0].plot(Pi[i], '.')
-        ax[1, 0].plot(n2Pi[i], '.')
-        ax[0, 1].plot(sigma[i])
-        ax[1, 1].plot(cumul_sum2[i])
+    
+    N = len(Pi[0,0])
+    n2Pi = np.sqrt(np.arange(N)**2*Pi)
+    for b in range(len(Pi)):
+        for i in range(len(Pi[b])):
+            ax[0, 0].plot(Pi[b,i], '.', c=COLORS[i%10])
+            ax[1, 0].plot(n2Pi[b,i], '.', c=COLORS[i%10])
+    M = len(sigma[0])
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
+    for i in range(len(sigma)):
+        ax[0, 1].plot(sigma[i], c=COLORS[i%10])
+        ax[1, 1].plot(cumul_sum2[i], c=COLORS[i%10])
+        
     fig.tight_layout()
     if filename is not None:
         plt.savefig(filename)
@@ -139,14 +145,7 @@ def unscaled_plot(Pi, sigma, filename=None):
         plt.show()
 
 
-def scale_plot(Pi, sigma, beta, wmax, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    wn = (2*np.pi/beta[:, np.newaxis]) * np.arange(N)
-    w = wmax[:, np.newaxis] * np.linspace(0, 1, M)
-    n2Pi = wn**2*Pi
-    cumul_sum2 = np.cumsum(w**2*sigma, axis=-1)
-
+def scale_plot(Pi, sigma, betas, wmaxs, filename=None):
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi(i\omega_n)$")
     plt.setp(ax[0, 0].get_xticklabels(), visible=False)
@@ -154,14 +153,23 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
     ax[1, 0].set_xlabel(r"$\omega_n$")
     ax[0, 1].set_ylabel(r"$\sigma(\omega)$")
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
-    ax[1, 1].set_ylabel(
-        r"$\sqrt{ \int\frac{d\omega}{\pi} \omega^2 \sigma(\omega) }$")
+    ax[1, 1].set_ylabel(r"$\sqrt{\int\frac{d\omega}{\pi}\omega^2\sigma(\omega)}$")
     ax[1, 1].set_xlabel(r"$\omega$")
-    for i in range(len(Pi)):
-        ax[0, 0].plot(wn[i], Pi[i], '.')
-        ax[1, 0].plot(wn[i], n2Pi[i], '.')
-        ax[0, 1].plot(w[i], sigma[i])
-        ax[1, 1].plot(w[i], cumul_sum2[i])
+    
+    N = len(Pi[0,0])
+    wn = (2*np.pi/betas[:, :, np.newaxis]) * np.arange(N)
+    n2Pi = np.sqrt(wn**2*Pi)
+    for b in range(len(Pi)):
+        for i in range(len(Pi[b])):
+            ax[0, 0].plot(wn[b,i], Pi[b,i], '.', c=COLORS[i%10], markersize=2*b+3)
+            ax[1, 0].plot(wn[b,i], n2Pi[b,i], '.', c=COLORS[i%10], markersize=2*b+3)
+    M = len(sigma[0])
+    w = wmaxs[:, np.newaxis] * np.linspace(0, 1, M)
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
+    for i in range(len(sigma)):
+        ax[0, 1].plot(w[i], sigma[i], c=COLORS[i%10])
+        ax[1, 1].plot(w[i], cumul_sum2[i], c=COLORS[i%10])
+
     fig.tight_layout()
     if filename is not None:
         plt.savefig(filename)
@@ -171,7 +179,7 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
 
 def infer_scale_plot(Pi, sigma, filename=None):
     wmaxs, betas = infer_scales(Pi, sigma)
-    print(f" infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
+    print(f" infered scales:\n  betas =\n{betas}\n  wmaxs =\n{wmaxs}")
     scale_plot(Pi, sigma, betas, wmaxs, filename)
 
 
@@ -187,48 +195,58 @@ class DataGenerator():
         raise NotImplementedError
 
     def generate_batch(self, size):
-        Pi = np.zeros((size, self.Nwn))
+        Pi = np.zeros((len(self.beta), size, self.Nwn))
+        betas = np.zeros((len(self.beta), size))
         sigma = np.zeros((size, self.Nn))
-        betas = np.zeros(size)
+        sigma_r = np.zeros((size, self.Nn))
         wmaxs = np.zeros(size)
 
-        beta = [2,5,9,12,15,19,23,18,19,20]
-        sigma_func, pi_func = self.generate_functions()
         for i in range(size):
-            if (i == 0 or (i+1) % (max(1, size//100)) == 0):
-                print(f"sample {i+1}")
+            if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
+            sigma_func, pi_func = self.generate_functions()
 
+            
             if self.rescale > SMALL:
                 s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
                 wmax = np.cbrt(s) * self.rescale
+                omega = np.linspace(0, wmax, self.Nn)
+                sigma_r[i] = sigma_func(omega)
+                wmaxs[i] = wmax
             else:
-                wmax = self.wmax
+                wmaxs[i] = self.wmax
             
-            self.beta = beta[i]
-            omega_n = (2*np.pi/self.beta) * np.arange(0, self.Nwn)
-            Pi[i] = pi_func(omega_n)
-            betas[i] = self.beta
+            for b, beta in enumerate(self.beta):
+                omega_n = np.arange(0, self.Nwn)*2*np.pi/beta        
+                Pi[b,i] = pi_func(omega_n)
+                betas[b,i] = beta
 
-            omega = np.linspace(0, wmax, self.Nn)
+            omega = np.linspace(0, self.wmax, self.Nn)
             sigma[i] = sigma_func(omega)
-            wmaxs[i] = wmax
 
-        return Pi, sigma, betas, wmaxs
+        return Pi, sigma, betas, wmaxs, sigma_r
 
-    def generate_files(self, size, sigma_path, pi_path, scale_path=None):
+    def generate_files(self, size, sigma_path, pi_path, wmaxs_path=None):
         if (os.path.exists(sigma_path) or os.path.exists(pi_path)):
             raise ValueError('there is already a dataset on this path')
-        Pi, sigma, betas, wmaxs = self.generate_batch(size)
-        np.savetxt(pi_path, Pi, delimiter=',')
+        Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
+        np.savetxt(pi_path, Pi[0], delimiter=',')
         np.savetxt(sigma_path, sigma, delimiter=',')
-        if scale_path:
-            scales = np.vstack(betas, wmaxs)
-            np.savetxt(scale_path, scales, delimiter=',', header="beta, wmax")
+
+        for b, beta in enumerate(self.beta[1:]):
+            new_path = pi_path.replace(".csv", f"_beta_{beta}.csv")
+            np.savetxt(new_path, Pi[b], delimiter=',')
+        if self.rescale:
+            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale}.csv")
+            np.savetxt(new_path, sigma_r, delimiter=',')
+        if wmaxs_path:
+            np.savetxt(wmaxs_path, wmaxs, delimiter=',', header="wmax, beta")
 
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
-        Pi, sigma, betas, wmaxs = self.generate_batch(size)
-        print(f" true scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
-        print(f" normalization check {Pi[:,0]}")
+        Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
+        print(f" true scales:\n  betas =\n{betas}\n  wmaxs = {wmaxs}")
+        print(f" normalization check\n{Pi[:,:,0]}")
+        if self.rescale:
+            sigma = sigma_r
         if basic:
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale:
@@ -349,8 +367,8 @@ class LorentzComb(DataGenerator):
 
     def generate_functions(self):
         k = np.linspace(0, 1, self.num_peaks)
-        c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
-        # c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
+        # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
+        c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
         w = np.ones(self.num_peaks)*self.width
         h = abs(c) + 0.05
         h *= self.norm/(2*h*c/(c**2+w**2)).sum()
@@ -368,7 +386,7 @@ def main():
         'Nwn': 128,
         'Nw': 512,
         'wmax': 20.0,
-        'beta': 10.0,  # 2*np.pi, # 2pi/beta = 1
+        'beta': [4, 7, 10, 13, 16, 19, 22, 25, 28],  # 2*np.pi, # 2pi/beta = 1
         'norm': 1.0,
         'rescale': 0.0,
         # peaks
@@ -379,8 +397,8 @@ def main():
         "cntrs": [[0.00, 0.00], [4.00, 16.0]],
         "wdths": [[0.40, 4.00], [0.40, 4.00]],
         "wghts": [[0.00, 1.00], [0.00, 1.00]],
-        "arngs": [[2.00, 5.00], [0.50, 5.00]],
-        "brths": [[2.00, 5.00], [0.50, 5.00]],
+        "arngs": [[2.00, 10.00], [0.70, 10.00]],
+        "brths": [[2.00, 10.00], [0.70, 10.00]],
         "even": True,
         # lorentz
         'num_peaks': 10000,
@@ -421,6 +439,7 @@ def main():
             args.generate,
             pi_path=args.path+'/Pi.csv',
             sigma_path=args.path+'/SigmaRe.csv',
+            wmaxs_path=args.path+'/wmaxs.csv'
         )
 
     if args.generate == 0 and args.plot == 0:
