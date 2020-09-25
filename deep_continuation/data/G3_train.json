@@ -1,17 +1,12 @@
 {
     "seed": 33333,
     "generate": 50000,
-    "path": "data/G3/train/",
+    "path": "data/G3/train",
     "peak_type": "Gaussian",
-    "max_peaks": 0,
-    "max_drude": 4,
-    "drude_ratio": 0.50,
-    "drude_width_range": [
-        0.01,
-        0.20
-    ],
-    "drude_weight_range": [
-        0.0,
-        1.0
-    ]
+    "wmax": 20.0,
+    "beta": [10.0],
+    "nmbrs": [[0, 4]],
+    "cntrs": [[0.00, 0.00]],
+    "wdths": [[0.20, 4.00]],
+    "wghts": [[0.00, 1.00]]
 }

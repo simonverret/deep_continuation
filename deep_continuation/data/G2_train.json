@@ -1,20 +1,12 @@
 {
     "seed": 22222,
     "generate": 50000,
-    "path": "data/G2/train/",
+    "path": "data/G2/train",
     "peak_type": "Gaussian",
-    "max_peaks": 6,
-    "peaks_position_range": [
-        0.20,
-        0.80
-    ],
-    "peaks_width_range": [
-        0.02,
-        0.20
-    ],
-    "peaks_weight_range": [
-        0.0,
-        1.0
-    ],
-    "max_drude": 0
+    "wmax": 20.0,
+    "beta": [10.0],
+    "nmbrs": [[0, 6]],
+    "cntrs": [[4.00, 16.0]],
+    "wdths": [[0.40, 4.00]],
+    "wghts": [[0.00, 1.00]]
 }

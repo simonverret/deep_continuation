@@ -6,6 +6,7 @@ import numpy as np
 from scipy import integrate
 from scipy.special import binom, gamma
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
@@ -13,7 +14,8 @@ from deep_continuation import monotonous_functions as monofunc
 np.set_printoptions(precision=4)
 HERE = Path(__file__).parent
 SMALL = 1e-10
-
+INF = 1e10
+COLORS = list(mcolors.TABLEAU_COLORS)
 
 def sum_on_args(f, x, *args):
     if isinstance(x, np.ndarray):
@@ -96,44 +98,24 @@ def free_beta(x, c, w, h, a, b):
     return h*standardized_beta((x-c)/w, a, b)/w
 
 
-def random_cwh(num, cr=[0, 1], wr=[.05, .5], hr=[0, 1], norm=1.0, even=True):
-    c = np.random.uniform(cr[0], cr[1], size=num)
-    w = np.random.uniform(0.0, 1.0, size=num)*(wr[1]-wr[0])+wr[0]
-    h = np.random.uniform(hr[0], hr[1], size=num)
-    if even:
-        c = np.hstack([c, -c])
-        w = np.hstack([w, w])
-        h = np.hstack([h, h])
-    if norm is not None:
-        h *= norm/(h.sum()+SMALL)
-    return c, w, h
-
-
-def random_mn(num, rm=[1, 20], even=True):
-    m = np.random.randint(rm[0], rm[1], size=num)
-    n = np.ceil(np.random.uniform(0.0, 1.000, size=num)*(m-1))
-    if even:
-        n = np.hstack([n, m-n])
-        m = np.hstack([m, m])
-    return m, n
-
-
-def random_ab(num, ra=[0.5, 20], rb=[0.5, 20], even=True):
-    a = np.random.uniform(ra[0], ra[1], size=num)
-    b = np.random.uniform(rb[0], rb[1], size=num)
-    if even:
-        aa, bb = a, b
-        a = np.hstack([aa, bb])
-        b = np.hstack([bb, aa])
-    return a, b
+def infer_scales(Pi, sigma):
+    N = len(Pi[0,0])
+    M = len(sigma[0])
+    norm = Pi[0, :, 0]  # Pi0 is independent from temperature
+    PiN = Pi[:, :, -1]
+    sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
+    dm = np.pi*norm/sum1
+    m = np.arange(M)
+    sum2 = 2*np.sum(m**2*sigma, axis=-1)
+    
+    wmaxs = M*dm
+    betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
+    print(betas.shape)
+    print(wmaxs.shape)
+    return wmaxs, betas
 
 
 def unscaled_plot(Pi, sigma, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    n2Pi = np.sqrt(np.arange(N)**2*Pi)
-    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
-
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi_n$")
     plt.setp(ax[0, 0].get_xticklabels(), visible=False)
@@ -143,11 +125,19 @@ def unscaled_plot(Pi, sigma, filename=None):
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
     ax[1, 1].set_ylabel(r"$\sqrt{ \sum_{r}^{n} n^2 \sigma_n }$")
     ax[1, 1].set_xlabel(r"$m$")
-    for i in range(len(Pi)):
-        ax[0, 0].plot(Pi[i], '.')
-        ax[1, 0].plot(n2Pi[i], '.')
-        ax[0, 1].plot(sigma[i])
-        ax[1, 1].plot(cumul_sum2[i])
+    
+    N = len(Pi[0,0])
+    n2Pi = np.sqrt(np.arange(N)**2*Pi)
+    for b in range(len(Pi)):
+        for i in range(len(Pi[b])):
+            ax[0, 0].plot(Pi[b,i], '.', c=COLORS[i%10])
+            ax[1, 0].plot(n2Pi[b,i], '.', c=COLORS[i%10])
+    M = len(sigma[0])
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
+    for i in range(len(sigma)):
+        ax[0, 1].plot(sigma[i], c=COLORS[i%10])
+        ax[1, 1].plot(cumul_sum2[i], c=COLORS[i%10])
+        
     fig.tight_layout()
     if filename is not None:
         plt.savefig(filename)
@@ -155,14 +145,7 @@ def unscaled_plot(Pi, sigma, filename=None):
         plt.show()
 
 
-def scale_plot(Pi, sigma, beta, wmax, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    wn = (2*np.pi/beta[:, np.newaxis]) * np.arange(N)
-    w = wmax[:, np.newaxis] * np.linspace(0, 1, M)
-    n2Pi = wn**2*Pi
-    cumul_sum2 = np.cumsum(w**2*sigma, axis=-1)
-
+def scale_plot(Pi, sigma, betas, wmaxs, filename=None):
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi(i\omega_n)$")
     plt.setp(ax[0, 0].get_xticklabels(), visible=False)
@@ -170,14 +153,23 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
     ax[1, 0].set_xlabel(r"$\omega_n$")
     ax[0, 1].set_ylabel(r"$\sigma(\omega)$")
     plt.setp(ax[0, 1].get_xticklabels(), visible=False)
-    ax[1, 1].set_ylabel(
-        r"$\sqrt{ \int\frac{d\omega}{\pi} \omega^2 \sigma(\omega) }$")
+    ax[1, 1].set_ylabel(r"$\sqrt{\int\frac{d\omega}{\pi}\omega^2\sigma(\omega)}$")
     ax[1, 1].set_xlabel(r"$\omega$")
-    for i in range(len(Pi)):
-        ax[0, 0].plot(wn[i], Pi[i], '.')
-        ax[1, 0].plot(wn[i], n2Pi[i], '.')
-        ax[0, 1].plot(w[i], sigma[i])
-        ax[1, 1].plot(w[i], cumul_sum2[i])
+    
+    N = len(Pi[0,0])
+    wn = (2*np.pi/betas[:, :, np.newaxis]) * np.arange(N)
+    n2Pi = np.sqrt(wn**2*Pi)
+    for b in range(len(Pi)):
+        for i in range(len(Pi[b])):
+            ax[0, 0].plot(wn[b,i], Pi[b,i], '.', c=COLORS[i%10], markersize=2*b+3)
+            ax[1, 0].plot(wn[b,i], n2Pi[b,i], '.', c=COLORS[i%10], markersize=2*b+3)
+    M = len(sigma[0])
+    w = wmaxs[:, np.newaxis] * np.linspace(0, 1, M)
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
+    for i in range(len(sigma)):
+        ax[0, 1].plot(w[i], sigma[i], c=COLORS[i%10])
+        ax[1, 1].plot(w[i], cumul_sum2[i], c=COLORS[i%10])
+
     fig.tight_layout()
     if filename is not None:
         plt.savefig(filename)
@@ -186,190 +178,189 @@ def scale_plot(Pi, sigma, beta, wmax, filename=None):
 
 
 def infer_scale_plot(Pi, sigma, filename=None):
-    N = len(Pi[0])
-    M = len(sigma[0])
-    norm = Pi[:, 0]
-    PiN = Pi[:, -1]
-    sum1 = 2*np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
-    dm = np.pi*norm/sum1
-    wmaxs = M*dm
-    m = np.arange(M)
-    sum2 = 2*np.sum(m**2*sigma, axis=-1)
-    betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
-    print(
-        f" infered pieces:\n  PiN  = {PiN}\n  norm  = {norm}\n  sum1 = {sum1}\n  sum2 = {sum2}")
-    print(f" infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
+    wmaxs, betas = infer_scales(Pi, sigma)
+    print(f" infered scales:\n  betas =\n{betas}\n  wmaxs =\n{wmaxs}")
     scale_plot(Pi, sigma, betas, wmaxs, filename)
 
 
 class DataGenerator():
-    def __init__(self, Nwn, Nw, beta, wmax, rescale, **kwargs):
-        self.num_wn = Nwn
-        self.num_w = Nw
+    def __init__(self, Nwn=128, Nw=512, beta=[10], wmax=20, rescale=0.0, **kwargs):
+        self.Nwn = Nwn
+        self.Nn = Nw
         self.beta = beta
         self.wmax = wmax
-        self.w = np.linspace(0, self.wmax, self.num_w)
-        self.wn = (2*np.pi/self.beta) * np.arange(0, self.num_wn)
         self.rescale = rescale
 
     def generate_functions(self):
         raise NotImplementedError
 
     def generate_batch(self, size):
-        Pi = np.zeros((size, self.num_wn))
-        sigma = np.zeros((size, self.num_w))
-        betas = np.zeros(size)
+        Pi = np.zeros((len(self.beta), size, self.Nwn))
+        betas = np.zeros((len(self.beta), size))
+        sigma = np.zeros((size, self.Nn))
+        sigma_r = np.zeros((size, self.Nn))
         wmaxs = np.zeros(size)
 
         for i in range(size):
-            if (i == 0 or (i+1) % (max(1, size//100)) == 0):
-                print(f"sample {i+1}")
+            if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
             sigma_func, pi_func = self.generate_functions()
 
-            Pi[i] = pi_func(self.wn)
-
+            
             if self.rescale > SMALL:
-                inf = 1e6
-                s = np.cbrt(
-                    inf**2*pi_integral(inf, sigma_func, grid_end=self.wmax))
-                # N = self.num_wn-1
-                # s = np.cbrt(Pi[i,N]*N*2)
-                new_w_max = self.rescale*s
-                resampl_w = np.linspace(0, new_w_max, self.num_w)
-                sigma[i] = sigma_func(resampl_w)
-                betas[i] = self.beta
-                wmaxs[i] = new_w_max
+                s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
+                wmax = np.cbrt(s) * self.rescale
+                omega = np.linspace(0, wmax, self.Nn)
+                sigma_r[i] = sigma_func(omega)
+                wmaxs[i] = wmax
             else:
-                sigma[i] = sigma_func(self.w)
-                betas[i] = self.beta
                 wmaxs[i] = self.wmax
+            
+            for b, beta in enumerate(self.beta):
+                omega_n = np.arange(0, self.Nwn)*2*np.pi/beta        
+                Pi[b,i] = pi_func(omega_n)
+                betas[b,i] = beta
 
-        return Pi, sigma, betas, wmaxs
+            omega = np.linspace(0, self.wmax, self.Nn)
+            sigma[i] = sigma_func(omega)
 
-    def generate_files(self, size, sigma_path, pi_path, scale_path=None):
+        return Pi, sigma, betas, wmaxs, sigma_r
+
+    def generate_files(self, size, sigma_path, pi_path, wmaxs_path=None):
         if (os.path.exists(sigma_path) or os.path.exists(pi_path)):
             raise ValueError('there is already a dataset on this path')
-        Pi, sigma, betas, wmaxs = self.generate_batch(size)
-        np.savetxt(pi_path, Pi, delimiter=',')
+        Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
+        np.savetxt(pi_path, Pi[0], delimiter=',')
         np.savetxt(sigma_path, sigma, delimiter=',')
-        if scale_path:
-            scales = np.vstack(betas, wmaxs)
-            np.savetxt(scale_path, scales, delimiter=',', header="beta, wmax")
+
+        for b, beta in enumerate(self.beta[1:]):
+            new_path = pi_path.replace(".csv", f"_beta_{beta}.csv")
+            np.savetxt(new_path, Pi[b], delimiter=',')
+        if self.rescale:
+            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale}.csv")
+            np.savetxt(new_path, sigma_r, delimiter=',')
+        if wmaxs_path:
+            np.savetxt(wmaxs_path, wmaxs, delimiter=',', header="wmax, beta")
 
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
-        Pi, sigma, betas, wmaxs = self.generate_batch(size)
-        print(f" true scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
-        print(f" normalization check {Pi[:,0]}")
+        Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
+        print(f" true scales:\n  betas =\n{betas}\n  wmaxs = {wmaxs}")
+        print(f" normalization check\n{Pi[:,:,0]}")
+        if self.rescale:
+            sigma = sigma_r
         if basic:
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale:
-            scale_plot(Pi, sigma, betas, wmaxs, name +
-                       "_scale.pdf" if name else None)
+            scale_plot(Pi, sigma, betas, wmaxs, name +"_scale.pdf" if name else None)
         if infer:
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
 
 
-class PeakMix(DataGenerator):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, peaks_position_range, 
-                 peaks_width_range, peaks_weight_range, beta_ab_range,
-                 **kwargs
-                 ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale)
-        self.peak_type = peak_type
+class GaussianMix(DataGenerator):
+    def __init__(self, 
+                 nmbrs=[[0,4],[0,6]],
+                 cntrs=[[0.00, 0.00], [4.00, 16.0]],
+                 wdths=[[0.04, 0.40], [0.04, 0.40]],
+                 wgths=[[0.00, 1.00], [0.00, 1.00]],
+                 norm=1, even=True, anormal=False,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.nmbrs = nmbrs
+        self.cntrs = cntrs
+        self.wdths = wdths
+        self.wgths = wgths
         self.norm = norm
-        self.max_peaks = max_peaks
-        self.peaks_position_range = peaks_position_range
-        self.peaks_width_range = peaks_width_range
-        self.peaks_weight_range = peaks_weight_range
-        self.beta_ab_range = beta_ab_range
+        self.even = even
+        self.anormal = anormal
+        self.tmp_num_per_group = None
 
-    def generate_cwhab(self):
-        num = np.random.randint(1, self.max_peaks+1)
-        c, w, h = random_cwh(
-            num, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, self.norm
-        )
-        c = c*self.wmax
-        w = w*self.wmax
-        h = h*self.norm*np.pi
-        a, b = random_ab(num, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        return c, w, h, a, b
+    def new_random_num_per_group(self):
+        num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
+        if all(num_per_group) == 0:
+            lucky_group = np.random.randint(0,len(num_per_group)-1)
+            num_per_group[lucky_group] = 1
+        self.tmp_num_per_group = num_per_group
+
+        return num_per_group
+
+    def random_cwh(self):
+        cl, wl, hl = [], [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
+            wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
+            hl.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
+        c = np.hstack(cl)
+        w = np.hstack(wl)
+        h = np.hstack(hl)
+
+        if self.even:
+            c = np.hstack([-c, c])
+            w = np.hstack([w, w])
+            h = np.hstack([h, h])
+
+        if self.anormal:
+            h *= w  # In some papers the gaussians are not normalized
+        if self.norm:
+            h *= np.pi*self.norm/(h.sum()+SMALL)
+
+        return c, w, h
 
     def generate_functions(self):
-        c, w, h, a, b = self.generate_cwhab()
-        if self.peak_type in ["G", "Gaussian", "gaussian"]:
-            def sigma_func(x): return sum_on_args(gaussian, x, c, w, h)
-        elif self.peak_type in ["B", "Beta", "beta"]:
-            def sigma_func(x): return sum_on_args(free_beta, x, c, w, h, a, b)
-        elif self.peak_type in ["L", "Lorentzian", "lorentzian"]:
-            def sigma_func(x): return sum_on_args(lorentzian, x, c, w, h)
-        else:
-            raise ValueError(f"peak_type {self.peak_type} not recognized")
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
 
-        def pi_func(x): return pi_integral(x, sigma_func, grid_end=self.wmax)
         return sigma_func, pi_func
 
 
-class DrudePeakMix(PeakMix):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 peak_type, norm, max_peaks, peaks_position_range,
-                 peaks_width_range, peaks_weight_range, beta_ab_range,
-                 max_drude, drude_ratio, drude_width_range, drude_weight_range,
-                 **kwargs
-                 ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale,
-                         peak_type, norm, max_peaks, peaks_position_range, 
-                         peaks_width_range, peaks_weight_range, beta_ab_range)
-        self.max_drude = max_drude
-        self.max_peaks = max_peaks
-        self.drude_ratio = drude_ratio
-        self.drude_width_range = drude_width_range
-        self.drude_weight_range = drude_weight_range
+class LorentzMix(GaussianMix):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def generate_functions(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
 
 
-    def generate_cwhab(self):
-        drudes = np.random.randint(
-            0 if self.max_peaks > 0 else 1, self.max_drude+1
-        )
-        others = np.random.randint(
-            0 if drudes > 0 else 1, self.max_peaks+1
-        )
-        if drudes and others:
-            drude_weight = np.random.choice(
-                [0, np.random.uniform(0, self.drude_ratio)]
-            )
-            rest = 1-drude_weight
-        else:
-            drude_weight = 1
-            rest = 1
+class BetaMix(GaussianMix):
+    def __init__(self, 
+                 arngs=[[2.00, 5.00], [0.50, 5.00]],
+                 brths=[[2.00, 5.00], [0.50, 5.00]],
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.arngs = arngs
+        self.brths = brths
 
-        c1, w1, h1 = random_cwh(
-            drudes, [0, 0], self.drude_width_range, self.drude_weight_range, drude_weight
-        )
-        c2, w2, h2 = random_cwh(
-            others, self.peaks_position_range, self.peaks_width_range, self.peaks_weight_range, rest
-        )
-        c = np.hstack([c1, c2])*self.wmax
-        w = np.hstack([w1, w2])*self.wmax
-        h = np.hstack([h1, h2])*self.norm*np.pi
+    def random_ab(self):
+        al, bl = [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
+            bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
+        a = np.hstack(al)
+        b = np.hstack(bl)
+        
+        if self.even:
+            aa, bb = a, b
+            a = np.hstack([aa, bb])
+            b = np.hstack([bb, aa])
 
-        a1, b1 = random_ab(drudes, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        a2, b2 = random_ab(others, ra=self.beta_ab_range, rb=self.beta_ab_range)
-        a = np.hstack([a1, a2])
-        b = np.hstack([b1, b2])
+        return a, b
 
-        return c, w, h, a, b
-
+    def generate_functions(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        a, b = self.random_ab()
+        sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
+    
 
 class LorentzComb(DataGenerator):
-    def __init__(self,
-                 Nwn, Nw, beta, wmax, rescale,
-                 norm, num_peaks, width, 
-                 **kwargs
-                 ):
-        super().__init__(Nwn, Nw, beta, wmax, rescale)
+    def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
+        super().__init__(**kwargs)
         self.norm = norm
         self.num_peaks = num_peaks
         self.width = width
@@ -381,8 +372,8 @@ class LorentzComb(DataGenerator):
         w = np.ones(self.num_peaks)*self.width
         h = abs(c) + 0.05
         h *= self.norm/(2*h*c/(c**2+w**2)).sum()
-        def sigma_func(x): return sum_on_args(even_lorentzian, x, c, w, h)
-        def pi_func(x): return sum_on_args(analytic_pi, x, c, w, h)
+        sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
+        pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
         return sigma_func, pi_func
 
 
@@ -395,23 +386,21 @@ def main():
         'Nwn': 128,
         'Nw': 512,
         'wmax': 20.0,
-        'beta': 10.0,  # 2*np.pi, # 2pi/beta = 1
+        'beta': [4, 7, 10, 13, 16, 19, 22, 25, 28],  # 2*np.pi, # 2pi/beta = 1
         'norm': 1.0,
         'rescale': 0.0,
         # peaks
-        'peak_type': "Gaussian",
-        'max_peaks': 8,
-        'peaks_position_range': [.2, .8],
-        'peaks_width_range': [.01, .1],
-        'peaks_weight_range': [0.0,1],
-        'beta_ab_range': [0.5,10],
-        # drude
-        'max_drude': 4,
-        'drude_ratio': 0.50,
-        'drude_width_range': [.01, .05],
-        'drude_weight_range': [0.0, 1],
+        "variant": "Gaussian",
+        "anormal": False,
+        "wmax": 20.0,
+        "nmbrs": [[0, 4],[0, 6]],
+        "cntrs": [[0.00, 0.00], [4.00, 16.0]],
+        "wdths": [[0.40, 4.00], [0.40, 4.00]],
+        "wghts": [[0.00, 1.00], [0.00, 1.00]],
+        "arngs": [[2.00, 10.00], [0.70, 10.00]],
+        "brths": [[2.00, 10.00], [0.70, 10.00]],
+        "even": True,
         # lorentz
-        'lorentz': False,
         'num_peaks': 10000,
         'width': 0.05,
         # plot
@@ -424,25 +413,16 @@ def main():
     print(f"seed : {args.seed}")
     np.random.seed(args.seed)
 
-    if args.lorentz:
-        print("YESS")
-        generator = LorentzComb(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.norm, args.num_peaks, args.width,
-        )
-    elif args.max_drude:
-        generator = DrudePeakMix(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
-            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range,
-            args.max_drude, args.drude_ratio, args.drude_width_range, args.drude_weight_range
-        )
+    if args.variant in ["G", "Gaussian", "gaussian"]:
+        generator = GaussianMix(**vars(args))
+    elif args.variant in ["B", "Beta", "beta"]:
+        generator = BetaMix(**vars(args))
+    elif args.variant in ["L", "Lorentzian", "lorentzian"]:
+        generator = LorentzMix(**vars(args))
+    elif args.variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
+        generator = LorentzComb(**vars(args))
     else:
-        generator = PeakMix(
-            args.Nwn, args.Nw, args.beta, args.wmax, args.rescale,
-            args.peak_type, args.norm, args.max_peaks, args.peaks_position_range,
-            args.peaks_width_range, args.peaks_weight_range, args.beta_ab_range
-        )
+        raise ValueError(f"variant {args.variant} not recognized")
 
     if args.plot > 0:
         generator.plot(
@@ -459,11 +439,11 @@ def main():
             args.generate,
             pi_path=args.path+'/Pi.csv',
             sigma_path=args.path+'/SigmaRe.csv',
+            wmaxs_path=args.path+'/wmaxs.csv'
         )
 
     if args.generate == 0 and args.plot == 0:
         print("nothing to do, use --plot 10 or --generate 10000")
-
-
+    
 if __name__ == "__main__":
     main()
