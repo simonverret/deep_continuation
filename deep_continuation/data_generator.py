@@ -18,7 +18,7 @@ from scipy import integrate
 from scipy.special import binom, gamma
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from torch
+import torch
 
 from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
@@ -390,16 +390,15 @@ class LorentzComb(DataGenerator):
 
 
 class ContinuationData(torch.utils.data.Dataset):
-    def __init__(self, path, noise=0.0, temperature=False, rescaled=False):
+    def __init__(self, path, noise=0.0, beta=[], rescaled=False):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
         self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
         self.noise = noise
         
-        self.temperature = temperature
-        if self.temperature:
+        self.beta = beta
+        if self.beta:
             self.xT_data = [self.x_data]
-            temperatures = [2.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0]
-            for t in temperatures[1:]:
+            for t in beta[1:]:
                 self.xT_data.append(
                     np.loadtxt(open(path+f"Pi_beta_{t}.csv", "rb"), delimiter=",")
                 )
@@ -418,8 +417,8 @@ class ContinuationData(torch.utils.data.Dataset):
         return len(self.x_data)
 
     def __getitem__(self, index):
-        if self.temperature:
-            x = self.xT_data[np.randint(self.nT), index]
+        if self.beta:
+            x = self.xT_data[np.random.randint(self.nT), index]
             x += np.random.normal(0,1, size=x.shape)*self.noise
         else:
             x = self.x_data[index] 

@@ -13,21 +13,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-
 try:
     import wandb
     use_wandb = True
 except ModuleNotFoundError:
     use_wandb = False
 
-from deep_continuation import data
+from deep_continuation import data_generator as data
 from deep_continuation import utils
 
 TORCH_MAX = torch.finfo(torch.float64).max
 
 
 default_parameters = {
-    'data': 'P1',
+    'data': 'G1',
     'noise': 0.00,
     'loss': 'MSELoss',
     'smoothing':1.0,
@@ -111,7 +110,6 @@ def dc_error(outputs, targets):
 
 
 def main():
-    
     '''
     The next function allows to call the current script with arguments and fills the
     help option. In other words, this will work:
@@ -243,6 +241,7 @@ def main():
         if use_wandb: 
             wandb.log({
                 "epoch":epoch,
+                "lr": [pg['lr'] for pg in optimizer.param_groups],
                 "train loss": avg_train_loss,
                 "valid loss": avg_valid_loss
             })

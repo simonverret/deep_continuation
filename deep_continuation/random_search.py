@@ -64,8 +64,9 @@ search_space = {
         [128, [30,800], [40,1000], [40,1000], [40,800], [30,800], 512],
         [128, [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], 512]
     ),
-    "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss"),
-    "data": ("G1", "G2", "G3", "G4"),
+    "loss": ("L1Loss", "MSELoss", "expL1Loss", "invL1Loss", "expMSELoss", "invMSELoss", "smoothMSE"),
+    "smoothing": [0.0, 1.0],
+    "data": ("G1", "Fournier", "B1", "FournierB"),
     "noise": (0.0 , [0.0,0.1]),
     "batch_size": ([10,500],[200,1000]),
     "lr": [0.001, 0.00001],
@@ -75,6 +76,8 @@ search_space = {
     "batchnorm": (True,False),
     "factor": [0.05,1], 
     "patience": [4,10],
+    'rescale': False,
+    'betas': [] 
 }
 
 def pick_from(entity):
