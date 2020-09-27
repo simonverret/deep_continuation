@@ -109,6 +109,16 @@ note: for every bool flag, an additional --no_flag is defined to turn it off.
 args = utils.parse_file_and_command(default_parameters, help_strings)
 
 
+class Normalizer(nn.Module):
+    def __init__(self, dim=-1, maxnorm=1, p=1):
+        super(Normalizer, self).__init__()
+        self.dim = dim
+        self.maxnorm = maxnorm
+        self.p = p #power of the norm
+    def forward(self, x):
+        return torch.renorm(x, self.dim, self.maxnorm, self.p)
+
+
 class MLP(nn.Module):
     def __init__(self, args):
         super(MLP, self).__init__()
@@ -134,6 +144,10 @@ class MLP(nn.Module):
             self.layers.append(nn.ReLU())
         elif args.out_unit in ['Softmax', 'softmax']:
             self.layers.append(nn.Softmax(dim=-1))
+        elif args.out_unit in ['Softmax', 'softmax']:
+            self.layers.append(nn.Softmax(dim=-1))
+        elif args.out_unit in ['Normalizer', 'normalizer']:
+            self.layers.append(Normalizer())
         # Here would be a place for our custom Softmax
         else:
             raise ValueError('out_unit unknown')
@@ -433,8 +447,8 @@ def main():
         os.mkdir('results')
 
 
-    norm_out = 
-    
+    norm_out = (args.out_unit in ["Softmax", "softmax", "Normalizer", "normalizer"])
+
     train_set = data.ContinuationData(
         f'data/{args.data}/train/',
         beta=args.beta,
