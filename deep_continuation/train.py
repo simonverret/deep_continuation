@@ -61,6 +61,7 @@ default_parameters = {
     'beta': [20.0],
     'plot': False,
     'standardize': False,
+    'wandb': False,
 }
 
 help_strings = {
@@ -103,6 +104,8 @@ Thus, from here, all parameters should be accessed as:
 note: for every bool flag, an additional --no_flag is defined to turn it off.
 '''
 args = utils.parse_file_and_command(default_parameters, help_strings)
+
+USE_WANDB = (args.wandb and USE_WANDB) 
 
 
 class Normalizer(nn.Module):
@@ -382,10 +385,11 @@ def train(args, device, train_set, valid_set, metrics=None):
         if model.avg_valid_loss < best_valid_loss:
             avg_valid_loss = model.avg_valid_loss
             early_stop_count = args.stop
-            torch.save(
-                model.state_dict(),
-                os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
-            )
+            if USE_WANDB:
+                torch.save(
+                    model.state_dict(),
+                    os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
+                )
         for metric in metric_list:
             is_best = metric.evaluate(model, device, save_best=False, fraction=args.valid_fraction)
             if is_best:
