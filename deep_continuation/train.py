@@ -19,14 +19,14 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
-# try:
-#     import wandb
-#     USE_WANDB = True
-#     os.environ['WANDB_IGNORE_GLOBS']="*.pt"
-# except ModuleNotFoundError:
-USE_WANDB = False
+try:
+    import wandb
+    USE_WANDB = True
+    os.environ['WANDB_IGNORE_GLOBS']="*.pt"
+except ModuleNotFoundError:
+    USE_WANDB = False
 
-from deep_continuation import data_generator as data
+from deep_continuation import data
 from deep_continuation import utils
 
 TORCH_MAX = torch.finfo(torch.float64).max
@@ -388,6 +388,10 @@ def train(args, device, train_set, valid_set, metrics=None):
         if model.avg_valid_loss < best_valid_loss:
             avg_valid_loss = model.avg_valid_loss
             early_stop_count = args.stop
+            torch.save(
+                model.state_dict(),
+                os.path.join(wandb.run.dir, f"{lname}_{self.name}.pt")
+            )
         for metric in metric_list:
             is_best = metric.evaluate(model, device, save_best=False, fraction=args.valid_fraction)
             if is_best:
@@ -453,14 +457,13 @@ def main():
     if not os.path.exists('results'):
         os.mkdir('results')
 
-
-
     train_set = data.ContinuationData(
         f'data/{args.data}/train/',
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
+        base_scale=15 if args.data=="Fournier" else 20
     )
     valid_set = data.ContinuationData(
         f'data/{args.data}/valid/',
@@ -468,31 +471,32 @@ def main():
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
+        base_scale=15 if args.data=="Fournier" else 20
     )
 
     # VALID LIST
     path_dict = {
-        # 'F': 'data/Fournier/valid/',
-        # 'G': 'data/G1/valid/',
-        # 'B': 'data/B1/valid/',
+        'F': 'data/Fournier/valid/',
+        'G': 'data/G1/valid/',
+        'B': 'data/B1/valid/',
     }
     scale_dict = {
-        # 'N': False,
-        # 'R': True
+        'N': False,
+        'R': True
     }
     noise_dict = {
-        # '0': 0,
-        # '5': 1e-5,
-        # '3': 1e-3,
-        # '2': 1e-2,
+        '0': 0,
+        '5': 1e-5,
+        '3': 1e-3,
+        '2': 1e-2,
     }
     beta_dict = {
-        # 'T10': [10.0],
-        # 'T20': [20.0],
-        # 'T30': [30.0],
-        # 'T35': [35.0],
-        # 'l3T': [15.0, 20.0, 25.0], 
-        # 'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
+        'T10': [10.0],
+        'T20': [20.0],
+        'T30': [30.0],
+        'T35': [35.0],
+        'l3T': [15.0, 20.0, 25.0], 
+        'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
     }
 
     metrics_dict = {}
@@ -506,8 +510,8 @@ def main():
                         beta=beta,
                         rescaled=scale,
                         standardize=args.standardize,
+                        base_scale=15 if p=="F" else 20
                     )
-
 
     for metric in metrics_dict:
         if not os.path.exists(f'results/BEST_{metric}'):
