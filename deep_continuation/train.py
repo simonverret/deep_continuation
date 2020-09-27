@@ -19,12 +19,12 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
-try:
-    import wandb
-    USE_WANDB = True
-    os.environ['WANDB_IGNORE_GLOBS']="*.pt"
-except ModuleNotFoundError:
-    USE_WANDB = False
+# try:
+#     import wandb
+#     USE_WANDB = True
+#     os.environ['WANDB_IGNORE_GLOBS']="*.pt"
+# except ModuleNotFoundError:
+USE_WANDB = False
 
 from deep_continuation import data_generator as data
 from deep_continuation import utils
@@ -110,14 +110,24 @@ args = utils.parse_file_and_command(default_parameters, help_strings)
 
 
 class Normalizer(nn.Module):
-    def __init__(self, dim=-1, maxnorm=1, p=1):
-        super(Normalizer, self).__init__()
+    def __init__(self, dim=-1, norm=np.pi/40):
+        super().__init__()
         self.dim = dim
-        self.maxnorm = maxnorm
-        self.p = p #power of the norm
+        self.norm = norm
     def forward(self, x):
-        return torch.renorm(x, self.dim, self.maxnorm, self.p)
+        N = x.shape[self.dim]
+        return torch.renorm(x, self.dim, N*self.norm, 1)
 
+class RenormSoftmax(nn.Module):
+    def __init__(self, dim=-1, norm=np.pi/40):
+        super().__init__()
+        self.softmax = nn.Softmax(dim=dim)
+        self.dim = dim
+        self.norm = norm
+    def forward(self, x):
+        N = x.shape[self.dim]
+        return self.softmax(x) *N*self.norm
+    
 
 class MLP(nn.Module):
     def __init__(self, args):
@@ -143,12 +153,9 @@ class MLP(nn.Module):
         elif args.out_unit in ['ReLU', 'relu']:
             self.layers.append(nn.ReLU())
         elif args.out_unit in ['Softmax', 'softmax']:
-            self.layers.append(nn.Softmax(dim=-1))
-        elif args.out_unit in ['Softmax', 'softmax']:
-            self.layers.append(nn.Softmax(dim=-1))
+            self.layers.append(RenormSoftmax())
         elif args.out_unit in ['Normalizer', 'normalizer']:
             self.layers.append(Normalizer())
-        # Here would be a place for our custom Softmax
         else:
             raise ValueError('out_unit unknown')
 
@@ -447,7 +454,6 @@ def main():
         os.mkdir('results')
 
 
-    norm_out = (args.out_unit in ["Softmax", "softmax", "Normalizer", "normalizer"])
 
     train_set = data.ContinuationData(
         f'data/{args.data}/train/',
@@ -455,7 +461,6 @@ def main():
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        normalize_output=norm_out,
     )
     valid_set = data.ContinuationData(
         f'data/{args.data}/valid/',
@@ -463,7 +468,6 @@ def main():
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        normalize_output=norm_out,
     )
 
     # VALID LIST
@@ -502,7 +506,6 @@ def main():
                         beta=beta,
                         rescaled=scale,
                         standardize=args.standardize,
-                        normalize_output=norm_out,
                     )
 
 

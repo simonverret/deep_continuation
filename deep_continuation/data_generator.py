@@ -391,15 +391,12 @@ class LorentzComb(DataGenerator):
 
 
 class ContinuationData(torch.utils.data.Dataset):
-    def __init__(self, path, noise=0.0, beta=[], rescaled=False, 
-                standardize=False, normalize_output=False,
-                ):
+    def __init__(self, path, noise=0.0, beta=[], rescaled=False, standardize=False):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
         self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
         self.N = self.y_data.shape[-1]
         self.noise = noise
         self.standardize = standardize
-        self.normalize_output = normalize_output
         
         self.beta = beta
         if self.beta:
@@ -415,8 +412,7 @@ class ContinuationData(torch.utils.data.Dataset):
         if self.rescaled:
             scaled_path = path+"SigmaRe_scaled_4.0.csv"
             self.scaled_y_data = np.loadtxt(open(scaled_path, "rb"), delimiter=",")
-        
-        self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
+            self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
 
         if self.standardize:
             self.avg = self.x_data.mean(axis=-2)
@@ -441,12 +437,9 @@ class ContinuationData(torch.utils.data.Dataset):
                 x = (x - self.avg)/self.std
 
         if self.rescaled:
-            y = self.scaled_y_data[index]
+            y = self.wmaxs[index] * self.scaled_y_data[index] / 20.0 
         else: 
             y = self.y_data[index]
-
-        if self.normalize_output:
-            y /= (self.N*np.pi)/(2*self.wmaxs[index])
         return x, y
 
 
