@@ -2,10 +2,10 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --time=0-71:57
 #SBATCH --gres=gpu:v100l:1
-#SBATCH --ntasks-per-node=4
-#SBATCH --ntasks=4
+#SBATCH --ntasks-per-node=6
+#SBATCH --ntasks=6
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=46G
+#SBATCH --mem=32G
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
