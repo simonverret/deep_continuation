@@ -9,14 +9,11 @@
 
 import os
 import time
-import json
-from glob import glob
 from copy import deepcopy
 
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
 try:
@@ -194,7 +191,7 @@ def dc_square_error(outputs, targets):
 
 class Metric():
     def __init__(self, name, data_set, loss_list=['mse', 'mae', 'dcs', 'dca'], batch_size=512):
-        self.valid_loader = DataLoader(
+        self.valid_loader = torch.utils.data.DataLoader(
             data_set, batch_size=batch_size, drop_last=True, shuffle=False)
         self.name = name
         self.batch_size = batch_size
@@ -216,8 +213,6 @@ class Metric():
                 self.loss[lname] = dc_absolute_error
             elif lname == "kld":
                 self.loss[lname] = nn.KLDivLoss()
-            elif hasattr(data_set, 'custom_loss'):
-                self.loss[lname] = data_set.custom_loss(lname)
             else:
                 raise ValueError(f'Unknown loss function "{lname}"')
 
@@ -269,14 +264,14 @@ def train(args, device, train_set, valid_set, metrics=None):
         wandb.config.update(args)
         # wandb.save("*.pt")  # will sync .pt files as they are saved
 
-    train_loader = DataLoader(
+    train_loader = torch.utils.data.DataLoader(
         train_set, 
         batch_size=args.batch_size, 
         num_workers=args.num_workers, 
         shuffle=True, 
         drop_last=True
     )
-    valid_loader = DataLoader(
+    valid_loader = torch.utils.data.DataLoader(
         valid_set, 
         batch_size=args.batch_size, 
         num_workers=args.num_workers, 
@@ -513,11 +508,8 @@ def main():
                         base_scale=15 if p=="F" else 20
                     )
 
-    for metric in metrics_dict:
-        if not os.path.exists(f'results/BEST_{metric}'):
-            os.mkdir(f'results/BEST_{metric}')
-
     model = train(args, device, train_set, valid_set, metrics=metrics_dict)
+    return model
 
 
 if __name__ == "__main__":
