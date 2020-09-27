@@ -5,13 +5,10 @@
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
-cd $SLURM_TMPDIR
-
-mkdir job
-cp ~/codes/deep_continuation/mlp/* job/
-cp -r ~/scratch/deep_continuation/data job/
+# igpu='salloc --time=0-02:00 --gres=gpu:v100l:1 --mem=46G --account=def-bengioy'
 
 # create a local virtual environnement (on the compute node)
+cd $SLURM_TMPDIR
 module load python/3.7
 virtualenv --no-download env
 source env/bin/activate
@@ -23,12 +20,15 @@ pip install --no-index scipy
 pip install --no-index matplotlib
 pip install --no-index torch
 
-cd job
-mkdir results
-python random_search.py
-cd ..
+cp -r ~/codes/deep_continuation $SLURM_TMPDIR/
+cp -r ~/scratch/deep_continuation/data $SLURM_TMPDIR/deep_continuation/deep_continuation/
+cd $SLURM_TMPDIR/deep_continuation/
+pip install --no-index -e .
+cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-mv job/data ./
+python random_search.py
+
+mv $SLURM_TMPDIR/deep_continuation/deep_continuation/ ./
 
 DATE=$(date -u +%Y%m%d)
-cp -r job $SLURM_SUBMIT_DIR/deep_cont_$DATE-id$SLURM_JOB_ID
+cp -r job $SLURM_SUBMIT_DIR/wandb/
