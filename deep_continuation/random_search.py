@@ -43,7 +43,7 @@ default_dict = {
     'factor': 0.4,
     'patience': 6,
     'seed': int(time.time()),
-    'num_workers': 8,
+    'num_workers': 4,
     'cuda': True,
     'valid_fraction': 0.3,
     'rescale': False,

@@ -2,8 +2,8 @@
 #SBATCH --account=def-bengioy
 #SBATCH --time=0-71:59
 #SBATCH --gres=gpu:v100l:1
-#SBATCH --mem=46G 
-#SBATCH --cpus-per-task=3
+#SBATCH --mem=8G 
+#SBATCH --cpus-per-task=8
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
@@ -27,7 +27,12 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-python random_search.py
+
+# TODO: We are currently waiting for a bug fix! 
+# srun --exclusive --cpu-bind=cores -c1 --mem=4G python random_search.py $SLURM_TMPDIR &  # First job (don't forget the '&')
+# srun --exclusive --cpu-bind=cores -c1 --mem=4G python random_search.py $SLURM_TMPDIR &  # Second job (don't forget the '&')
+wait    # Wait for both jobs to finish
+
 
 DATE=$(date -u +%Y%m%d)
 cp -r wandb $SLURM_SUBMIT_DIR/wandb_$DATE-id$SLURM_JOB_ID
