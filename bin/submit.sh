@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --account=def-tremblay
+#SBATCH --account=def-bengioy
 #SBATCH --time=0-71:59
-#SBATCH --mem-per-cpu=8000M 
+#SBATCH --gres=gpu:v100l:1
+#SBATCH --mem=46G 
+#SBATCH --cpus-per-task=3
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
-
-# igpu='salloc --time=0-02:00 --gres=gpu:v100l:1 --mem=46G --account=def-bengioy'
 
 # create a local virtual environnement (on the compute node)
 cd $SLURM_TMPDIR
@@ -28,7 +28,5 @@ cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
 python random_search.py
 
-mv $SLURM_TMPDIR/deep_continuation/deep_continuation/ ./
-
 DATE=$(date -u +%Y%m%d)
-cp -r job $SLURM_SUBMIT_DIR/wandb/
+cp -r wandb $SLURM_SUBMIT_DIR/wandb_$DATE-id$SLURM_JOB_ID

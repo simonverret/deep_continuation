@@ -19,7 +19,6 @@ import matplotlib.pyplot as plt
 try:
     import wandb
     USE_WANDB = True
-    os.environ['WANDB_IGNORE_GLOBS']="*.pt"
 except ModuleNotFoundError:
     USE_WANDB = False
 
@@ -30,7 +29,7 @@ TORCH_MAX = torch.finfo(torch.float64).max
 
 
 default_parameters = {
-    'data': 'G1',
+    'data': 'Fournier',
     'noise': 1e-4,
     'loss': 'mse',
     'batch_size': 300,
@@ -113,7 +112,7 @@ class Normalizer(nn.Module):
         self.norm = norm
     def forward(self, x):
         N = x.shape[self.dim]
-        return torch.renorm(x, self.dim, N*self.norm, 1)
+        return torch.renorm(x, p=1, dim=self.dim, maxnorm=N*self.norm)
 
 class RenormSoftmax(nn.Module):
     def __init__(self, dim=-1, norm=np.pi/40):
@@ -385,7 +384,7 @@ def train(args, device, train_set, valid_set, metrics=None):
             early_stop_count = args.stop
             torch.save(
                 model.state_dict(),
-                os.path.join(wandb.run.dir, f"{lname}_{self.name}.pt")
+                os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
             )
         for metric in metric_list:
             is_best = metric.evaluate(model, device, save_best=False, fraction=args.valid_fraction)
@@ -472,12 +471,12 @@ def main():
     # VALID LIST
     path_dict = {
         'F': 'data/Fournier/valid/',
-        'G': 'data/G1/valid/',
-        'B': 'data/B1/valid/',
+        # 'G': 'data/G1/valid/',
+        # 'B': 'data/B1/valid/',
     }
     scale_dict = {
         'N': False,
-        'R': True
+        # 'R': True
     }
     noise_dict = {
         '0': 0,
@@ -486,12 +485,12 @@ def main():
         '2': 1e-2,
     }
     beta_dict = {
-        'T10': [10.0],
+        # 'T10': [10.0],
         'T20': [20.0],
-        'T30': [30.0],
-        'T35': [35.0],
-        'l3T': [15.0, 20.0, 25.0], 
-        'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
+        # 'T30': [30.0],
+        # 'T35': [35.0],
+        # 'l3T': [15.0, 20.0, 25.0], 
+        # 'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
     }
 
     metrics_dict = {}
@@ -499,6 +498,7 @@ def main():
         for s, scale in scale_dict.items():
             for b, beta, in beta_dict.items():
                 for n, noise in noise_dict.items():
+                    print(f"loading metric: {p+n+b+s}")
                     metrics_dict[p+n+b+s] = data.ContinuationData(
                         path,
                         noise=noise,
