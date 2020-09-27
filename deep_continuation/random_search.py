@@ -61,27 +61,28 @@ default_dict = {
 #   a standalone value will be returned as is
 search_space = {
     "layers": (
-        [128, [40,2500], 512],
         [128, [30,2000], [40,2000], 512],
         [128, [30,1500], [40,2000], [30,1500], 512],
+        [128, [1500,3000], [1500,3000], [1500,3000], 512],
+        [128, [1500,3000], [1500,3000], [1500,3000], 512],
+        [128, [1500,3000], [1500,3000], [1500,3000], 512],
         [128, [1500,3000], [1500,3000], [1500,3000], 512],
         [128, [30,1000], [40,2000], [40,2000], [30,1000], 512],
         [128, [30,800], [40,1000], [40,1000], [40,800], [30,800], 512],
         [128, [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], 512]
     ),
-    "loss": ("mse", "mae", "dcs", "dca"),
+    "loss": ("mse", "mae", "mse", "mae", "dcs", "dca"),
     # "data": ("G1", "Fournier", "B1", "FournierB"),
     "noise": (0.0 , [0.0,0.001]),
-    "batch_size": ([10,500],[200,1000]),
+    "batch_size": ([100,500],[200,1000]),
     "lr": [0.001, 0.00001],
     "weight_decay": (0, [0.0,0.8]),
     "dropout": (0, [0.0,0.8]),
-    'initw': (True,False),
-    "out_unit": ('None', 'ReLU', 'Softmax', 'Normalizer'),
-    "batchnorm": (True,False),
-    "factor": [0.05,1], 
+    'initw': (True,True,False),
+    "out_unit": ('None', 'None', 'ReLU', 'Softmax', 'Softmax', 'Normalizer'),
+    "batchnorm": (True,True,False),
+    "factor": [0.2,0.8], 
     "patience": [4,10],
-    'rescale': False,
     'standardize': (True, False),
 }
 
@@ -152,8 +153,8 @@ for i in range(100):
     # VALID LIST
     path_dict = {
         # 'F': 'data/Fournier/valid/',
-        # 'G': 'data/G1/valid/',
-        'B': 'data/B1/valid/',
+        'G': 'data/G1/valid/',
+        # 'B': 'data/B1/valid/',
     }
     scale_dict = {
         'N': False,
