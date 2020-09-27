@@ -17,10 +17,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+import matplotlib.pyplot as plt
 
 try:
     import wandb
     USE_WANDB = True
+    os.environ['WANDB_IGNORE_GLOBS']="*.pt"
 except ModuleNotFoundError:
     USE_WANDB = False
 
@@ -60,7 +62,9 @@ default_parameters = {
     'cuda': True,
     'valid_fraction': 0.3,
     'rescale': False,
-    'beta': [20.0]
+    'beta': [20.0],
+    'plot': False,
+    'standardize': False,
 }
 
 help_strings = {
@@ -105,36 +109,11 @@ note: for every bool flag, an additional --no_flag is defined to turn it off.
 args = utils.parse_file_and_command(default_parameters, help_strings)
 
 
-# TODO:
-# move these two function out to utils.py and have a more general treatment
-# ideas:
-#   name(args, naming_dict)  # where naming dict specifies parameters to use
-
-def name(a=args):  # a = args
-    layers_str = str(a.layers[0])
-    for size in a.layers[1:]:
-        layers_str = layers_str + '-' + str(size)
-
-    name = f'mlp{layers_str}_{a.loss}_{a.data}n{round(a.noise,3)}_bs{a.batch_size}'
-    name += f'_lr{round(a.lr, 5)}_wd{round(a.weight_decay, 3)}'
-    name += f'_{round(a.dropout, 3)}_{a.out_unit}'
-    name += f'_bn' if a.batchnorm else ''
-    name += f'_wup' if a.warmup else ''
-    name += f'_sch{round(a.factor, 3)}-{round(a.patience, 3)}' if a.schedule else ''
-    return name
-
-
-def dump_params(args):
-    with open(f'results/params_{name(args)}.json', 'w') as f:
-        json.dump(vars(args), f, indent=4)
-
-
 class MLP(nn.Module):
     def __init__(self, args):
         super(MLP, self).__init__()
-        self.name = name(args)
         self.epoch = 0
-
+        
         self.layers = nn.ModuleList()
         sizeA = args.layers[0]
         for sizeB in args.layers[1:]:
@@ -151,9 +130,9 @@ class MLP(nn.Module):
 
         if args.out_unit == 'None':
             pass
-        elif args.out_unit == 'ReLU':
+        elif args.out_unit in ['ReLU', 'relu']:
             self.layers.append(nn.ReLU())
-        elif args.out_unit == 'Softmax':
+        elif args.out_unit in ['Softmax', 'softmax']:
             self.layers.append(nn.Softmax(dim=-1))
         # Here would be a place for our custom Softmax
         else:
@@ -177,18 +156,23 @@ def mse(outputs, targets):
     return torch.mean((outputs-targets)**2)
 
 
-def dca(outputs, targets):
+def mse_smooth(outputs, targets, factor=1):
+    ''' mean square error '''
+    return torch.mean((outputs-targets)**2) + torch.mean(factor*torch.abs(outputs[:,1:]-outputs[:,:-1]))
+
+
+def dc_absolute_error(outputs, targets):
     ''' computes the 0th component difference (DC conductivity)'''
     return torch.mean(torch.abs(outputs[:, 0]-targets[:, 0]))
 
 
-def dcs(outputs, targets):
+def dc_square_error(outputs, targets):
     ''' computes the 0th component square difference (DC conductivity)'''
     return torch.mean((outputs[:, 0]-targets[:, 0])**2)
 
 
 class Metric():
-    def __init__(self, name, data_set, loss_list=['MSE', 'mse', 'dcs', 'dca'], batch_size=512):
+    def __init__(self, name, data_set, loss_list=['mse', 'mae', 'dcs', 'dca'], batch_size=512):
         self.valid_loader = DataLoader(
             data_set, batch_size=batch_size, drop_last=True, shuffle=False)
         self.name = name
@@ -206,9 +190,9 @@ class Metric():
             elif lname == "mae":
                 self.loss[lname] = nn.L1Loss()
             elif lname == 'dcs':
-                self.loss[lname] = dcs
+                self.loss[lname] = dc_square_error
             elif lname == 'dca':
-                self.loss[lname] = dca
+                self.loss[lname] = dc_absolute_error
             elif lname == "kld":
                 self.loss[lname] = nn.KLDivLoss()
             elif hasattr(data_set, 'custom_loss'):
@@ -241,19 +225,20 @@ class Metric():
             score = self.loss_value[lname]
             if score < self.best_loss[lname]:
                 self.best_loss[lname] = score
-                self.best_model[lname] = deepcopy(model)
-                if save_best:
-                    for filename in glob(f'results/BEST_{self.name}/{lname}*_epoch*{model.name}*'):
-                        os.remove(filename)
-                    torch.save(model.state_dict(
-                    ), f'results/BEST_{self.name}/{lname}{score:.9f}_epoch{model.epoch}_{model.name}.pt')
+                self.best_model[lname] = deepcopy(model)    
+                if save_best and USE_WANDB:
+                    torch.save(
+                        model.state_dict(),
+                        os.path.join(wandb.run.dir, f"{lname}_{self.name}.pt")
+                    )
                 is_best = True
+        
         return is_best
 
     def print_results(self):
-        print(f'      {self.name}:  ', end='')
+        print(f'      {self.name}: ', end='')
         for lname in self.loss_list:
-            print(f' {self.loss_value[lname]:.9f} ({lname}) ', end='')
+            print(f' {self.loss_value[lname]:.9f} ({lname})  ', end='')
         print()
 
 
@@ -301,9 +286,11 @@ def train(args, device, train_set, valid_set, metrics=None):
     elif  args.loss == "mae":
         criterion = nn.L1Loss()
     elif  args.loss == 'dcs':
-        criterion = dcs
+        criterion = dc_square_error
     elif  args.loss == 'dca':
-        criterion = dca
+        criterion = dc_absolute_error
+    elif  args.loss == 'mss':
+        criterion = lambda o, t: mse_smooth(o, t, factor=args.smoothing)
     elif  args.loss == "kld":
         criterion = nn.KLDivLoss()
     elif hasattr(train_set, 'custom_loss'):
@@ -318,10 +305,9 @@ def train(args, device, train_set, valid_set, metrics=None):
             factor=args.factor, 
             patience=args.patience,
             verbose=True,
-            min_lr=1e-6
+            min_lr=1e-10
         )
 
-    print('training', model.name)
     early_stop_count = args.stop
     best_valid_loss = TORCH_MAX
     for epoch in range(1, args.epochs+1):
@@ -365,6 +351,14 @@ def train(args, device, train_set, valid_set, metrics=None):
 
             model.avg_valid_loss += loss.item()
             valid_n_iter += 1
+
+            if batch_number == 0 and args.plot:
+                plt.clf()
+                plt.plot(outputs[0].detach().numpy())
+                plt.plot(targets[0].detach().numpy())
+                plt.title(f"o:{outputs[0].sum().detach().numpy()}, t:{targets[0].sum().detach().numpy()}")
+                plt.pause(0.001)
+                
         
         model.avg_valid_loss = model.avg_valid_loss/valid_n_iter
         print(f'   valid loss: {model.avg_valid_loss:.9f}')
@@ -374,7 +368,7 @@ def train(args, device, train_set, valid_set, metrics=None):
             avg_valid_loss = model.avg_valid_loss
             early_stop_count = args.stop
         for metric in metric_list:
-            is_best = metric.evaluate(model, device, save_best=True, fraction=args.valid_fraction)
+            is_best = metric.evaluate(model, device, save_best=False, fraction=args.valid_fraction)
             if is_best:
                 early_stop_count = args.stop
             metric.print_results()
@@ -438,28 +432,45 @@ def main():
     if not os.path.exists('results'):
         os.mkdir('results')
 
-    train_set = data.ContinuationData(f'data/{args.data}/train/', beta=args.beta, noise=args.noise, rescaled=args.rescale)
-    valid_set = data.ContinuationData(f'data/{args.data}/valid/', beta=args.beta, noise=args.noise, rescaled=args.rescale)
+
+    norm_out = 
+    
+    train_set = data.ContinuationData(
+        f'data/{args.data}/train/',
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        normalize_output=norm_out,
+    )
+    valid_set = data.ContinuationData(
+        f'data/{args.data}/valid/',
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        normalize_output=norm_out,
+    )
 
     # VALID LIST
     path_dict = {
         # 'F': 'data/Fournier/valid/',
-        'G': 'data/G1/valid/',
-        'B': 'data/B1/valid/',
+        # 'G': 'data/G1/valid/',
+        # 'B': 'data/B1/valid/',
     }
     scale_dict = {
-        'N': False,
-        'R': True
+        # 'N': False,
+        # 'R': True
     }
     noise_dict = {
         # '0': 0,
-        '5': 1e-5,
+        # '5': 1e-5,
         # '3': 1e-3,
         # '2': 1e-2,
     }
     beta_dict = {
         # 'T10': [10.0],
-        'T20': [20.0],
+        # 'T20': [20.0],
         # 'T30': [30.0],
         # 'T35': [35.0],
         # 'l3T': [15.0, 20.0, 25.0], 
@@ -471,7 +482,14 @@ def main():
         for s, scale in scale_dict.items():
             for b, beta, in beta_dict.items():
                 for n, noise in noise_dict.items():
-                    metrics_dict[p+n+b+s] = data.ContinuationData(path, noise=noise, beta=beta, rescaled=scale)
+                    metrics_dict[p+n+b+s] = data.ContinuationData(
+                        path,
+                        noise=noise,
+                        beta=beta,
+                        rescaled=scale,
+                        standardize=args.standardize,
+                        normalize_output=norm_out,
+                    )
 
 
     for metric in metrics_dict:

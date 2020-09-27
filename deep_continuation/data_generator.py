@@ -196,9 +196,9 @@ def infer_scale_plot(Pi, sigma, filename=None):
 
 
 class DataGenerator():
-    def __init__(self, Nwn=128, Nw=512, beta=[10], wmax=20, rescale=0.0, **kwargs):
+    def __init__(self, Nwn=128, Nw=512, beta=[10.0], wmax=20, rescale=0.0, **kwargs):
         self.Nwn = Nwn
-        self.Nn = Nw
+        self.Nw = Nw
         self.beta = beta
         self.wmax = wmax
         self.rescale = rescale
@@ -209,19 +209,18 @@ class DataGenerator():
     def generate_batch(self, size):
         Pi = np.zeros((len(self.beta), size, self.Nwn))
         betas = np.zeros((len(self.beta), size))
-        sigma = np.zeros((size, self.Nn))
-        sigma_r = np.zeros((size, self.Nn))
+        sigma = np.zeros((size, self.Nw))
+        sigma_r = np.zeros((size, self.Nw))
         wmaxs = np.zeros(size)
 
         for i in range(size):
             if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
             sigma_func, pi_func = self.generate_functions()
-
             
             if self.rescale > SMALL:
                 s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
                 wmax = np.cbrt(s) * self.rescale
-                omega = np.linspace(0, wmax, self.Nn)
+                omega = np.linspace(0, wmax, self.Nw)
                 sigma_r[i] = sigma_func(omega)
                 wmaxs[i] = wmax
             else:
@@ -232,7 +231,7 @@ class DataGenerator():
                 Pi[b,i] = pi_func(omega_n)
                 betas[b,i] = beta
 
-            omega = np.linspace(0, self.wmax, self.Nn)
+            omega = np.linspace(0, self.wmax, self.Nw)
             sigma[i] = sigma_func(omega)
 
         return Pi, sigma, betas, wmaxs, sigma_r
@@ -245,10 +244,10 @@ class DataGenerator():
         np.savetxt(sigma_path, sigma, delimiter=',')
 
         for b, beta in enumerate(self.beta[1:]):
-            new_path = pi_path.replace(".csv", f"_beta_{beta}.csv")
+            new_path = pi_path.replace(".csv", f"_beta_{beta:f}.csv")
             np.savetxt(new_path, Pi[b], delimiter=',')
         if self.rescale:
-            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale}.csv")
+            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale:f}.csv")
             np.savetxt(new_path, sigma_r, delimiter=',')
         if wmaxs_path:
             np.savetxt(wmaxs_path, wmaxs, delimiter=',')
@@ -256,7 +255,9 @@ class DataGenerator():
     def plot(self, size, name=None, basic=True, scale=False, infer=False):
         Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
         print(f" true scales:\n  betas =\n{betas}\n  wmaxs = {wmaxs}")
-        print(f" normalization check\n{Pi[:,:,0]}")
+        print(f" Pi normalization check\n{Pi[:,:,0]}")
+        print(f" sigma normalization check\n{sigma.sum(-1)*(2*wmaxs)/(self.Nw*np.pi)}")
+
         if self.rescale:
             sigma = sigma_r
         if basic:
@@ -390,10 +391,15 @@ class LorentzComb(DataGenerator):
 
 
 class ContinuationData(torch.utils.data.Dataset):
-    def __init__(self, path, noise=0.0, beta=[], rescaled=False):
+    def __init__(self, path, noise=0.0, beta=[], rescaled=False, 
+                standardize=False, normalize_output=False,
+                ):
         self.x_data = np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")
         self.y_data = np.loadtxt(open(path+"SigmaRe.csv", "rb"), delimiter=",")
+        self.N = self.y_data.shape[-1]
         self.noise = noise
+        self.standardize = standardize
+        self.normalize_output = normalize_output
         
         self.beta = beta
         if self.beta:
@@ -409,25 +415,38 @@ class ContinuationData(torch.utils.data.Dataset):
         if self.rescaled:
             scaled_path = path+"SigmaRe_scaled_4.0.csv"
             self.scaled_y_data = np.loadtxt(open(scaled_path, "rb"), delimiter=",")
-            self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
         
-        self.N = self.y_data.shape[-1]
+        self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
+
+        if self.standardize:
+            self.avg = self.x_data.mean(axis=-2)
+            self.std = self.x_data.std(axis=-2)
+            self.xTavg = self.xT_data.mean(axis=-2)
+            self.xTstd = self.xT_data.std(axis=-2)
 
     def __len__(self):
         return len(self.x_data)
 
     def __getitem__(self, index):
         if self.beta:
-            x = self.xT_data[np.random.randint(self.nT), index]
+            b = np.random.randint(self.nT)
+            x = self.xT_data[b, index]
             x += np.random.normal(0,1, size=x.shape)*self.noise
+            if self.standardize:
+                x = (x - self.xTavg[b])/self.xTstd[b]
         else:
             x = self.x_data[index] 
             x += np.random.normal(0,1, size=x.shape)*self.noise
+            if self.standardize:
+                x = (x - self.avg)/self.std
 
         if self.rescaled:
             y = self.scaled_y_data[index]
         else: 
             y = self.y_data[index]
+
+        if self.normalize_output:
+            y /= (self.N*np.pi)/(2*self.wmaxs[index])
         return x, y
 
 
@@ -440,7 +459,7 @@ def main():
         'Nwn': 128,
         'Nw': 512,
         'wmax': 20.0,
-        'beta': [4, 7, 10, 13, 16, 19, 22, 25, 28],  # 2*np.pi, # 2pi/beta = 1
+        'beta': [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0],  # 2*np.pi, # 2pi/beta = 1
         'norm': 1.0,
         'rescale': 0.0,
         # peaks
