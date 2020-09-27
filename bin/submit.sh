@@ -19,6 +19,7 @@ pip install --no-index numpy
 pip install --no-index scipy
 pip install --no-index matplotlib
 pip install --no-index torch
+pip install wandb
 
 cp -r ~/codes/deep_continuation $SLURM_TMPDIR/
 cp -r ~/scratch/deep_continuation/data $SLURM_TMPDIR/deep_continuation/deep_continuation/

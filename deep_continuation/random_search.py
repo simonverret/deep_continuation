@@ -179,6 +179,7 @@ for i in range(100):
         for s, scale in scale_dict.items():
             for b, beta, in beta_dict.items():
                 for n, noise in noise_dict.items():
+                    print(f"loading metric: {p+n+b+s}")
                     metrics_dict[p+n+b+s] = data.ContinuationData(
                         path,
                         noise=noise,
