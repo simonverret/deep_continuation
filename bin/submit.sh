@@ -1,11 +1,15 @@
 #!/bin/bash
-#SBATCH --account=def-bengioy
-#SBATCH --time=0-71:59
+#SBATCH --account=rrg-bengioy-ad
+#SBATCH --time=0-71:57
 #SBATCH --gres=gpu:v100l:1
-#SBATCH --mem=8G 
-#SBATCH --cpus-per-task=8
+#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks=4
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=46G
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
+
+#SBATCH --output=myjob_output_wrapper.out
 
 # create a local virtual environnement (on the compute node)
 cd $SLURM_TMPDIR
@@ -27,12 +31,7 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-
-# TODO: We are currently waiting for a bug fix! 
-# srun --exclusive --cpu-bind=cores -c1 --mem=4G python random_search.py $SLURM_TMPDIR &  # First job (don't forget the '&')
-# srun --exclusive --cpu-bind=cores -c1 --mem=4G python random_search.py $SLURM_TMPDIR &  # Second job (don't forget the '&')
-wait    # Wait for both jobs to finish
-
+srun -l --output=myjob_output_%t.out python random_search.py --num_workers 2
 
 DATE=$(date -u +%Y%m%d)
 cp -r wandb $SLURM_SUBMIT_DIR/wandb_$DATE-id$SLURM_JOB_ID
