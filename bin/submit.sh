@@ -9,8 +9,6 @@
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
-#SBATCH --output=myjob_output_wrapper.out
-
 # create a local virtual environnement (on the compute node)
 cd $SLURM_TMPDIR
 module load python/3.7
