@@ -24,7 +24,7 @@ default_dict = {
     'noise': 1e-5,
     'loss': 'mse',
     'batch_size': 300,
-    'epochs': 1000,
+    'epochs': 500,
     'layers': [
         128,
         2000,
