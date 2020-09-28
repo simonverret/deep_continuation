@@ -18,7 +18,7 @@ from deep_continuation import data
 from deep_continuation import train
 
 default_dict = {
-    'data': 'B1',
+    'data': 'B',
     'noise': 1e-4,
     'loss': 'mse',
     'batch_size': 300,

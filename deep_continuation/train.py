@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-#
-#   deep_continuation
-#
-#   Simon Verret
-#   Reza Nourafkan
-#   Andre-Marie Tremablay
-#
-
 import os
 import time
 from copy import deepcopy
@@ -29,7 +21,7 @@ TORCH_MAX = torch.finfo(torch.float64).max
 
 
 default_parameters = {
-    'data': 'Fournier',
+    'data': 'F',
     'noise': 1e-4,
     'loss': 'mse',
     'batch_size': 300,
@@ -46,6 +38,7 @@ default_parameters = {
     'initw': True,
     'dropout': 0,
     'batchnorm': True,
+    'optimizer': "adam",
     'weight_decay': 0,
     'smoothing': 1.0,
     'stop': 40,
@@ -191,81 +184,12 @@ def dc_square_error(outputs, targets):
     return torch.mean((outputs[:, 0]-targets[:, 0])**2)
 
 
-class Metric():
-    def __init__(self, name, data_set, loss_list=['mse', 'mae', 'dcs', 'dca'], batch_size=512):
-        self.valid_loader = torch.utils.data.DataLoader(
-            data_set, batch_size=batch_size, drop_last=True, shuffle=False)
-        self.name = name
-        self.batch_size = batch_size
-
-        self.loss_list = loss_list
-        self.loss_value = {lname: 0 for lname in loss_list}
-        self.best_loss = {lname: TORCH_MAX for lname in loss_list}
-        self.best_model = {lname: None for lname in loss_list}
-
-        self.loss = {}
-        for lname in self.loss_list:
-            if lname == "mse":
-                self.loss[lname] = nn.MSELoss()
-            elif lname == "mae":
-                self.loss[lname] = nn.L1Loss()
-            elif lname == 'dcs':
-                self.loss[lname] = dc_square_error
-            elif lname == 'dca':
-                self.loss[lname] = dc_absolute_error
-            elif lname == "kld":
-                self.loss[lname] = nn.KLDivLoss()
-            else:
-                raise ValueError(f'Unknown loss function "{lname}"')
-
-    def evaluate(self, model, device, save_best=False, fraction=0.3):
-        for lname in self.loss_list:
-            self.loss_value[lname] = 0
-
-        stop_at_batch = fraction*len(self.valid_loader)//self.batch_size+1
-        batch_count = 0
-        for batch_number, (inputs, targets) in enumerate(self.valid_loader):
-            if batch_number == stop_at_batch:
-                break
-            inputs = inputs.to(device).float()
-            targets = targets.to(device).float()
-            outputs = model(inputs)
-            for lname in self.loss_list:
-                loss = self.loss[lname](outputs, targets).item()
-                self.loss_value[lname] += loss
-            batch_count += 1
-
-        for lname in self.loss_list:
-            self.loss_value[lname] /= batch_count
-
-        is_best = False
-        for lname in self.loss_list:
-            score = self.loss_value[lname]
-            if score < self.best_loss[lname]:
-                self.best_loss[lname] = score
-                self.best_model[lname] = deepcopy(model)    
-                if save_best and USE_WANDB:
-                    torch.save(
-                        model.state_dict(),
-                        os.path.join(wandb.run.dir, f"{lname}_{self.name}.pt")
-                    )
-                is_best = True
-        
-        return is_best
-
-    def print_results(self):
-        print(f'      {self.name}: ', end='')
-        for lname in self.loss_list:
-            print(f' {self.loss_value[lname]:.9f} ({lname})  ', end='')
-        print()
-
-
-def train(args, device, train_set, valid_set, metrics=None):
+def train(args, device, train_set, valid_set, loss, metric_list=None):
     if USE_WANDB: 
         run = wandb.init(project="mlp", entity="deep_continuation", reinit=True)
         wandb.config.update(args)
-        # wandb.save("*.pt")  # will sync .pt files as they are saved
 
+    # datasets
     train_loader = torch.utils.data.DataLoader(
         train_set, 
         batch_size=args.batch_size, 
@@ -281,13 +205,6 @@ def train(args, device, train_set, valid_set, metrics=None):
         drop_last=True
     )
 
-    # metrics (validation losses)
-    loss_list = ['mse', 'dcs', 'mae', 'dca']
-    metric_list = [
-        Metric(name, dataset, loss_list=loss_list)
-        for name, dataset in metrics.items()
-    ]
-
     # model
     model = MLP(args).to(device)
     if args.initw:
@@ -296,26 +213,16 @@ def train(args, device, train_set, valid_set, metrics=None):
         wandb.watch(model)
 
     # optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    if args.optimizer in ["adam", "Adam"]:
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif ags.optimizer in ["sgd", "SGD"]:
+        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        ValueError(f"Unknown {args.optimizer} optimizer")
 
     # training loss
-    if  args.loss == "mse":
-        criterion = nn.MSELoss()
-    elif  args.loss == "mae":
-        criterion = nn.L1Loss()
-    elif  args.loss == 'dcs':
-        criterion = dc_square_error
-    elif  args.loss == 'dca':
-        criterion = dc_absolute_error
-    elif  args.loss == 'mss':
-        criterion = lambda o, t: mse_smooth(o, t, factor=args.smoothing)
-    elif  args.loss == "kld":
-        criterion = nn.KLDivLoss()
-    elif hasattr(train_set, 'custom_loss'):
-        criterion = train_set.custom_loss(args.loss)
-    else:
-        raise ValueError(f'Unknown loss function "{args.loss}"')
-    
+    criterion = loss
+
     # lr scheduler
     if args.schedule:
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -377,27 +284,29 @@ def train(args, device, train_set, valid_set, metrics=None):
                 plt.title(f"o:{outputs[0].sum().detach().numpy()}, t:{targets[0].sum().detach().numpy()}")
                 plt.pause(0.001)
                 
-        
         model.avg_valid_loss = model.avg_valid_loss/valid_n_iter
         print(f'   valid loss: {model.avg_valid_loss:.9f}')
+        if args.schedule:
+            scheduler.step(model.avg_train_loss)
         
         early_stop_count -= 1
         if model.avg_valid_loss < best_valid_loss:
-            avg_valid_loss = model.avg_valid_loss
             early_stop_count = args.stop
+            
+            best_valid_loss = model.avg_valid_loss
             if USE_WANDB:
                 torch.save(
                     model.state_dict(),
                     os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
                 )
+        
+        model_chkpt = deepcopy(model)
         for metric in metric_list:
-            is_best = metric.evaluate(model, device, save_best=False, fraction=args.valid_fraction)
+            is_best = metric.evaluate(model_chkpt, device, fraction=args.valid_fraction)
             if is_best:
                 early_stop_count = args.stop
             metric.print_results()
-        
-        if args.schedule:
-            scheduler.step(model.avg_train_loss)
+         
 
         if USE_WANDB: 
             dict_to_log = {
@@ -407,11 +316,11 @@ def train(args, device, train_set, valid_set, metrics=None):
                 "valid_loss": model.avg_valid_loss,
             }
             for metric in metric_list:
-                for lname in loss_list:
+                for lname, lvalue in metric.loss_values.items():
                     m_name = f"{lname}_{metric.name}"
-                    dict_to_log[m_name] = metric.loss_value[lname]
-                    wandb.run.summary[m_name] = metric.best_loss[lname]
-                    wandb.run.summary[f"epoch_{m_name}"] = metric.best_model[lname].epoch
+                    dict_to_log[m_name] = lvalue
+                    wandb.run.summary[m_name] = metric.best_losses[lname]
+                    wandb.run.summary[f"epoch_{m_name}"] = metric.best_models[lname].epoch
             wandb.log(dict_to_log)
 
         if early_stop_count == 0:
@@ -419,10 +328,9 @@ def train(args, device, train_set, valid_set, metrics=None):
             break
 
     print('final_evaluation')
-    best_epoch_dict = []
     for metric in metric_list:
-        for lname in loss_list:
-            tmp_model = metric.best_model[lname]
+        for lname in metric.loss_dict.keys():
+            tmp_model = metric.best_models[lname]
             tmp_model.eval()
             metric.evaluate(tmp_model, device, save_best=False, fraction=1.0)
             metric.print_results()
@@ -452,69 +360,78 @@ def main():
         device = torch.device("cpu")
         print('no GPU available')
 
-    if not os.path.exists('results'):
-        os.mkdir('results')
-
-    train_set = data.ContinuationData(
-        f'data/{args.data}/train/',
-        beta=args.beta,
-        noise=args.noise,
-        rescaled=args.rescale,
-        standardize=args.standardize,
-        base_scale=15 if args.data=="Fournier" else 20
-    )
-    valid_set = data.ContinuationData(
-        f'data/{args.data}/valid/',
-        beta=args.beta,
-        noise=args.noise,
-        rescaled=args.rescale,
-        standardize=args.standardize,
-        base_scale=15 if args.data=="Fournier" else 20
-    )
-
-    # VALID LIST
     path_dict = {
         'F': 'data/Fournier/valid/',
-        # 'G': 'data/G1/valid/',
-        # 'B': 'data/B1/valid/',
+        'G': 'data/G1/valid/',
+        'B': 'data/B1/valid/',
     }
+
+    train_set = data.ContinuationData(
+        path_dict[args.data],
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        base_scale=15 if args.data=="F" else 20
+    )
+    valid_set = data.ContinuationData(
+        path_dict[args.data],
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        base_scale=15 if args.data=="F" else 20
+    )
+
+    loss_dict = {
+        'mse': nn.MSELoss(), 
+        'dcs': nn.L1Loss(), 
+        'mae': dc_square_error, 
+        'dca': dc_absolute_error,
+    }
+    
+    loss = loss_dict[args.loss]
+
     scale_dict = {
         'N': False,
         # 'R': True
     }
+
     noise_dict = {
         '0': 0,
         '5': 1e-5,
         '3': 1e-3,
         '2': 1e-2,
     }
+
     beta_dict = {
-        # 'T10': [10.0],
+        'T10': [10.0],
         'T20': [20.0],
-        # 'T30': [30.0],
-        # 'T35': [35.0],
-        # 'l3T': [15.0, 20.0, 25.0], 
-        # 'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
+        'T30': [30.0],
+        'T35': [35.0],
+        'l3T': [15.0, 20.0, 25.0], 
+        'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
     }
 
-    metrics_dict = {}
+    metric_list = []
     for p, path in path_dict.items():
-        for s, scale in scale_dict.items():
+        dataset = data.ContinuationData(path, base_scale=15 if p=="F" else 20)
+        for n, noise in noise_dict.items():
             for b, beta, in beta_dict.items():
-                for n, noise in noise_dict.items():
-                    print(f"loading metric: {p+n+b+s}")
-                    metrics_dict[p+n+b+s] = data.ContinuationData(
-                        path,
+                for s, scale in scale_dict.items():
+                    print(f"loading metric {p+n+b+s}")
+                    metric_list.append(data.Metric(
+                        name = f"{p+n+b+s}",
+                        dataset=dataset,
+                        loss_dict=loss_dict,
                         noise=noise,
                         beta=beta,
-                        rescaled=scale,
-                        standardize=args.standardize,
-                        base_scale=15 if p=="F" else 20
-                    )
-
-    model = train(args, device, train_set, valid_set, metrics=metrics_dict)
-    return model
-
+                        scale=scale,
+                        std=args.standardize,
+                    ))
+    
+    train(args, device, train_set, valid_set, loss, metric_list=metric_list)
+    
 
 if __name__ == "__main__":
     main()
