@@ -2,14 +2,12 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --time=0-71:57
 #SBATCH --gres=gpu:v100l:1
-#SBATCH --ntasks-per-node=4
-#SBATCH --ntasks=4
+#SBATCH --ntasks-per-node=6
+#SBATCH --ntasks=6
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=46G
+#SBATCH --mem=32G
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
-
-#SBATCH --output=myjob_output_wrapper.out
 
 # create a local virtual environnement (on the compute node)
 cd $SLURM_TMPDIR
@@ -31,7 +29,4 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-srun -l --output=myjob_output_%t.out python random_search.py --num_workers 2
-
-DATE=$(date -u +%Y%m%d)
-cp -r wandb $SLURM_SUBMIT_DIR/wandb_$DATE-id$SLURM_JOB_ID
+srun -l --multi-conf silly1.conf

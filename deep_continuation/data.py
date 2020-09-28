@@ -48,7 +48,7 @@ class ContinuationData(torch.utils.data.Dataset):
 
 
 class Metric():
-    def __init__(self, name, dataset, loss_dict, noise, beta, scale, std, bs=512):
+    def __init__(self, name, dataset, loss_dict, noise, beta, scale, std, bs=64):
         self.name = name
         
         self.batch_size = bs

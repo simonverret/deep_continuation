@@ -21,11 +21,11 @@ TORCH_MAX = torch.finfo(torch.float64).max
 
 
 default_parameters = {
-    'data': 'F',
-    'noise': 1e-4,
+    'data': 'B',
+    'noise': 1e-5,
     'loss': 'mse',
     'batch_size': 300,
-    'epochs': 500,
+    'epochs': 1000,
     'layers': [
         128,
         2000,
@@ -49,12 +49,12 @@ default_parameters = {
     'seed': int(time.time()),
     'num_workers': 4,
     'cuda': True,
-    'valid_fraction': 0.3,
+    'valid_fraction': 0.05,
+    'metric_batch_size': 64,
     'rescale': False,
     'beta': [20.0],
     'plot': False,
     'standardize': False,
-    'wandb': False,
 }
 
 help_strings = {
@@ -96,9 +96,6 @@ Thus, from here, all parameters should be accessed as:
     args.parameter
 note: for every bool flag, an additional --no_flag is defined to turn it off.
 '''
-args = utils.parse_file_and_command(default_parameters, help_strings)
-
-USE_WANDB = (args.wandb and USE_WANDB) 
 
 
 class Normalizer(nn.Module):
@@ -186,7 +183,7 @@ def dc_square_error(outputs, targets):
 
 def train(args, device, train_set, valid_set, loss, metric_list=None):
     if USE_WANDB: 
-        run = wandb.init(project="mlp", entity="deep_continuation", reinit=True)
+        run = wandb.init(project="temperature_rescaling", entity="deep_continuation", reinit=True)
         wandb.config.update(args)
 
     # datasets
@@ -211,12 +208,21 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
         model.apply(init_weights)
     if USE_WANDB: 
         wandb.watch(model)
+        model_insights = {
+            'mlp_depth': len(args.layers) - 1,
+            'mlp_width': max(args.layers[1:-1]),
+            'mlp_narrow': min(args.layers[1:-1]),
+            'mlp_neck': np.argmin(args.layers[1:-1]),
+            'mlp_belly': np.argmax(args.layers[1:-1]),
+        }
+        wandb.config.update(model_insights)
+
 
     # optimizer
     if args.optimizer in ["adam", "Adam"]:
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    elif ags.optimizer in ["sgd", "SGD"]:
-        optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer in ["sgd", "SGD"]:
+        optimizer = torch.optim.SGD(model.parameters(), lr=100*args.lr, weight_decay=args.weight_decay)
     else:
         ValueError(f"Unknown {args.optimizer} optimizer")
 
@@ -332,7 +338,7 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
         for lname in metric.loss_dict.keys():
             tmp_model = metric.best_models[lname]
             tmp_model.eval()
-            metric.evaluate(tmp_model, device, save_best=False, fraction=1.0)
+            metric.evaluate(tmp_model, device, fraction=1.0)
             metric.print_results()
             
             if USE_WANDB:
@@ -347,7 +353,8 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
 
 
 def main():
-    args.cuda = True
+    args = utils.parse_file_and_command(default_parameters, help_strings)
+
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     args.cuda = args.cuda and torch.cuda.is_available()
@@ -394,7 +401,7 @@ def main():
 
     scale_dict = {
         'N': False,
-        # 'R': True
+        'R': True
     }
 
     noise_dict = {
@@ -408,7 +415,6 @@ def main():
         'T10': [10.0],
         'T20': [20.0],
         'T30': [30.0],
-        'T35': [35.0],
         'l3T': [15.0, 20.0, 25.0], 
         'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
     }
@@ -419,7 +425,7 @@ def main():
         for n, noise in noise_dict.items():
             for b, beta, in beta_dict.items():
                 for s, scale in scale_dict.items():
-                    print(f"loading metric {p+n+b+s}")
+                    print(f"loading metric {p+s+n+b}")
                     metric_list.append(data.Metric(
                         name = f"{p+n+b+s}",
                         dataset=dataset,
@@ -428,6 +434,7 @@ def main():
                         beta=beta,
                         scale=scale,
                         std=args.standardize,
+                        bs=args.metric_batch_size
                     ))
     
     train(args, device, train_set, valid_set, loss, metric_list=metric_list)
