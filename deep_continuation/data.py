@@ -58,7 +58,7 @@ class Metric():
         self.scale = scale
         self.std = std
         self.bs = bs
-        self.num_workers
+        self.num_workers = num_workers
         
         ## saving all los inside allows to do only one loop
         self.loss_dict = loss_dict
