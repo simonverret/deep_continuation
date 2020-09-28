@@ -48,7 +48,7 @@ class ContinuationData(torch.utils.data.Dataset):
 
 
 class Metric():
-    def __init__(self, name, dataset, loss_dict, noise, beta, scale, std, bs=64):
+    def __init__(self, name, dataset, loss_dict, noise, beta, scale, std, bs, num_workers):
         self.name = name
         
         self.batch_size = bs
@@ -58,6 +58,7 @@ class Metric():
         self.scale = scale
         self.std = std
         self.bs = bs
+        self.num_workers
         
         ## saving all los inside allows to do only one loop
         self.loss_dict = loss_dict
@@ -66,29 +67,35 @@ class Metric():
         self.best_models = {lname: None for lname in loss_dict.keys()}
 
     def evaluate(self, model, device, fraction=0.3):
-        for lname in self.loss_dict.keys():
-            self.loss_values[lname] = 0
-
+        
         self.dataset.noise = self.noise
         self.dataset.beta = self.beta
         self.dataset.rescaled = self.scale
         self.dataset.standardize = self.std
         loader = torch.utils.data.DataLoader(
-            self.dataset, batch_size=self.bs, drop_last=True, shuffle=False
+            self.dataset, 
+            batch_size=self.bs,
+            shuffle=False,
+            drop_last=True,
+            num_workers=self.num_workers,
         )
 
+        for lname in self.loss_dict.keys():
+            self.loss_values[lname] = 0
         batch_count = 0
-        stop_at_batch = fraction*len(loader)//self.batch_size+1
+        stop_at_batch = int(fraction*len(loader))
         for batch_number, (inputs, targets) in enumerate(loader):
             if batch_number == stop_at_batch: break
             inputs = inputs.to(device).float()
             targets = targets.to(device).float()
             outputs = model(inputs)
+        
             for lname, loss in self.loss_dict.items():
                 self.loss_values[lname] += loss(outputs, targets).item()
             batch_count += 1
+        
         for lname in self.loss_dict.keys():
-            self.loss_values[lname] /= batch_count
+            self.loss_values[lname] = self.loss_values[lname]/ batch_count
 
         is_best = False
         for lname in self.loss_dict.keys():
