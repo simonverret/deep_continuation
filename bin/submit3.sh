@@ -2,10 +2,10 @@
 #SBATCH --account=rrg-bengioy-ad
 #SBATCH --time=0-71:57
 #SBATCH --gres=gpu:v100l:1
-#SBATCH --ntasks-per-node=6
-#SBATCH --ntasks=6
-#SBATCH --cpus-per-task=2
-#SBATCH --mem=32G
+#SBATCH --ntasks-per-node=3
+#SBATCH --ntasks=3
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=46G
 #SBATCH --job-name=deep_continuation
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
@@ -29,4 +29,4 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-srun -l --multi-conf silly3.conf
+srun -l --multi-prog ~/codes/deep_continuation/bin/silly3.conf
