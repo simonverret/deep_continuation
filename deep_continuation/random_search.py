@@ -187,7 +187,10 @@ for i in range(30):
 
     metric_list = []
     for p, path in path_dict.items():
-        dataset = data.ContinuationData(path, base_scale=15 if p=="F" else 20)
+        dataset = data.ContinuationData(
+            path,
+            base_scale=15 if p=="F" else 20
+        )
         for n, noise in noise_dict.items():
             for b, beta, in beta_dict.items():
                 for s, scale in scale_dict.items():
@@ -200,7 +203,8 @@ for i in range(30):
                         beta=beta,
                         scale=scale,
                         std=args.standardize,
-                        bs=args.metric_batch_size
+                        bs=args.metric_batch_size,
+                        num_workers=args.num_workers,
                     ))
     
     train.train(args, device, train_set, valid_set, loss, metric_list=metric_list)
