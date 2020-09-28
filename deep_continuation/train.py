@@ -335,16 +335,16 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
 
     print('final_evaluation')
     for metric in metric_list:
-        for lname in metric.loss_dict.keys():
+        for lname, lvalue in metric.loss_values.items():
             tmp_model = metric.best_models[lname]
             tmp_model.eval()
             metric.evaluate(tmp_model, device, fraction=1.0)
             metric.print_results()
             
             if USE_WANDB:
-                rec_name = f"{lname}_{metric.name}"
-                wandb.run.summary[rec_name] = metric.loss_value[lname]
-                wandb.run.summary[f"epoch_{rec_name}"] = tmp_model.epoch
+                m_name = f"{lname}_{metric.name}"
+                wandb.run.summary[m_name] = metric.loss_values[m_name]
+                wandb.run.summary[f"epoch_{m_name}"] = tmp_model.epoch
 
     if USE_WANDB:
         run.join()
