@@ -29,4 +29,4 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-srun -l --multi-conf silly2.conf
+srun -l --output=myjob_output_%t.out --multi-prog ~/codes/deep_continuation/bin/silly2.conf
