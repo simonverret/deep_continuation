@@ -12,14 +12,16 @@ import time
 import random
 import numpy as np
 import torch
+import torch.nn as nn
 
+from deep_continuation import utils
 from deep_continuation.utils import ObjectView
 from deep_continuation import data
 from deep_continuation import train
 
 default_dict = {
-    'data': 'B1',
-    'noise': 1e-4,
+    'data': 'B',
+    'noise': 1e-5,
     'loss': 'mse',
     'batch_size': 300,
     'epochs': 500,
@@ -35,17 +37,19 @@ default_dict = {
     'initw': True,
     'dropout': 0,
     'batchnorm': True,
+    'optimizer': "adam",
     'weight_decay': 0,
     'smoothing': 1.0,
-    'stop': 40,
+    'stop': 20,
     'warmup': True,
     'schedule': True,
     'factor': 0.4,
     'patience': 6,
     'seed': int(time.time()),
-    'num_workers': 4,
+    'num_workers': 2,
     'cuda': True,
-    'valid_fraction': 0.3,
+    'valid_fraction': 0.05,
+    'metric_batch_size': 64,
     'rescale': False,
     'beta': [20.0],
     'plot': False,
@@ -61,25 +65,20 @@ default_dict = {
 #   a standalone value will be returned as is
 search_space = {
     "layers": (
-        [128, [30,2000], [40,2000], 512],
-        [128, [30,1500], [40,2000], [30,1500], 512],
-        [128, [1500,3000], [1500,3000], [1500,3000], 512],
-        [128, [1500,3000], [1500,3000], [1500,3000], 512],
-        [128, [1500,3000], [1500,3000], [1500,3000], 512],
-        [128, [1500,3000], [1500,3000], [1500,3000], 512],
-        [128, [30,1000], [40,2000], [40,2000], [30,1000], 512],
-        [128, [30,800], [40,1000], [40,1000], [40,800], [30,800], 512],
-        [128, [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], [100,600], 512]
+        [128, [500,3000], [500,3000], 512],
+        [128, [500,3000], [500,3000], [500,3000], 512],
+        [128, [500,3000], [500,3000], [500,3000], 512],
+        [128, [500,3000], [500,3000], [500,3000], 512],
+        [128, [500,3000], [500,3000], [500,3000], [500,3000], 512],
+        [128, [500,3000], [500,3000], [500,3000], [500,3000], [500,3000], 512],
     ),
     "loss": ("mse", "mae", "mse", "mae", "dcs", "dca"),
-    # "data": ("G1", "Fournier", "B1", "FournierB"),
-    "noise": (0.0 , [0.0,0.001]),
+    "noise": (0.0 , [0.01,0.00001]),
     "batch_size": ([100,500],[200,1000]),
-    "lr": [0.001, 0.00001],
-    "weight_decay": (0, [0.0,0.8]),
+    "lr": [0.0005, 0.00001],
     "dropout": (0, [0.0,0.8]),
     'initw': (True,True,False),
-    "out_unit": ('None', 'None', 'ReLU', 'Softmax', 'Softmax', 'Normalizer'),
+    "out_unit": ('None', 'ReLU', 'Softmax', 'Normalizer'),
     "batchnorm": (True,True,False),
     "factor": [0.2,0.8], 
     "patience": [4,10],
@@ -114,7 +113,11 @@ def new_args_dict_from(search_space, template_dict = default_dict):
         new_args_dict[parameter] = value   
     return new_args_dict
 
-for i in range(100):
+
+args = utils.parse_file_and_command(default_dict, help_dict={})
+default_dict = vars(args)
+
+for i in range(30):
 
     new_args_dict = new_args_dict_from(search_space, default_dict)
     args = ObjectView(new_args_dict)
@@ -130,64 +133,74 @@ for i in range(100):
         device = torch.device("cpu")
         print('no GPU available')
 
-
-    train_set = data.ContinuationData(f'data/{args.data}/train/', noise=args.noise)
+    path_dict = {
+        'F': 'data/Fournier/valid/',
+        'G': 'data/G1/valid/',
+        'B': 'data/B1/valid/',
+    }
 
     train_set = data.ContinuationData(
-        f'data/{args.data}/train/',
+        path_dict[args.data],
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        base_scale=15 if args.data=="Fournier" else 20
+        base_scale=15 if args.data=="F" else 20
     )
     valid_set = data.ContinuationData(
-        f'data/{args.data}/valid/',
+        path_dict[args.data],
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        base_scale=15 if args.data=="Fournier" else 20
+        base_scale=15 if args.data=="F" else 20
     )
 
-    # VALID LIST
-    path_dict = {
-        # 'F': 'data/Fournier/valid/',
-        'G': 'data/G1/valid/',
-        # 'B': 'data/B1/valid/',
+    loss_dict = {
+        'mse': nn.MSELoss(), 
+        'dcs': nn.L1Loss(), 
+        'mae': train.dc_square_error, 
+        'dca': train.dc_absolute_error,
     }
+    
+    loss = loss_dict[args.loss]
+
     scale_dict = {
         'N': False,
-        # 'R': True
+        'R': True
     }
+
     noise_dict = {
         '0': 0,
         '5': 1e-5,
         '3': 1e-3,
-        # '2': 1e-2,
-    }
-    beta_dict = {
-        # 'T10': [10.0],
-        'T20': [20.0],
-        # 'T30': [30.0],
-        # 'T35': [35.0],
-        # 'l3T': [15.0, 20.0, 25.0], 
-        # 'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
+        '2': 1e-2,
     }
 
-    metrics_dict = {}
+    beta_dict = {
+        'T10': [10.0],
+        'T20': [20.0],
+        'T30': [30.0],
+        'l3T': [15.0, 20.0, 25.0], 
+        'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
+    }
+
+    metric_list = []
     for p, path in path_dict.items():
-        for s, scale in scale_dict.items():
+        dataset = data.ContinuationData(path, base_scale=15 if p=="F" else 20)
+        for n, noise in noise_dict.items():
             for b, beta, in beta_dict.items():
-                for n, noise in noise_dict.items():
-                    print(f"loading metric: {p+n+b+s}")
-                    metrics_dict[p+n+b+s] = data.ContinuationData(
-                        path,
+                for s, scale in scale_dict.items():
+                    print(f"loading metric {p+s+n+b}")
+                    metric_list.append(data.Metric(
+                        name = f"{p+n+b+s}",
+                        dataset=dataset,
+                        loss_dict=loss_dict,
                         noise=noise,
                         beta=beta,
-                        rescaled=scale,
-                        standardize=args.standardize,
-                        base_scale=15 if p=="F" else 20
-                    )
-
-    train.train(args, device, train_set, valid_set, metrics=metrics_dict)
+                        scale=scale,
+                        std=args.standardize,
+                        bs=args.metric_batch_size
+                    ))
+    
+    train.train(args, device, train_set, valid_set, loss, metric_list=metric_list)

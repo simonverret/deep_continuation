@@ -29,7 +29,4 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
-srun -l --output=myjob_output_%t.out python random_search.py --num_workers 2
-
-DATE=$(date -u +%Y%m%d)
-cp -r wandb $SLURM_SUBMIT_DIR/wandb_$DATE-id$SLURM_JOB_ID
+srun -l --multi-conf silly1.conf
