@@ -344,7 +344,7 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
             
             if USE_WANDB:
                 m_name = f"{lname}_{metric.name}"
-                wandb.run.summary[m_name] = metric.loss_values[m_name]
+                wandb.run.summary[m_name] = metric.loss_values[lname]
                 wandb.run.summary[f"epoch_{m_name}"] = tmp_model.epoch
 
     if USE_WANDB:

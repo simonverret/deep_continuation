@@ -83,7 +83,7 @@ class Metric():
         for lname in self.loss_dict.keys():
             self.loss_values[lname] = 0
         batch_count = 0
-        stop_at_batch = int(fraction*len(loader))
+        stop_at_batch = max(int(fraction*len(loader)),1)
         for batch_number, (inputs, targets) in enumerate(loader):
             if batch_number == stop_at_batch: break
             inputs = inputs.to(device).float()
