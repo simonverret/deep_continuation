@@ -183,7 +183,7 @@ def dc_square_error(outputs, targets):
 
 def train(args, device, train_set, valid_set, loss, metric_list=None):
     if USE_WANDB: 
-        run = wandb.init(project="temperature_rescaling", entity="deep_continuation", reinit=True)
+        run = wandb.init(project="beta_and_scale", entity="deep_continuation", reinit=True)
         wandb.config.update(args)
 
     # datasets
