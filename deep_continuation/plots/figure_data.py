@@ -15,9 +15,9 @@ noise = 0.0
 pdf_name = 'dataset_noise00.pdf'
 
 dataset1 = data.ContinuationData(f'../data/G1/valid/', noise=noise)
-dataset2 = data.ContinuationData(f'../data/P1/valid/', noise=noise)
-dataset3 = data.ContinuationData(f'../data/P2/valid/', noise=noise)
-dataset4 = data.ContinuationData(f'../data/G4/valid/', noise=noise)
+dataset2 = data.ContinuationData(f'../data/B1/valid/', noise=noise)
+dataset3 = data.ContinuationData(f'../data/Fournier/valid/', noise=noise)
+dataset4 = data.ContinuationData(f'../data/B1/valid/', noise=noise)
 
 fig, ax = plt.subplots(4, 2, figsize=[6,5])
 
@@ -42,8 +42,8 @@ ax[3,1].set_xlabel('$\omega$')
 [ax[i,1].set_ylabel('$\sigma$') for i in range(4)]
 
 
-start=90
-end=start+5
+start=100
+end=start+2
 for ii in range(start,end):
     y1 = dataset1[ii][0]
     y2 = dataset2[ii][0]

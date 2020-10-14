@@ -6,3 +6,8 @@ wandb
 *.pdf
 *.zip
 *.pt
+*/data_bkp*
+*/data_cedar*
+*/plots/best_models
+*/plots/cedar_env
+*/plots/best_ever.yaml
