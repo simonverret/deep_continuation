@@ -423,26 +423,26 @@ def main():
     }
 
     metric_list = []
-    for p, path in path_dict.items():
-        dataset = data.ContinuationData(
-            path,
-            base_scale=15 if p=="F" else 20
-        )
-        for n, noise in noise_dict.items():
-            for b, beta, in beta_dict.items():
-                for s, scale in scale_dict.items():
-                    print(f"loading metric {p+s+n+b}")
-                    metric_list.append(data.Metric(
-                        name = f"{p+n+b+s}",
-                        dataset=dataset,
-                        loss_dict=loss_dict,
-                        noise=noise,
-                        beta=beta,
-                        scale=scale,
-                        std=args.standardize,
-                        bs=args.metric_batch_size,
-                        num_workers=args.num_workers,
-                    ))
+    # for p, path in path_dict.items():
+    #     dataset = data.ContinuationData(
+    #         path,
+    #         base_scale=15 if p=="F" else 20
+    #     )
+    #     for n, noise in noise_dict.items():
+    #         for b, beta, in beta_dict.items():
+    #             for s, scale in scale_dict.items():
+    #                 print(f"loading metric {p+s+n+b}")
+    #                 metric_list.append(data.Metric(
+    #                     name = f"{p+n+b+s}",
+    #                     dataset=dataset,
+    #                     loss_dict=loss_dict,
+    #                     noise=noise,
+    #                     beta=beta,
+    #                     scale=scale,
+    #                     std=args.standardize,
+    #                     bs=args.metric_batch_size,
+    #                     num_workers=args.num_workers,
+    #                 ))
     
     train(args, device, train_set, valid_set, loss, metric_list=metric_list)
     

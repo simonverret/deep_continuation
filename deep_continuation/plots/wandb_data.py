@@ -2,6 +2,11 @@
 import os
 import wandb
 import matplotlib.pyplot as plt
+
+from deep_continuation import data
+import matplotlib.pyplot as plt
+import numpy as np
+
 api = wandb.Api()
 
 runs = api.runs("deep_continuation/beta_and_scale")
@@ -98,18 +103,18 @@ sub_df.groupby(["rescale","beta"])\
 
 metrics = { f"{L}_{D}{S}": [
     f"{L}_{D+n+b+S}"
-    for n in ['3']#noise_dict.keys()
+    for n in ['0']#noise_dict.keys()
     for b in beta_dict.keys()
 ] for D in ['G','B','F'] for S in ['N','R'] for L in ['mse', 'mae']}
 
 R_df = all_df[
-    # (all_df['loss']=='mse') &\
+    (all_df['loss']=='mse') &\
     (all_df['out_unit']=="None") &\
     (all_df['standardize']==False)&\
     (all_df['rescale']==True)
 ]
 N_df = all_df[
-    # (all_df['loss']=='mse') &\
+    (all_df['loss']=='mse') &\
     (all_df['out_unit']=="None") &\
     (all_df['standardize']==False)&\
     (all_df['rescale']==False)
@@ -139,10 +144,10 @@ R_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_GR']}).plot(
 R_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_BR']}).plot(kind='bar', ax=ax6, width=0.6, legend=False)
 
 plt.tight_layout()
-plt.savefig("compare_rescaling.pdf")
+# plt.savefig("compare_rescaling.pdf")
+plt.show()
 
 #%%
-
 for col in all_df.columns:
     if "id" in col: print(col)
 
@@ -154,30 +159,42 @@ import torch
 import yaml
 import json
 
-device = torch.device('cpu')
+if torch.cuda.is_available():
+    # torch.cuda.manual_seed(args.seed)
+    device = torch.device("cuda")
+    print('using GPU')
+    print(torch.cuda.get_device_name(0))
+else:
+    device = torch.device("cpu")
+    print('no GPU available')
 
-
-metric = 'mae_B0T30R'
+#%%  GET MODEL
+model_id = '33du76v1'
+metric = 'mae_B0T20N'
 # model_id = sub_df[all_df[metric] == sub_df[metric].min()]['wandb_id'].iloc[0]
-model_id = '39zc99qn'
 score = all_df[all_df['wandb_id'] == model_id][metric].iloc[0]
 print(f"wandb_id: {model_id}")
 print(f"{metric} = {score}")
 
-if not os.path.exists(f"best_models/{model_id}.pt"):
+
+#%%
+best_folder = "best_models/"
+# best_folder = ""
+
+if not os.path.exists(f"{best_folder}{model_id}.pt"):
     print("downloading...")
     run = api.run(f"deep_continuation/beta_and_scale/{model_id}")
     run.file("best_valid_loss_model.pt").download(replace=True)
-    os.rename("best_valid_loss_model.pt", f"best_models/{model_id}.pt")
+    os.rename("best_valid_loss_model.pt", f"{best_folder}{model_id}.pt")
     run.file("config.yaml").download(replace=True)
-    os.rename("config.yaml", f"best_models/{model_id}.yaml")
+    os.rename("config.yaml", f"{best_folder}{model_id}.yaml")
     print("done")
 else:
     print("already downloaded")
 
 
 # LOAD THE MODEL
-with open(f"best_models/{model_id}.yaml") as file:
+with open(f"{best_folder}{model_id}.yaml") as file:
     config = yaml.load(file, Loader=yaml.FullLoader)
     config.pop("wandb_version")
     config.pop("_wandb")
@@ -188,24 +205,23 @@ for k, v in config.items():
     print(k, v) 
 
 args = utils.ObjectView(config)
-mlp = MLP(args)
-mlp.load_state_dict(torch.load(f"best_models/{model_id}.pt", map_location=device))
-mlp.eval()
+mlp = MLP(args).to(device)
+mlp.load_state_dict(torch.load(f"{best_folder}{model_id}.pt", map_location=device))
+# mlp.eval()
 print(mlp)
 
 
-# LOAD THE DATA
-from deep_continuation import data
-import matplotlib.pyplot as plt
-import numpy as np
+
+#%% TEST ON TRAINING DATA
+data_path = "/Users/Simon/codes/deep_continuation/deep_continuation/"
+# data_path = "deep_continuation/"
 
 path_dict = {
-    'F': '/Users/Simon/codes/deep_continuation/deep_continuation/data/Fournier/valid/',
-    'G': '/Users/Simon/codes/deep_continuation/deep_continuation/data/G1/valid/',
-    'B': '/Users/Simon/codes/deep_continuation/deep_continuation/data/B1/valid/',
+    'F': f'{data_path}data/Fournier/valid/',
+    'G': f'{data_path}data/G1/valid/',
+    'B': f'{data_path}data/B1/valid/',
 }
 
-# TEST ON TRAINING DATA
 dataset = data.ContinuationData(
     path_dict[args.data],
     beta=args.beta,
@@ -215,19 +231,23 @@ dataset = data.ContinuationData(
     base_scale=15 if args.data=="F" else 20
 )
 
+# %% TEST ON OTHER DATA
+path_dict = {
+    'F': f'{data_path}data/Fournier/valid/',
+    'G': f'{data_path}data/G1/valid/',
+    'B': f'{data_path}data/B1/valid/',
+}
+other_data = 'G'
+dataset = data.ContinuationData(
+    path_dict[other_data],
+    beta=[30],
+    noise=0.00001,
+    rescaled=args.rescale,
+    standardize=args.standardize,
+    base_scale=15 if other_data=="F" else 20
+)
 
-# #%% TEST ON OTHER DATA
-# other_data = 'F'
-# dataset = data.ContinuationData(
-#     path_dict[other_data],
-#     beta=[30],
-#     noise=1e-5,
-#     rescaled=args.rescale,
-#     standardize=args.standardize,
-#     base_scale=15 if other_data=="F" else 20
-# )
-
-# FIGURE
+#%%  FIGURE
 
 start=np.random.randint(0,100)
 
@@ -237,8 +257,8 @@ mae_crit = torch.nn.L1Loss()
 bs = args.batch_size
 loader = torch.utils.data.DataLoader(
     dataset, 
-    batch_size=bs,
-    shuffle=False,
+    batch_size=args.batch_size,
+    shuffle=True,
     drop_last=True,
     num_workers=0,
 )
@@ -250,9 +270,9 @@ for (inputs, targets) in loader:
     outputs = mlp(inputs)
     break
 
-x = inputs[0]
-t = targets[0]
-y = outputs[0]
+x = inputs.cpu()[0]
+t = targets.cpu()[0]
+y = outputs.cpu()[0]
 
 fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=[4,8])
 ax4.get_shared_x_axes().join(ax2, ax3, ax4)
@@ -279,3 +299,21 @@ ax4.set_xlabel('w')
 
 plt.show()
 # plt.savefig('last_plot.pdf')
+
+
+#%%
+loaded_state_dct = torch.load(f"{best_folder}{model_id}.pt", map_location=device)
+for k in loaded_state_dct.keys():
+    print(mlp.state_dict()[k] == loaded_state_dct[k])
+
+
+#%%
+torch.save(mlp.state_dict(), "tmp.pt")
+loaded_state_dct2 = torch.load("tmp.pt", map_location=device)
+for k in loaded_state_dct.keys():
+    print(loaded_state_dct2[k] == loaded_state_dct[k])
+
+#%%
+loaded_state_dct = torch.load(f"{best_folder}{model_id}.pt", map_location=device)
+for k in loaded_state_dct.keys():
+    print(mlp.state_dict()[k] == loaded_state_dct[k])
