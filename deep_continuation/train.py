@@ -81,22 +81,6 @@ help_strings = {
     'betas': "list of extra temperatures to use randomly (requires extra input data files with suffix)"
 }
 
-'''
-The next function allows to call the current script with arguments and fills the
-help option. In other words, this will work:
-    $ deep_continutation.py --no_cuda --layers 128 256 256 512 -lr 0.001
-    $ deep_continutation.py --help
-The default_parameters dictionary above serves as a template, so you can add
-parameters (float, int, str, bool, or [int]) and the parsing should adapt.
-The function, when possible, will:
-    1. replace the default value with the one found in 'params.json', then
-    2. replace this value with the one specified by command arguments, and then
-    3. return an argparse.Namespace object (argparse is standard, see its doc)
-Thus, from here, all parameters should be accessed as:
-    args.parameter
-note: for every bool flag, an additional --no_flag is defined to turn it off.
-'''
-
 
 class Normalizer(nn.Module):
     def __init__(self, dim=-1, norm=np.pi/40):
@@ -356,6 +340,21 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
 
 
 def main():
+    '''
+    The next function allows to call the current script with arguments and fills the
+    help option. In other words, this will work:
+        $ deep_continutation.py --no_cuda --layers 128 256 256 512 -lr 0.001
+        $ deep_continutation.py --help
+    The default_parameters dictionary above serves as a template, so you can add
+    parameters (float, int, str, bool, or [int]) and the parsing should adapt.
+    The function, when possible, will:
+        1. replace the default value with the one found in 'params.json', then
+        2. replace this value with the one specified by command arguments, and then
+        3. return an argparse.Namespace object (argparse is standard, see its doc)
+    Thus, from here, all parameters should be accessed as:
+        args.parameter
+    note: for every bool flag, an additional --no_flag is defined to turn it off.
+    '''
     args = utils.parse_file_and_command(default_parameters, help_strings)
 
     np.random.seed(args.seed)
@@ -411,6 +410,7 @@ def main():
         standardize=args.standardize,
         base_scale=15 if args.data=="F" else 20
     )
+    
     valid_set = data.ContinuationData(
         path_dict[args.data],
         beta=args.beta,
