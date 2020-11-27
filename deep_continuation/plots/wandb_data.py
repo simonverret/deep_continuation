@@ -1,32 +1,14 @@
 #%%
 import os
-import wandb
-import matplotlib.pyplot as plt
 
-from deep_continuation import data
-import matplotlib.pyplot as plt
 import numpy as np
-
-api = wandb.Api()
-
-runs = api.runs("deep_continuation/beta_and_scale")
-summary_list = [] 
-config_list = [] 
-name_list = [] 
-id_list = []
-for run in runs: 
-    if run.state == "finished":
-        summary_list.append(run.summary._json_dict) 
-        config_list.append({k:v for k,v in run.config.items() if not k.startswith('_')}) 
-        name_list.append(run.name)     
-        id_list.append(run.id)
-
+import matplotlib.pyplot as plt
 import pandas as pd 
-summary_df = pd.DataFrame.from_records(summary_list) 
-config_df = pd.DataFrame.from_records(config_list) 
-name_df = pd.DataFrame({'wandb_name': name_list}) 
-name_df = pd.DataFrame({'wandb_id': id_list}) 
-all_df = pd.concat([name_df, config_df, summary_df], axis=1)
+import wandb
+
+from deep_continuation import utils
+from deep_continuation import train
+from deep_continuation import data
 
 path_dict = {
     'F': '../data/Fournier/valid/',
@@ -60,23 +42,15 @@ beta_dict = {
     'l3T': [15.0, 20.0, 25.0], 
     'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
 }
+inverted_beta_dict = {v:k for k,v in beta_dict.items()}
 
-def change_beta_to_tag(beta):
-    if beta == [10]:
-        return 'T10'
-    elif beta == [20]:
-        return 'T20'
-    elif beta == [30]:
-        return 'T30'
-    elif beta == [15,20,25]:
-        return 'l3T'
-    elif beta == [10,15,20,25,30]:
-        return 'l5T'
 
-all_df["beta"] = all_df["beta"].apply(change_beta_to_tag)
+all_df = utils.download_wandb_table("deep_continuation/beta_and_scale")
+all_df["beta_list"] = all_df["beta"]
+all_df["beta"] = all_df["beta"].apply(lambda s: inverted_beta_dict[s])
 
 print("available columns")
-for col in list(config_df.columns):
+for col in list(all_df.columns):
     print(col)
 
 

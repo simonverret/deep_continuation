@@ -5,6 +5,14 @@ import sys
 import json
 import argparse
 
+try:
+    import wandb
+    import pandas as pd 
+    USE_WANDB = True
+except ModuleNotFoundError:
+    USE_WANDB = False
+
+
 def parse_file_and_command(default_dict, help_dict):
     parser = argparse.ArgumentParser()
 
@@ -47,12 +55,28 @@ def parse_file_and_command(default_dict, help_dict):
     # compatibility with jupyter in vscode
     return parser.parse_known_args()[0]
 
+
 class ObjectView():
     def __init__(self,dict):
         self.__dict__.update(dict)
 
-'''
-TODO:
-def dump(args)
-def name(args, with_only=[])
-'''
+
+if USE_WANDB: 
+
+    def wandb_download_table(project_name):
+        api = wandb.Api()
+        runs = api.runs(project_name)
+        summary_df = pd.DataFrame.from_records([
+            {k:v for k,v in run.summary.items() if not k.startswith('gradients/')}
+            for run in runs
+        ]) 
+        config_df = pd.DataFrame.from_records([
+            {k:v for k,v in run.config.items() if not k.startswith('_')}
+            for run in runs 
+        ])  
+        wandb_df = pd.DataFrame({
+            'wandb_name': [run.name for run in runs],
+            'wandb_id': [run.id for run in runs],
+            'wandb_state': [run.state for run in runs]
+        }) 
+        return pd.concat([wandb_df, config_df, summary_df], axis=1)
