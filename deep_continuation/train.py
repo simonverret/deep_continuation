@@ -107,6 +107,7 @@ class Normalizer(nn.Module):
         N = x.shape[self.dim]
         return torch.renorm(x, p=1, dim=self.dim, maxnorm=N*self.norm)
 
+
 class RenormSoftmax(nn.Module):
     def __init__(self, dim=-1, norm=np.pi/40):
         super().__init__()
@@ -314,7 +315,6 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
                 early_stop_count = args.stop
             metric.print_results()
          
-
         if USE_WANDB: 
             dict_to_log = {
                 "epoch": epoch,
@@ -376,23 +376,6 @@ def main():
         'B': 'data/B1/valid/',
     }
 
-    train_set = data.ContinuationData(
-        path_dict[args.data],
-        beta=args.beta,
-        noise=args.noise,
-        rescaled=args.rescale,
-        standardize=args.standardize,
-        base_scale=15 if args.data=="F" else 20
-    )
-    valid_set = data.ContinuationData(
-        path_dict[args.data],
-        beta=args.beta,
-        noise=args.noise,
-        rescaled=args.rescale,
-        standardize=args.standardize,
-        base_scale=15 if args.data=="F" else 20
-    )
-
     loss_dict = {
         'mse': nn.MSELoss(), 
         'dcs': nn.L1Loss(), 
@@ -400,8 +383,6 @@ def main():
         'dca': dc_absolute_error,
     }
     
-    loss = loss_dict[args.loss]
-
     scale_dict = {
         'N': False,
         'R': True
@@ -422,6 +403,23 @@ def main():
         'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
     }
 
+    train_set = data.ContinuationData(
+        path_dict[args.data],
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        base_scale=15 if args.data=="F" else 20
+    )
+    valid_set = data.ContinuationData(
+        path_dict[args.data],
+        beta=args.beta,
+        noise=args.noise,
+        rescaled=args.rescale,
+        standardize=args.standardize,
+        base_scale=15 if args.data=="F" else 20
+    )
+
     metric_list = []
     # for p, path in path_dict.items():
     #     dataset = data.ContinuationData(
@@ -432,7 +430,7 @@ def main():
     #         for b, beta, in beta_dict.items():
     #             for s, scale in scale_dict.items():
     #                 print(f"loading metric {p+s+n+b}")
-    #                 metric_list.append(data.Metric(
+    #                 metric_list.append(data.EvaluationMetric(
     #                     name = f"{p+n+b+s}",
     #                     dataset=dataset,
     #                     loss_dict=loss_dict,
@@ -444,6 +442,7 @@ def main():
     #                     num_workers=args.num_workers,
     #                 ))
     
+    loss = loss_dict[args.loss]
     train(args, device, train_set, valid_set, loss, metric_list=metric_list)
     
 

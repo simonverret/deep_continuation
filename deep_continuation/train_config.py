@@ -118,7 +118,7 @@ def main():
     #         for b, beta, in beta_dict.items():
     #             for s, scale in scale_dict.items():
     #                 print(f"loading metric {p+s+n+b}")
-    #                 metric_list.append(data.Metric(
+    #                 metric_list.append(data.EvaluationMetric(
     #                     name = f"{p+n+b+s}",
     #                     dataset=dataset,
     #                     loss_dict=loss_dict,

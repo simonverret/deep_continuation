@@ -1,28 +1,168 @@
 #%%
 import os
+import yaml
+import json
 
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd 
 import wandb
+import torch
+import torch.nn as nn
 
 from deep_continuation import utils
 from deep_continuation import train
+from deep_continuation.train import MLP, default_parameters
 from deep_continuation import data
 
+api = wandb.Api()
+
+if torch.cuda.is_available():
+    # torch.cuda.manual_seed(args.seed)
+    device = torch.device("cuda")
+    print('using GPU')
+    print(torch.cuda.get_device_name(0))
+else:
+    device = torch.device("cpu")
+    print('no GPU available')
+
+def beta_to_tag(beta):
+    if beta == [10]: return 'T10'
+    elif beta == [20]: return 'T20'
+    elif beta == [30]: return 'T30'
+    elif beta == [15,20,25]: return 'l3T'
+    elif beta == [10,15,20,25,30]: return 'l5T'
+
+all_df = utils.download_wandb_table("deep_continuation/beta_and_scale")
+all_df["beta_list"] = all_df["beta"]
+all_df["beta"] = all_df["beta"].apply(beta_to_tag)
+all_df = all_df.set_index('wandb_id', drop=False)
+
+print("available columns")
+for col in list(all_df.columns):
+    print(col)
+
+
+#%% BARPLOT
+metrics = { 
+    f"{L}_{D}{S}": [
+        f"{L}_{D+n+b+S}"
+        for n in ['0']#noise_dict.keys()
+        for b in ['T10', 'T20', 'T30', 'l3T', 'l5T']
+    ] 
+    for D in ['G','B','F']
+    for S in ['N','R']
+    for L in ['mse', 'mae']
+}
+
+R_df = all_df[
+    # (all_df['loss']=='mse') &\
+    # (all_df['out_unit']=="None") &\
+    # (all_df['standardize']==False)&\
+    (all_df['rescale']==True)
+]
+N_df = all_df[
+    # (all_df['loss']=='mse') &\
+    # (all_df['out_unit']=="None") &\
+    # (all_df['standardize']==False)&\
+    (all_df['rescale']==False)
+]
+
+fig = plt.figure(figsize=[7.5,2.5], dpi=80)
+ax1 = plt.subplot(321)
+ax2 = plt.subplot(323, sharey=ax1)
+ax3 = plt.subplot(325, sharey=ax1)
+ax4 = plt.subplot(322, sharey=ax1)
+ax5 = plt.subplot(324, sharey=ax1)
+ax6 = plt.subplot(326, sharey=ax1)
+plt.setp(ax4.get_yticklabels(), visible=False)
+plt.setp(ax5.get_yticklabels(), visible=False)
+plt.setp(ax6.get_yticklabels(), visible=False)
+
+# ax1.set_yscale('log')
+ax1.set_ylabel('loss') 
+ax1.set_ylim(0.000,0.01)
+
+N_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_FN']}).plot(kind='bar', ax=ax1, width=0.6, title=f"without rescaling", legend=False)
+N_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_GN']}).plot(kind='bar', ax=ax2, width=0.6, legend=False)
+N_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_BN']}).plot(kind='bar', ax=ax3, width=0.6, legend=False)
+R_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_FR']}).plot(kind='bar', ax=ax4, width=0.6, title=f"with rescaling", legend=False)
+R_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_GR']}).plot(kind='bar', ax=ax5, width=0.6, legend=False)
+R_df.groupby(["beta"]).agg({m:'min' for m in metrics['mse_BR']}).plot(kind='bar', ax=ax6, width=0.6, legend=False)
+
+plt.tight_layout()
+# plt.savefig("compare_rescaling.pdf")
+plt.show()
+
+
+#%% TABLE WITH 
+tag = 'mse_BR'
+index = 'wandb_id'
+df = R_df.set_index(index)
+display(
+    df.groupby(["beta"]).agg({m:'min' for m in metrics[tag]})\
+    .style.background_gradient(axis=None, low=0, high=-0.008)
+)
+display(
+    df.groupby(["beta"]).agg({m:'idxmin' for m in metrics[tag]})
+)
+
+
+#%%  GET MODEL
+model_id = 'z3m7fq6n' # '33du76v1' ## (clean)
+metric_name = 'mse_B0T20R'
+# model_id = sub_df[all_df[metric_name] == sub_df[metric_name].min()]['wandb_id'].iloc[0]
+
+
+best_folder = "best_models/"
+# best_folder = ""
+if not os.path.exists(f"{best_folder}{model_id}.pt"):
+    print("downloading...")
+    run = api.run(f"deep_continuation/beta_and_scale/{model_id}")
+    run.file("best_valid_loss_model.pt").download(replace=True)
+    os.rename("best_valid_loss_model.pt", f"{best_folder}{model_id}.pt")
+    run.file("config.yaml").download(replace=True)
+    os.rename("config.yaml", f"{best_folder}{model_id}.yaml")
+    print("done")
+else:
+    print("already downloaded")
+
+# LOAD THE MODEL
+with open(f"{best_folder}{model_id}.yaml") as file:
+    config = yaml.load(file, Loader=yaml.FullLoader)
+    config.pop("wandb_version")
+    config.pop("_wandb")
+    for k, v in config.items():
+        config[k] = v['value']
+
+# for k, v in config.items():
+#     print(k, v) 
+
+args = utils.ObjectView(config)
+mlp = MLP(args).to(device)
+mlp.load_state_dict(torch.load(f"{best_folder}{model_id}.pt", map_location=device))
+mlp.eval()
+# print(mlp)
+
+
+# RE-EVALUATE
+
+data_path = "/Users/Simon/codes/deep_continuation/deep_continuation/"
+# data_path = "deep_continuation/"
+
 path_dict = {
-    'F': '../data/Fournier/valid/',
-    'G': '../data/G1/valid/',
-    'B': '../data/B1/valid/',
+    'F': f'{data_path}data/Fournier/valid/',
+    'G': f'{data_path}data/G1/valid/',
+    'B': f'{data_path}data/B1/valid/',
 }
 
 loss_dict = {
-    'mse': 0,
-    'dcs': 0,
-    'mae': 0,
-    'dca': 0,
+    'mse': nn.MSELoss(), 
+    'dcs': nn.L1Loss(), 
+    'mae': train.dc_square_error, 
+    'dca': train.dc_absolute_error,
 }
-    
+
 scale_dict = {
     'N': False,
     'R': True
@@ -42,186 +182,36 @@ beta_dict = {
     'l3T': [15.0, 20.0, 25.0], 
     'l5T': [10.0, 15.0, 20.0, 25.0, 30.0],
 }
-inverted_beta_dict = {v:k for k,v in beta_dict.items()}
 
+metric_loss, metric_key = metric_name.split('_')
+p, n, b, s = metric_key[0], metric_key[1], metric_key[2:5], metric_key[5]
 
-all_df = utils.download_wandb_table("deep_continuation/beta_and_scale")
-all_df["beta_list"] = all_df["beta"]
-all_df["beta"] = all_df["beta"].apply(lambda s: inverted_beta_dict[s])
-
-print("available columns")
-for col in list(all_df.columns):
-    print(col)
-
-
-#%% 
-metrics = [
-    f"{l}_{p+n+b+s}"
-    for s in ['N', 'R']#scale_dict.keys()
-    for p in ['G']#path_dict.keys()
-    for n in ['0']#noise_dict.keys()
-    for b in beta_dict.keys()
-    for l in ['mae']#loss_dict.keys()
-]
-sub_df = all_df[
-    # (all_df['loss']=='mse') &\
-    (all_df['out_unit']=="None") &\
-    (all_df['standardize']==False)
-]
-sub_df.groupby(["rescale","beta"])\
-.agg({metric:'min' for metric in metrics})\
-.style.background_gradient(axis=None, low=0, high=-0.8)
-
-
-#%% BARPLOT
-
-metrics = { f"{L}_{D}{S}": [
-    f"{L}_{D+n+b+S}"
-    for n in ['0']#noise_dict.keys()
-    for b in beta_dict.keys()
-] for D in ['G','B','F'] for S in ['N','R'] for L in ['mse', 'mae']}
-
-R_df = all_df[
-    (all_df['loss']=='mse') &\
-    (all_df['out_unit']=="None") &\
-    (all_df['standardize']==False)&\
-    (all_df['rescale']==True)
-]
-N_df = all_df[
-    (all_df['loss']=='mse') &\
-    (all_df['out_unit']=="None") &\
-    (all_df['standardize']==False)&\
-    (all_df['rescale']==False)
-]
-
-fig = plt.figure(figsize=[7.5,2.5], dpi=80)
-ax1 = plt.subplot(321)
-ax2 = plt.subplot(323, sharey=ax1)
-ax3 = plt.subplot(325, sharey=ax1)
-ax4 = plt.subplot(322, sharey=ax1)
-ax5 = plt.subplot(324, sharey=ax1)
-ax6 = plt.subplot(326, sharey=ax1)
-plt.setp(ax4.get_yticklabels(), visible=False)
-plt.setp(ax5.get_yticklabels(), visible=False)
-plt.setp(ax6.get_yticklabels(), visible=False)
-
-# ax1.set_yscale('log')
-ax1.set_ylabel('loss') 
-ax1.set_ylim(0.000,0.01)
-
-
-N_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_FN']}).plot(kind='bar', ax=ax1, width=0.6, title=f"without rescaling {metrics['mse_FN'][0]}", legend=False)
-N_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_GN']}).plot(kind='bar', ax=ax2, width=0.6, legend=False)
-N_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_BN']}).plot(kind='bar', ax=ax3, width=0.6, legend=False)
-R_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_FR']}).plot(kind='bar', ax=ax4, width=0.6, title=f"with rescaling {metrics['mse_FR'][0]}", legend=False)
-R_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_GR']}).plot(kind='bar', ax=ax5, width=0.6, legend=False)
-R_df.groupby(["beta"]).agg({metric:'min' for metric in metrics['mse_BR']}).plot(kind='bar', ax=ax6, width=0.6, legend=False)
-
-plt.tight_layout()
-# plt.savefig("compare_rescaling.pdf")
-plt.show()
-
-#%%
-for col in all_df.columns:
-    if "id" in col: print(col)
-
-#%% DOWNLOAD THE WEIGHTS FILE   
-# NOTE: This part requires torch 1.6 because of cedar. Work in the virtual env
-from deep_continuation.train import MLP, default_parameters
-from deep_continuation import utils
-import torch
-import yaml
-import json
-
-if torch.cuda.is_available():
-    # torch.cuda.manual_seed(args.seed)
-    device = torch.device("cuda")
-    print('using GPU')
-    print(torch.cuda.get_device_name(0))
-else:
-    device = torch.device("cpu")
-    print('no GPU available')
-
-#%%  GET MODEL
-model_id = '33du76v1'
-metric = 'mae_B0T20N'
-# model_id = sub_df[all_df[metric] == sub_df[metric].min()]['wandb_id'].iloc[0]
-score = all_df[all_df['wandb_id'] == model_id][metric].iloc[0]
-print(f"wandb_id: {model_id}")
-print(f"{metric} = {score}")
-
-
-#%%
-best_folder = "best_models/"
-# best_folder = ""
-
-if not os.path.exists(f"{best_folder}{model_id}.pt"):
-    print("downloading...")
-    run = api.run(f"deep_continuation/beta_and_scale/{model_id}")
-    run.file("best_valid_loss_model.pt").download(replace=True)
-    os.rename("best_valid_loss_model.pt", f"{best_folder}{model_id}.pt")
-    run.file("config.yaml").download(replace=True)
-    os.rename("config.yaml", f"{best_folder}{model_id}.yaml")
-    print("done")
-else:
-    print("already downloaded")
-
-
-# LOAD THE MODEL
-with open(f"{best_folder}{model_id}.yaml") as file:
-    config = yaml.load(file, Loader=yaml.FullLoader)
-    config.pop("wandb_version")
-    config.pop("_wandb")
-    for k, v in config.items():
-        config[k] = v['value']
-
-for k, v in config.items():
-    print(k, v) 
-
-args = utils.ObjectView(config)
-mlp = MLP(args).to(device)
-mlp.load_state_dict(torch.load(f"{best_folder}{model_id}.pt", map_location=device))
-# mlp.eval()
-print(mlp)
-
-
-
-#%% TEST ON TRAINING DATA
-data_path = "/Users/Simon/codes/deep_continuation/deep_continuation/"
-# data_path = "deep_continuation/"
-
-path_dict = {
-    'F': f'{data_path}data/Fournier/valid/',
-    'G': f'{data_path}data/G1/valid/',
-    'B': f'{data_path}data/B1/valid/',
-}
-
-dataset = data.ContinuationData(
-    path_dict[args.data],
-    beta=args.beta,
-    noise=args.noise,
-    rescaled=args.rescale,
-    standardize=args.standardize,
-    base_scale=15 if args.data=="F" else 20
+dataset = data.ContinuationData(path_dict[p], base_scale=15 if p=="F" else 20)
+metric = data.EvaluationMetric(
+    name = f"{p+n+b+s}",
+    dataset=dataset,
+    loss_dict=loss_dict,
+    noise=noise_dict[n],
+    beta=beta_dict[b],
+    scale=scale_dict[s],
+    std=args.standardize,
+    bs=args.metric_batch_size,
+    num_workers=args.num_workers,
 )
 
-# %% TEST ON OTHER DATA
-path_dict = {
-    'F': f'{data_path}data/Fournier/valid/',
-    'G': f'{data_path}data/G1/valid/',
-    'B': f'{data_path}data/B1/valid/',
-}
-other_data = 'G'
-dataset = data.ContinuationData(
-    path_dict[other_data],
-    beta=[30],
-    noise=0.00001,
-    rescaled=args.rescale,
-    standardize=args.standardize,
-    base_scale=15 if other_data=="F" else 20
-)
+metric.evaluate(mlp, device, fraction=1.0)
 
-#%%  FIGURE
+
+print(f"best on {metric_name}: {model_id} - {all_df.data.loc[model_id]}, {all_df.noise.loc[model_id]}, {all_df.beta.loc[model_id]}, {all_df.out_unit.loc[model_id]}, {all_df.epoch.loc[model_id]}, {all_df['epoch_'+metric_name].loc[model_id]}") 
+print(f"  old: {all_df[metric_name].loc[model_id]}")
+print(f"  new: {metric.loss_values[metric_loss]}")
+
+
+#%% PLOT TEST SPECTRA
+print(f"best on {metric_name}: {model_id} - {all_df.data.loc[model_id]}, {all_df.noise.loc[model_id]}, {all_df.beta.loc[model_id]}, {all_df.out_unit.loc[model_id]}, {all_df.epoch.loc[model_id]}, {all_df['epoch_'+metric_name].loc[model_id]}") 
+print(f"  old: {all_df[metric_name].loc[model_id]}")
+print(f"  new: {metric.loss_values[metric_loss]}")
+
 
 start=np.random.randint(0,100)
 
@@ -291,3 +281,4 @@ for k in loaded_state_dct.keys():
 loaded_state_dct = torch.load(f"{best_folder}{model_id}.pt", map_location=device)
 for k in loaded_state_dct.keys():
     print(mlp.state_dict()[k] == loaded_state_dct[k])
+# 

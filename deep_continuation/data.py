@@ -47,7 +47,7 @@ class ContinuationData(torch.utils.data.Dataset):
         return x, y
 
 
-class Metric():
+class EvaluationMetric():
     def __init__(self, name, dataset, loss_dict, noise, beta, scale, std, bs, num_workers):
         self.name = name
         
@@ -60,14 +60,12 @@ class Metric():
         self.bs = bs
         self.num_workers = num_workers
         
-        ## saving all los inside allows to do only one loop
         self.loss_dict = loss_dict
         self.loss_values = {lname: TORCH_MAX for lname in loss_dict.keys()}
         self.best_losses = {lname: TORCH_MAX for lname in loss_dict.keys()}
         self.best_models = {lname: None for lname in loss_dict.keys()}
 
     def evaluate(self, model, device, fraction=0.3):
-        
         self.dataset.noise = self.noise
         self.dataset.beta = self.beta
         self.dataset.rescaled = self.scale
