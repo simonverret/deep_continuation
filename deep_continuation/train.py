@@ -8,11 +8,11 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-try:
-    import wandb
-    USE_WANDB = True
-except ModuleNotFoundError:
-    USE_WANDB = False
+# try:
+#     import wandb
+#     USE_WANDB = True
+# except ModuleNotFoundError:
+USE_WANDB = False
 
 from deep_continuation import data
 from deep_continuation import utils
@@ -370,9 +370,9 @@ def main():
         print('no GPU available')
 
     path_dict = {
-        'F': 'data/Fournier/valid/',
-        'G': 'data/G1/valid/',
-        'B': 'data/B1/valid/',
+        'F': 'data/Fournier/',
+        'G': 'data/G1/',
+        'B': 'data/B1/',
     }
 
     loss_dict = {
@@ -403,27 +403,29 @@ def main():
     }
 
     train_set = data.ContinuationData(
-        path_dict[args.data],
+        path_dict[args.data]+"train/",
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        base_scale=15 if args.data=="F" else 20
+        base_scale=15 if args.data=="F" else 20,
+        fullBetaList=args.beta
     )
     
     valid_set = data.ContinuationData(
-        path_dict[args.data],
+        path_dict[args.data]+"valid/",
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
         standardize=args.standardize,
-        base_scale=15 if args.data=="F" else 20
+        base_scale=15 if args.data=="F" else 20,
+        fullBetaList=args.beta
     )
 
     metric_list = []
     # for p, path in path_dict.items():
     #     dataset = data.ContinuationData(
-    #         path,
+    #         path+"valid/",
     #         base_scale=15 if p=="F" else 20
     #     )
     #     for n, noise in noise_dict.items():

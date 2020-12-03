@@ -9,14 +9,16 @@ TORCH_MAX = torch.finfo(torch.float64).max
 # TODO: make something more general purpose; this dataset is very specific for the temperature exploration
 
 class ContinuationData(torch.utils.data.Dataset):
-    def __init__(self, path, noise=0.0, beta=[20.0], rescaled=False, standardize=False, base_scale=20.0):
+    def __init__(self, path, noise=0.0, beta=[20.0], rescaled=False, 
+        standardize=False, base_scale=20.0, fullBetaList=[10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0]
+    ):
         self.noise = noise
         self.beta = beta
         self.rescaled = rescaled
         self.standardize = standardize
         self.base_scale = base_scale
 
-        self.fullBetaList = [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0]        
+        self.fullBetaList = fullBetaList     
         self.x_data = {2.0: np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")}
         for b in self.fullBetaList :
             self.x_data[b] = np.loadtxt(open(path+f"Pi_beta_{b}.csv", "rb"), delimiter=",")
@@ -31,7 +33,7 @@ class ContinuationData(torch.utils.data.Dataset):
         self.wmaxs = np.loadtxt(open(path+"wmaxs.csv", "rb"), delimiter=",")
 
     def __len__(self):
-        return len(self.x_data[20.0])
+        return len(self.x_data[self.beta[0]])
 
     def __getitem__(self, index):
         b = np.random.choice(self.beta)

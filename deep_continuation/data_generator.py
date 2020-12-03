@@ -208,9 +208,9 @@ class DataGenerator():
             
             if self.rescale > SMALL:
                 s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
-                wmax = np.cbrt(s) * self.rescale
+                wmax = np.sqrt(s) * self.rescale
                 omega = np.linspace(0, wmax, self.Nw)
-                sigma_r[i] = sigma_func(omega)
+                sigma_r[i] = (wmax/self.wmax) * sigma_func(omega)
                 wmaxs[i] = wmax
             else:
                 wmaxs[i] = self.wmax
@@ -233,10 +233,10 @@ class DataGenerator():
         np.savetxt(sigma_path, sigma, delimiter=',')
 
         for b, beta in enumerate(self.beta[1:]):
-            new_path = pi_path.replace(".csv", f"_beta_{beta:f}.csv")
+            new_path = pi_path.replace(".csv", f"_beta_{beta}.csv")
             np.savetxt(new_path, Pi[b], delimiter=',')
         if self.rescale:
-            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale:f}.csv")
+            new_path = sigma_path.replace(".csv", f"_scaled_{self.rescale}.csv")
             np.savetxt(new_path, sigma_r, delimiter=',')
         if wmaxs_path:
             np.savetxt(wmaxs_path, wmaxs, delimiter=',')
