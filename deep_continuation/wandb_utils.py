@@ -15,7 +15,13 @@ from deep_continuation.train import MLP
 data_path = "/Users/Simon/codes/deep_continuation/deep_continuation/"
 # data_path = "deep_continuation/"
 
-path_dict = {
+train_dict = {
+    'F': f'{data_path}data/Fournier/train/',
+    'G': f'{data_path}data/G1/train/',
+    'B': f'{data_path}data/B1/train/',
+}
+
+valid_dict = {
     'F': f'{data_path}data/Fournier/valid/',
     'G': f'{data_path}data/G1/valid/',
     'B': f'{data_path}data/B1/valid/',
@@ -53,11 +59,11 @@ def data_args_from_name(metric_name):
     metric_loss, metric_key = metric_name.split('_')
     p, n, b, s = metric_key[0], metric_key[1], metric_key[2:5], metric_key[5]
     return dict(
-        path=path_dict[p],
+        path=valid_dict[p],
         beta=beta_dict[b],
         noise=noise_dict[n],
         rescaled=scale_dict[s],
-        base_scale=15 if path_dict[p]=="F" else 20
+        base_scale=15 if valid_dict[p]=="F" else 20
     )
 
 
