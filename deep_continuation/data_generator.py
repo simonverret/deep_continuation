@@ -202,15 +202,26 @@ class DataGenerator():
         sigma_r = np.zeros((size, self.Nw))
         wmaxs = np.zeros(size)
 
+        s_func, _ = self.generate_functions()
+        
         for i in range(size):
             if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
-            sigma_func, pi_func = self.generate_functions()
+
+            ss = 1/(1+i*0.1)
+            sigma_func = lambda x: ss*s_func(ss*x)
+            pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax) 
             
+            # if self.rescale > SMALL:
+            #     s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
+            #     wmax = np.sqrt(s) * self.rescale
+            #     omega = np.linspace(0, wmax, self.Nw)
+            #     sigma_r[i] = (wmax/self.wmax) * sigma_func(omega)
+            #     wmaxs[i] = wmax
             if self.rescale > SMALL:
                 s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
-                wmax = np.sqrt(s) * self.rescale
+                wmax = np.cbrt(s) * self.rescale
                 omega = np.linspace(0, wmax, self.Nw)
-                sigma_r[i] = (wmax/self.wmax) * sigma_func(omega)
+                sigma_r[i] = sigma_func(omega)
                 wmaxs[i] = wmax
             else:
                 wmaxs[i] = self.wmax
