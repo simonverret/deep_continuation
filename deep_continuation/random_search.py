@@ -118,7 +118,6 @@ args = utils.parse_file_and_command(default_dict, help_dict={})
 default_dict = vars(args)
 
 for i in range(30):
-
     new_args_dict = new_args_dict_from(search_space, default_dict)
     args = ObjectView(new_args_dict)
     np.random.seed(args.seed)
@@ -134,13 +133,13 @@ for i in range(30):
         print('no GPU available')
 
     path_dict = {
-        'F': 'data/Fournier/valid/',
-        'G': 'data/G1/valid/',
-        'B': 'data/B1/valid/',
+        'F': 'data/Fournier/',
+        'G': 'data/G1/',
+        'B': 'data/B1/',
     }
 
     train_set = data.ContinuationData(
-        path_dict[args.data],
+        path_dict[args.data]+"train/",
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
@@ -148,7 +147,7 @@ for i in range(30):
         base_scale=15 if args.data=="F" else 20
     )
     valid_set = data.ContinuationData(
-        path_dict[args.data],
+        path_dict[args.data]+"valid/",
         beta=args.beta,
         noise=args.noise,
         rescaled=args.rescale,
