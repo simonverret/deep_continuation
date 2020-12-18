@@ -5,13 +5,18 @@ import json
 import argparse
 
 
-def parse_file_and_command(default_dict, help_dict):
-    parser = argparse.ArgumentParser()
-
+def parse_file_and_command(default_dict, 
+    help_dict=None, 
+    description=None, 
+    usage=None, 
+    argv=sys.argv, 
+    out_dict=False,
+):
+    parser = argparse.ArgumentParser(description=description, usage=usage)
     params_dict = {}
     
-    if len(sys.argv)>1:
-        args_file = sys.argv[1] 
+    if len(argv)>1:
+        args_file = argv[1] 
         if args_file[-5:]=='.json':
             if os.path.exists(args_file):
                 with open(args_file) as f:
@@ -25,7 +30,6 @@ def parse_file_and_command(default_dict, help_dict):
         print('using default parameters')
 
     for name, default in default_dict.items():
-        
         ## replace the defaults by the json file content
         try: default = params_dict[name]
         except KeyError: pass
@@ -45,7 +49,12 @@ def parse_file_and_command(default_dict, help_dict):
     
     # using parser.parse_known_args()[0] instead of parser.parse_args() preserve
     # compatibility with jupyter in vscode
-    return parser.parse_known_args()[0]
+    if out_dict:
+        return vars(parser.parse_known_args(argv)[0])
+    else:
+        return parser.parse_known_args(argv)[0]
+
+
 
 
 class ObjectView():
