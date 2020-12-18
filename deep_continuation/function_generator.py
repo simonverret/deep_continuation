@@ -4,15 +4,18 @@ from abc import ABC, abstractmethod  #AbstractBaseClass
 import numpy as np
 from scipy import integrate
 from scipy.special import gamma
+import matplotlib.pyplot as plt
 
+from deep_continuation import utils
 from deep_continuation import monotonous_functions as monofunc
+
 
 SMALL = 1e-10
 INF = 1e10
 
 default_parameters = {
     # peaks
-    "variant": "Gaussian",
+    "variant": "B",
     "anormal": False,
     "wmax": 20.0,
     "nmbrs": [[0, 4],[0, 6]],
@@ -26,6 +29,44 @@ default_parameters = {
     'num_peaks': 10000,
     'width': 0.05,
 }
+
+def main():
+    args = utils.parse_file_and_command(default_parameters, {})
+    generator = SigmaPiGenerator.factory(**vars(args))
+
+    np.random.seed(111)
+    sigma_func, pi_func = generator.generate()
+    
+    wmax_list = [20]
+    M = 512
+    beta_list = [20,30, 40, 50, 60]
+    N = 128
+
+    wn = np.array([np.arange(0, N)*2*np.pi/beta for beta in beta_list])
+    Pi = np.array([pi_func(np.arange(0, N)*2*np.pi/beta) for beta in beta_list])
+
+    fig, ax = plt.subplots(1, 3, figsize=[10, 5])
+    ax[0].set_ylabel(r"$\Pi(i\omega_n)$")
+    ax[0].set_xlabel(r"$\omega_n$")
+    ax[0].plot(wn.T, Pi.T, '.')
+
+    ax[1].set_xlabel(r"$\omega_n$")
+    ax[1].plot(Pi.T, '.')
+
+    w = np.array([np.linspace(-wmax, wmax, 2*M+1) for wmax in wmax_list])
+    sigma = np.array([(wmax/20)*sigma_func(np.linspace(-wmax, wmax, 2*M+1)) for wmax in wmax_list])
+    
+    ax[2].set_ylabel(r"$\sigma(\omega)$")
+    ax[2].set_xlabel(r"$\omega$")
+    ax[2].plot(sigma.T)
+    
+    fig.tight_layout()
+    plt.show()
+
+    # s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
+    # new_wmax = np.sqrt(s) * 4.0
+    # sigma_r[i] = (new_wmax/self.wmax) * sigma_func(omega)
+
 
 def sum_on_args(f, x, *args):
     if isinstance(x, np.ndarray):
@@ -237,14 +278,11 @@ class SigmaPiGenerator(ABC):
         '''outputs two functions'''
 
     def factory(variant, **kwargs):
-        try :
+        if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
+            return LorentzComb(**kwargs)
+        else:
             sigma_generator = SigmaGenerator.factory(variant, **kwargs)
             return IntegralGenerator(sigma_generator, **kwargs)
-        except ValueError:
-            if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
-                return LorentzComb(**kwargs)
-            else:
-                raise ValueError(f"SigmaPiGenerator variant {variant} not recognized")
     factory = staticmethod(factory)
 
 
@@ -276,3 +314,7 @@ class LorentzComb(SigmaPiGenerator):
         sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
         pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
         return sigma_func, pi_func
+
+
+if __name__ == "__main__":
+    main()
