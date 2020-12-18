@@ -100,6 +100,176 @@ def free_beta(x, c, w, h, a, b):
     return h*standardized_beta((x-c)/w, a, b)/w
 
 
+class SigmaGenerator(ABC):
+    def __init__(self, wmax=20, **kwargs):
+        self.wmax = wmax
+
+    @abstractmethod
+    def generate(self):
+        '''outputs one function'''
+        pass
+
+    def factory(variant, **kwargs):
+        if variant in ["G", "Gaussian", "gaussian"]:
+            return GaussianMix(**kwargs)
+        elif variant in ["B", "Beta", "beta"]:
+            return BetaMix(**kwargs)
+        elif variant in ["L", "Lorentzian", "lorentzian"]:
+            return LorentzMix(**kwargs)
+        else:
+            raise ValueError(f"SigmaGenerator variant {variant} not recognized")
+    factory = staticmethod(factory)
+    
+    
+class GaussianMix(SigmaGenerator):
+    def __init__(self, 
+                 nmbrs=[[0,4],[0,6]],
+                 cntrs=[[0.00, 0.00], [4.00, 16.0]],
+                 wdths=[[0.04, 0.40], [0.04, 0.40]],
+                 wgths=[[0.00, 1.00], [0.00, 1.00]],
+                 norm=1, even=True, anormal=False,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.nmbrs = nmbrs
+        self.cntrs = cntrs
+        self.wdths = wdths
+        self.wgths = wgths
+        self.norm = norm
+        self.even = even
+        self.anormal = anormal
+        self.tmp_num_per_group = None
+
+    def new_random_num_per_group(self):
+        num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
+        if all(num_per_group) == 0:
+            lucky_group = np.random.randint(0,len(num_per_group)-1)
+            num_per_group[lucky_group] = 1
+        self.tmp_num_per_group = num_per_group
+
+        return num_per_group
+
+    def random_cwh(self):
+        cl, wl, hl = [], [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
+            wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
+            hl.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
+        c = np.hstack(cl)
+        w = np.hstack(wl)
+        h = np.hstack(hl)
+
+        if self.even:
+            c = np.hstack([-c, c])
+            w = np.hstack([w, w])
+            h = np.hstack([h, h])
+
+        if self.anormal:
+            h *= w  # In some papers the gaussians are not normalized
+        if self.norm:
+            h *= np.pi*self.norm/(h.sum()+SMALL)
+
+        return c, w, h
+
+    def generate(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
+        return sigma_func
+
+
+class LorentzMix(GaussianMix):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def generate(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
+        return sigma_func
+
+
+class BetaMix(GaussianMix):
+    def __init__(self, 
+                 arngs=[[2.00, 5.00], [0.50, 5.00]],
+                 brths=[[2.00, 5.00], [0.50, 5.00]],
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.arngs = arngs
+        self.brths = brths
+
+    def random_ab(self):
+        al, bl = [], []
+        for i, n in enumerate(self.tmp_num_per_group):
+            al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
+            bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
+        a = np.hstack(al)
+        b = np.hstack(bl)
+        
+        if self.even:
+            aa, bb = a, b
+            a = np.hstack([aa, bb])
+            b = np.hstack([bb, aa])
+
+        return a, b
+
+    def generate(self):
+        self.new_random_num_per_group()
+        c, w, h = self.random_cwh()
+        a, b = self.random_ab()
+        sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        return sigma_func
+
+    
+class SigmaPiGenerator(ABC):
+    def __init__(self, wmax=20, **kwargs):
+        self.wmax = wmax
+
+    @abstractmethod
+    def generate(self):
+        '''outputs two functions'''
+
+    def factory(variant, **kwargs):
+        try :
+            sigma_generator = SigmaGenerator.factory(variant, **kwargs)
+            return IntegralGenerator(sigma_generator, **kwargs)
+        except ValueError:
+            if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
+                return LorentzComb(**kwargs)
+            else:
+                raise ValueError(f"SigmaPiGenerator variant {variant} not recognized")
+    factory = staticmethod(factory)
+
+
+class IntegralGenerator(SigmaPiGenerator):
+    def __init__(self, sigma_generator, **kwargs):
+        super().__init__(**kwargs)
+        self.sigma_generator = sigma_generator
+
+    def generate(self):
+        sigma_func = self.sigma_generator.generate()
+        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
+        return sigma_func, pi_func
+
+
+class LorentzComb(SigmaPiGenerator):
+    def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
+        super().__init__(**kwargs)
+        self.norm = norm
+        self.num_peaks = num_peaks
+        self.width = width
+
+    def generate(self):
+        k = np.linspace(0, 1, self.num_peaks)
+        # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
+        c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
+        w = np.ones(self.num_peaks)*self.width
+        h = abs(c) + 0.05
+        h *= self.norm/(2*h*c/(c**2+w**2)).sum()
+        sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
+        pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
+        return sigma_func, pi_func
+
+
 def infer_scales(Pi, sigma):
     N = len(Pi[0,0])
     M = len(sigma[0])
@@ -265,176 +435,6 @@ class DataGenerator():
             scale_plot(Pi, sigma, betas, wmaxs, name +"_scale.pdf" if name else None)
         if infer:
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
-
-
-class SigmaGenerator(ABC):
-    def __init__(self, wmax=20, **kwargs):
-        self.wmax = wmax
-
-    @abstractmethod
-    def generate(self):
-        '''outputs one function'''
-        pass
-
-    def factory(variant, **kwargs):
-        if variant in ["G", "Gaussian", "gaussian"]:
-            return GaussianMix(**kwargs)
-        elif variant in ["B", "Beta", "beta"]:
-            return BetaMix(**kwargs)
-        elif variant in ["L", "Lorentzian", "lorentzian"]:
-            return LorentzMix(**kwargs)
-        else:
-            raise ValueError(f"SigmaGenerator variant {args.variant} not recognized")
-    factory = staticmethod(factory)
-    
-    
-class GaussianMix(SigmaGenerator):
-    def __init__(self, 
-                 nmbrs=[[0,4],[0,6]],
-                 cntrs=[[0.00, 0.00], [4.00, 16.0]],
-                 wdths=[[0.04, 0.40], [0.04, 0.40]],
-                 wgths=[[0.00, 1.00], [0.00, 1.00]],
-                 norm=1, even=True, anormal=False,
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.nmbrs = nmbrs
-        self.cntrs = cntrs
-        self.wdths = wdths
-        self.wgths = wgths
-        self.norm = norm
-        self.even = even
-        self.anormal = anormal
-        self.tmp_num_per_group = None
-
-    def new_random_num_per_group(self):
-        num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
-        if all(num_per_group) == 0:
-            lucky_group = np.random.randint(0,len(num_per_group)-1)
-            num_per_group[lucky_group] = 1
-        self.tmp_num_per_group = num_per_group
-
-        return num_per_group
-
-    def random_cwh(self):
-        cl, wl, hl = [], [], []
-        for i, n in enumerate(self.tmp_num_per_group):
-            cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
-            wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
-            hl.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
-        c = np.hstack(cl)
-        w = np.hstack(wl)
-        h = np.hstack(hl)
-
-        if self.even:
-            c = np.hstack([-c, c])
-            w = np.hstack([w, w])
-            h = np.hstack([h, h])
-
-        if self.anormal:
-            h *= w  # In some papers the gaussians are not normalized
-        if self.norm:
-            h *= np.pi*self.norm/(h.sum()+SMALL)
-
-        return c, w, h
-
-    def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
-        sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
-        return sigma_func
-
-
-class LorentzMix(GaussianMix):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
-        sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
-        return sigma_func
-
-
-class BetaMix(GaussianMix):
-    def __init__(self, 
-                 arngs=[[2.00, 5.00], [0.50, 5.00]],
-                 brths=[[2.00, 5.00], [0.50, 5.00]],
-                 **kwargs):
-        super().__init__(**kwargs)
-        self.arngs = arngs
-        self.brths = brths
-
-    def random_ab(self):
-        al, bl = [], []
-        for i, n in enumerate(self.tmp_num_per_group):
-            al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
-            bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
-        a = np.hstack(al)
-        b = np.hstack(bl)
-        
-        if self.even:
-            aa, bb = a, b
-            a = np.hstack([aa, bb])
-            b = np.hstack([bb, aa])
-
-        return a, b
-
-    def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
-        a, b = self.random_ab()
-        sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
-        return sigma_func
-
-    
-class SigmaPiGenerator(ABC):
-    def __init__(self, wmax=20, **kwargs):
-        self.wmax = wmax
-
-    @abstractmethod
-    def generate(self):
-        '''outputs two functions'''
-
-    def factory(variant, **kwargs):
-        try :
-            sigma_generator = SigmaGenerator.factory(variant, **kwargs)
-            return IntegralGenerator(sigma_generator, **kwargs)
-        except ValueError:
-            if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
-                return LorentzComb(**kwargs)
-            else:
-                raise ValueError(f"SigmaPiGenerator variant {variant} not recognized")
-    factory = staticmethod(factory)
-
-
-class IntegralGenerator(SigmaPiGenerator):
-    def __init__(self, sigma_generator, **kwargs):
-        super().__init__(**kwargs)
-        self.sigma_generator = sigma_generator
-
-    def generate(self):
-        sigma_func = self.sigma_generator.generate()
-        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
-        return sigma_func, pi_func
-
-
-class LorentzComb(SigmaPiGenerator):
-    def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
-        super().__init__(**kwargs)
-        self.norm = norm
-        self.num_peaks = num_peaks
-        self.width = width
-
-    def generate(self):
-        k = np.linspace(0, 1, self.num_peaks)
-        # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
-        c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
-        w = np.ones(self.num_peaks)*self.width
-        h = abs(c) + 0.05
-        h *= self.norm/(2*h*c/(c**2+w**2)).sum()
-        sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
-        pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
-        return sigma_func, pi_func
 
 
 def main():
