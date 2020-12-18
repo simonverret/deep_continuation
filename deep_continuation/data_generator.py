@@ -2,6 +2,7 @@
 import os
 import time
 from pathlib import Path
+from abc import ABC, abstractmethod  #AbstractBaseClass
 
 import numpy as np
 from scipy import integrate
@@ -191,9 +192,7 @@ class DataGenerator():
         self.beta = beta
         self.wmax = wmax
         self.rescale = rescale
-
-    def generate_functions(self):
-        raise NotImplementedError
+        self.generator = SigmaPiGenerator.factory(wmax=wmax, **kwargs)
 
     def generate_batch(self, size):
         Pi = np.zeros((len(self.beta), size, self.Nwn))
@@ -202,7 +201,7 @@ class DataGenerator():
         sigma_r = np.zeros((size, self.Nw))
         wmaxs = np.zeros(size)
 
-        s_func, _ = self.generate_functions()
+        s_func, _ = self.generator.generate()
         
         for i in range(size):
             if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
@@ -268,7 +267,28 @@ class DataGenerator():
             infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
 
 
-class GaussianMix(DataGenerator):
+class SigmaGenerator(ABC):
+    def __init__(self, wmax=20, **kwargs):
+        self.wmax = wmax
+
+    @abstractmethod
+    def generate(self):
+        '''outputs one function'''
+        pass
+
+    def factory(variant, **kwargs):
+        if variant in ["G", "Gaussian", "gaussian"]:
+            return GaussianMix(**kwargs)
+        elif variant in ["B", "Beta", "beta"]:
+            return BetaMix(**kwargs)
+        elif variant in ["L", "Lorentzian", "lorentzian"]:
+            return LorentzMix(**kwargs)
+        else:
+            raise ValueError(f"SigmaGenerator variant {args.variant} not recognized")
+    factory = staticmethod(factory)
+    
+    
+class GaussianMix(SigmaGenerator):
     def __init__(self, 
                  nmbrs=[[0,4],[0,6]],
                  cntrs=[[0.00, 0.00], [4.00, 16.0]],
@@ -317,25 +337,22 @@ class GaussianMix(DataGenerator):
 
         return c, w, h
 
-    def generate_functions(self):
+    def generate(self):
         self.new_random_num_per_group()
         c, w, h = self.random_cwh()
         sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
-        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
-
-        return sigma_func, pi_func
+        return sigma_func
 
 
 class LorentzMix(GaussianMix):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def generate_functions(self):
+    def generate(self):
         self.new_random_num_per_group()
         c, w, h = self.random_cwh()
         sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
-        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
-        return sigma_func, pi_func
+        return sigma_func
 
 
 class BetaMix(GaussianMix):
@@ -362,23 +379,53 @@ class BetaMix(GaussianMix):
 
         return a, b
 
-    def generate_functions(self):
+    def generate(self):
         self.new_random_num_per_group()
         c, w, h = self.random_cwh()
         a, b = self.random_ab()
         sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        return sigma_func
+
+    
+class SigmaPiGenerator(ABC):
+    def __init__(self, wmax=20, **kwargs):
+        self.wmax = wmax
+
+    @abstractmethod
+    def generate(self):
+        '''outputs two functions'''
+
+    def factory(variant, **kwargs):
+        try :
+            sigma_generator = SigmaGenerator.factory(variant, **kwargs)
+            return IntegralGenerator(sigma_generator, **kwargs)
+        except ValueError:
+            if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
+                return LorentzComb(**kwargs)
+            else:
+                raise ValueError(f"SigmaPiGenerator variant {variant} not recognized")
+    factory = staticmethod(factory)
+
+
+class IntegralGenerator(SigmaPiGenerator):
+    def __init__(self, sigma_generator, **kwargs):
+        super().__init__(**kwargs)
+        self.sigma_generator = sigma_generator
+
+    def generate(self):
+        sigma_func = self.sigma_generator.generate()
         pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
         return sigma_func, pi_func
-    
 
-class LorentzComb(DataGenerator):
+
+class LorentzComb(SigmaPiGenerator):
     def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
         super().__init__(**kwargs)
         self.norm = norm
         self.num_peaks = num_peaks
         self.width = width
 
-    def generate_functions(self):
+    def generate(self):
         k = np.linspace(0, 1, self.num_peaks)
         # c = monofunc.piecewise_gap(k, n=8, soft=0.05, xlims=[0,1], ylims=[0,0.8*self.wmax])
         c = monofunc.random_climb(k, xlims=[0, 1], ylims=[0, 0.8*self.wmax])
@@ -426,16 +473,7 @@ def main():
     print(f"seed : {args.seed}")
     np.random.seed(args.seed)
 
-    if args.variant in ["G", "Gaussian", "gaussian"]:
-        generator = GaussianMix(**vars(args))
-    elif args.variant in ["B", "Beta", "beta"]:
-        generator = BetaMix(**vars(args))
-    elif args.variant in ["L", "Lorentzian", "lorentzian"]:
-        generator = LorentzMix(**vars(args))
-    elif args.variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
-        generator = LorentzComb(**vars(args))
-    else:
-        raise ValueError(f"variant {args.variant} not recognized")
+    generator = DataGenerator(**vars(args))
 
     if args.plot > 0:
         generator.plot(
