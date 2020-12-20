@@ -1,6 +1,3 @@
-from pathlib import Path
-from abc import ABC, abstractmethod  #AbstractBaseClass
-
 import numpy as np
 from scipy import integrate
 from scipy.special import gamma
@@ -69,13 +66,12 @@ def main():
 
 
 def sum_on_args(f, x, *args):
-    if isinstance(x, np.ndarray):
-        x = x[np.newaxis, :]
-        args = [a for a in args]  # copy args to allow reassign
-        for i in range(len(args)):
-            if isinstance(args[i], np.ndarray):
-                while len(args[i].shape) < len(x.shape):
-                    args[i] = args[i][:, np.newaxis]
+    x = x[np.newaxis, :]
+    args = [a for a in args]  # copy args to allow reassign
+    for i in range(len(args)):
+        if isinstance(args[i], np.ndarray):
+            while len(args[i].shape) < len(x.shape):
+                args[i] = args[i][:, np.newaxis]
     return f(x, *args).sum(axis=0)
 
 
@@ -149,14 +145,13 @@ def free_beta(x, c, w, h, a, b):
     return h*standardized_beta((x-c)/w, a, b)/w
 
 
-class SigmaGenerator(ABC):
+class SigmaGenerator():
     def __init__(self, wmax=20, **kwargs):
         self.wmax = wmax
 
-    @abstractmethod
     def generate(self):
         '''outputs one function'''
-        pass
+        raise NotImplementedError
 
     def factory(variant, **kwargs):
         if variant in ["G", "Gaussian", "gaussian"]:
@@ -184,7 +179,6 @@ class GaussianMix(SigmaGenerator):
         self.wdths = wdths
         self.wgths = wgths
         self.norm = norm
-        self.even = even
         self.anormal = anormal
         self.tmp_num_per_group = None
 
@@ -194,7 +188,6 @@ class GaussianMix(SigmaGenerator):
             lucky_group = np.random.randint(0,len(num_per_group)-1)
             num_per_group[lucky_group] = 1
         self.tmp_num_per_group = num_per_group
-
         return num_per_group
 
     def random_cwh(self):
@@ -206,11 +199,6 @@ class GaussianMix(SigmaGenerator):
         c = np.hstack(cl)
         w = np.hstack(wl)
         h = np.hstack(hl)
-
-        if self.even:
-            c = np.hstack([-c, c])
-            w = np.hstack([w, w])
-            h = np.hstack([h, h])
 
         if self.anormal:
             h *= w  # In some papers the gaussians are not normalized
@@ -253,12 +241,6 @@ class BetaMix(GaussianMix):
             bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
         a = np.hstack(al)
         b = np.hstack(bl)
-        
-        if self.even:
-            aa, bb = a, b
-            a = np.hstack([aa, bb])
-            b = np.hstack([bb, aa])
-
         return a, b
 
     def generate(self):
@@ -269,13 +251,13 @@ class BetaMix(GaussianMix):
         return sigma_func
 
     
-class SigmaPiGenerator(ABC):
+class SigmaPiGenerator():
     def __init__(self, wmax=20, **kwargs):
         self.wmax = wmax
 
-    @abstractmethod
     def generate(self):
         '''outputs two functions'''
+        raise NotImplementedError
 
     def factory(variant, **kwargs):
         if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
@@ -292,7 +274,8 @@ class IntegralGenerator(SigmaPiGenerator):
         self.sigma_generator = sigma_generator
 
     def generate(self):
-        sigma_func = self.sigma_generator.generate()
+        half_sigma_func = self.sigma_generator.generate()
+        sigma_func = lambda x: 0.5*(half_sigma_func(x)+half_sigma_func(-x))
         pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
         return sigma_func, pi_func
 
