@@ -35,7 +35,7 @@ def main():
     generator = SigmaPiGenerator.factory(**vars(args))
 
     np.random.seed(args.seed)
-    sigma_func, pi_func = generator.generate()
+    sigma, pi = generator.generate()
     
     wmax_list = [20]
     M = 512
@@ -43,7 +43,7 @@ def main():
     N = 128
 
     wn = np.array([np.arange(0, N)*2*np.pi/beta for beta in beta_list])
-    Pi = np.array([pi_func(np.arange(0, N)*2*np.pi/beta) for beta in beta_list])
+    Pi = np.array([pi(np.arange(0, N)*2*np.pi/beta) for beta in beta_list])
 
     fig, ax = plt.subplots(1, 3, figsize=[10, 5])
     ax[0].set_ylabel(r"$\Pi(i\omega_n)$")
@@ -54,7 +54,7 @@ def main():
     ax[1].plot(Pi.T, '.')
 
     w = np.array([np.linspace(-wmax, wmax, 2*M+1) for wmax in wmax_list])
-    sigma = np.array([(wmax/20)*sigma_func(np.linspace(-wmax, wmax, 2*M+1)) for wmax in wmax_list])
+    sigma = np.array([(wmax/20)*sigma(np.linspace(-wmax, wmax, 2*M+1)) for wmax in wmax_list])
     
     ax[2].set_ylabel(r"$\sigma(\omega)$")
     ax[2].set_xlabel(r"$\omega$")
@@ -63,9 +63,9 @@ def main():
     fig.tight_layout()
     plt.show()
 
-    # s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
+    # s = INF**2*pi_integral(INF, sigma, grid_end=self.wmax)
     # new_wmax = np.sqrt(s) * 4.0
-    # sigma_r[i] = (new_wmax/self.wmax) * sigma_func(omega)
+    # sigma_r[i] = (new_wmax/self.wmax) * sigma(omega)
 
 
 def sum_on_args(f, x, *args):
@@ -151,9 +151,6 @@ def free_beta(x, c, w, h, a, b):
 
 
 class SigmaGenerator():
-    def __init__(self, wmax=20, **kwargs):
-        self.wmax = wmax
-
     def generate(self):
         '''outputs one function'''
         raise NotImplementedError
@@ -172,13 +169,13 @@ class SigmaGenerator():
     
 class GaussianMix(SigmaGenerator):
     def __init__(self, 
-                 nmbrs=[[0,4],[0,6]],
-                 cntrs=[[0.00, 0.00], [4.00, 16.0]],
-                 wdths=[[0.04, 0.40], [0.04, 0.40]],
-                 wgths=[[0.00, 1.00], [0.00, 1.00]],
-                 norm=1, anormal=False,
-                 **kwargs):
-        super().__init__(**kwargs)
+        nmbrs=[[0,4],[0,6]],
+        cntrs=[[0.00, 0.00], [4.00, 16.0]],
+        wdths=[[0.04, 0.40], [0.04, 0.40]],
+        wgths=[[0.00, 1.00], [0.00, 1.00]],
+        norm=1, anormal=False,
+        **kwargs
+    ):
         self.nmbrs = nmbrs
         self.cntrs = cntrs
         self.wdths = wdths
@@ -212,8 +209,8 @@ class GaussianMix(SigmaGenerator):
 
     def generate(self):
         c, w, h = self.random_cwh(self.random_num_per_group())
-        sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
-        return sigma_func
+        sigma = lambda x: sum_on_args(gaussian, x, c, w, h)
+        return sigma
 
 
 class LorentzMix(GaussianMix):
@@ -222,15 +219,16 @@ class LorentzMix(GaussianMix):
 
     def generate(self):
         c, w, h = self.random_cwh(self.random_num_per_group())
-        sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
-        return sigma_func
+        sigma = lambda x: sum_on_args(lorentzian, x, c, w, h)
+        return sigma
 
 
 class BetaMix(GaussianMix):
     def __init__(self, 
-                 arngs=[[2.00, 5.00], [0.50, 5.00]],
-                 brths=[[2.00, 5.00], [0.50, 5.00]],
-                 **kwargs):
+        arngs=[[2.00, 5.00], [0.50, 5.00]],
+        brths=[[2.00, 5.00], [0.50, 5.00]],
+        **kwargs
+    ):
         super().__init__(**kwargs)
         self.arngs = arngs
         self.brths = brths
@@ -248,14 +246,11 @@ class BetaMix(GaussianMix):
         num_per_groups = self.random_num_per_group()
         c, w, h = self.random_cwh(num_per_groups)
         a, b = self.random_ab(num_per_groups)
-        sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
-        return sigma_func
+        sigma = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
+        return sigma
 
 
 class SigmaPiGenerator():
-    def __init__(self, wmax=20, **kwargs):
-        self.wmax = wmax
-
     def generate(self):
         '''outputs two functions'''
         raise NotImplementedError
@@ -270,23 +265,23 @@ class SigmaPiGenerator():
 
 
 class IntegralGenerator(SigmaPiGenerator):
-    def __init__(self, sigma_generator, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, sigma_generator, wmax=20, **kwargs):
         self.sigma_generator = sigma_generator
+        self.wmax = wmax
 
     def generate(self):
-        half_sigma_func = self.sigma_generator.generate()
-        sigma_func = lambda x: 0.5*(half_sigma_func(x)+half_sigma_func(-x))
-        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax)
-        return sigma_func, pi_func
+        sigma = self.sigma_generator.generate()
+        sigma_even = lambda x: 0.5*(sigma(x)+sigma(-x))
+        pi = lambda x: pi_integral(x, sigma_even, grid_end=self.wmax)
+        return sigma_even, pi
 
 
 class LorentzComb(SigmaPiGenerator):
-    def __init__(self, norm=1, num_peaks=1000, width=0.05, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, norm=1, num_peaks=1000, width=0.05, wmax=20, **kwargs):
         self.norm = norm
         self.num_peaks = num_peaks
         self.width = width
+        self.wmax = wmax
 
     def generate(self):
         k = np.linspace(0, 1, self.num_peaks)
@@ -295,9 +290,9 @@ class LorentzComb(SigmaPiGenerator):
         w = np.ones(self.num_peaks)*self.width
         h = abs(c) + 0.05
         h *= self.norm/(2*h*c/(c**2+w**2)).sum()
-        sigma_func = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
-        pi_func = lambda x: sum_on_args(analytic_pi, x, c, w, h)
-        return sigma_func, pi_func
+        sigma = lambda x: sum_on_args(even_lorentzian, x, c, w, h)
+        pi = lambda x: sum_on_args(analytic_pi, x, c, w, h)
+        return sigma, pi
 
 
 if __name__ == "__main__":
