@@ -171,7 +171,7 @@ class GaussianMix(SigmaGenerator):
                  cntrs=[[0.00, 0.00], [4.00, 16.0]],
                  wdths=[[0.04, 0.40], [0.04, 0.40]],
                  wgths=[[0.00, 1.00], [0.00, 1.00]],
-                 norm=1, even=True, anormal=False,
+                 norm=1, anormal=False,
                  **kwargs):
         super().__init__(**kwargs)
         self.nmbrs = nmbrs
