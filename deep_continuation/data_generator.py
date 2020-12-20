@@ -192,7 +192,6 @@ class DataGenerator():
 
 def main():
     default_parameters.update({
-        'seed': int(time.time()),
         'plot': 0,
         'generate': 0,
         'path': str(HERE),

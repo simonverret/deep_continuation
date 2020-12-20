@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from scipy import integrate
 from scipy.special import gamma
@@ -11,6 +13,7 @@ SMALL = 1e-10
 INF = 1e10
 
 default_parameters = {
+    'seed': int(time.time()),
     # peaks
     "variant": "B",
     "anormal": False,
@@ -31,7 +34,7 @@ def main():
     args = utils.parse_file_and_command(default_parameters, {})
     generator = SigmaPiGenerator.factory(**vars(args))
 
-    np.random.seed(111)
+    np.random.seed(args.seed)
     sigma_func, pi_func = generator.generate()
     
     wmax_list = [20]
@@ -75,10 +78,10 @@ def sum_on_args(f, x, *args):
     return f(x, *args).sum(axis=0)
 
 
-def integrate_with_tails(integrand, grid_points=4096, tail_points=1024, grid_end=10, tail_power=7):
-    grid_sampling = np.linspace(-grid_end, grid_end, grid_points)
+def integrate_with_tails(integrand, grid=4096, tail=1024, grid_end=10, tail_power=7):
+    grid_sampling = np.linspace(-grid_end, grid_end, grid)
     tail_sampling = np.logspace(
-        np.log10(grid_end), tail_power, tail_points)[1:]
+        np.log10(grid_end), tail_power, tail)[1:]
     full_sampling = np.concatenate([
         -np.flip(tail_sampling),
         grid_sampling,
@@ -128,7 +131,9 @@ def analytic_pi(x, c=0, w=0, h=0):
 
 
 def beta_dist(x, a, b):
-    return (gamma(a+b)/(SMALL+gamma(a)*gamma(b))) * np.nan_to_num((x**(a-1))*((1-x)**(b-1)) * (x > 0) * (x < 1), copy=False)
+    return (gamma(a+b)/(SMALL+gamma(a)*gamma(b)))\
+        * np.nan_to_num((x**(a-1))*((1-x)**(b-1))\
+        * (x > 0) * (x < 1), copy=False)
 
 
 def centered_beta(x, a, b):
@@ -180,19 +185,17 @@ class GaussianMix(SigmaGenerator):
         self.wgths = wgths
         self.norm = norm
         self.anormal = anormal
-        self.tmp_num_per_group = None
 
-    def new_random_num_per_group(self):
+    def random_num_per_group(self):
         num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
         if all(num_per_group) == 0:
             lucky_group = np.random.randint(0,len(num_per_group)-1)
             num_per_group[lucky_group] = 1
-        self.tmp_num_per_group = num_per_group
         return num_per_group
 
-    def random_cwh(self):
+    def random_cwh(self, num_per_groups):
         cl, wl, hl = [], [], []
-        for i, n in enumerate(self.tmp_num_per_group):
+        for i, n in enumerate(num_per_groups):
             cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
             wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
             hl.append(np.random.uniform(self.wgths[i][0], self.wgths[i][1], n))
@@ -208,8 +211,7 @@ class GaussianMix(SigmaGenerator):
         return c, w, h
 
     def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
+        c, w, h = self.random_cwh(self.random_num_per_group())
         sigma_func = lambda x: sum_on_args(gaussian, x, c, w, h)
         return sigma_func
 
@@ -219,8 +221,7 @@ class LorentzMix(GaussianMix):
         super().__init__(**kwargs)
 
     def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
+        c, w, h = self.random_cwh(self.random_num_per_group())
         sigma_func = lambda x: sum_on_args(lorentzian, x, c, w, h)
         return sigma_func
 
@@ -234,9 +235,9 @@ class BetaMix(GaussianMix):
         self.arngs = arngs
         self.brths = brths
 
-    def random_ab(self):
+    def random_ab(self, num_per_groups):
         al, bl = [], []
-        for i, n in enumerate(self.tmp_num_per_group):
+        for i, n in enumerate(num_per_groups):
             al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
             bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
         a = np.hstack(al)
@@ -244,13 +245,13 @@ class BetaMix(GaussianMix):
         return a, b
 
     def generate(self):
-        self.new_random_num_per_group()
-        c, w, h = self.random_cwh()
-        a, b = self.random_ab()
+        num_per_groups = self.random_num_per_group()
+        c, w, h = self.random_cwh(num_per_groups)
+        a, b = self.random_ab(num_per_groups)
         sigma_func = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
         return sigma_func
 
-    
+
 class SigmaPiGenerator():
     def __init__(self, wmax=20, **kwargs):
         self.wmax = wmax
