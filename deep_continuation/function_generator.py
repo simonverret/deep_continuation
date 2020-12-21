@@ -69,13 +69,18 @@ def main():
 
 
 def sum_on_args(f, x, *args):
-    ''' Broadcast a 1D function to all arguments and return the sum:
-        f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1,1], ...) + ...
-    args:
-        - f: function
-        - x: values on which to apply and return the function
-        - args: arrays of values for the regular arguments of the function
-    '''
+    """Broadcasts a 1D function to all arguments and return the sum.
+
+    computes: `f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1,1], ...) + ...`
+
+    Args:
+        f (function): Function to broadcast.
+        x (array): Array on which to evaluate
+        *args (arrays): Regular arguments of the function as arrays
+
+    Returns:
+        array: Sum of functions at each `x`
+    """    
     if isinstance(x, np.ndarray):
         x = x[np.newaxis, :]
         args = [a for a in args]  # copy args to allow reassign
@@ -87,6 +92,21 @@ def sum_on_args(f, x, *args):
 
 
 def integrate_with_tails(integrand, grid=4096, tail=1024, grid_end=10, tail_power=7):
+    """Broadcastable integration on dense grid with long tails
+
+    Integrate using `scipy.integrate.simps` using a three piece grid: one linearly
+    spaced grid centered at zero, and two logarithmically spaced grid at each ends.
+
+    Args:
+        integrand (function): Function to be integrated
+        grid (int, optional): Number of points in central grid. Defaults to 4096.
+        tail (int, optional): Number of points in each tail. Defaults to 1024.
+        grid_end (int, optional): Span of central grid (`-grid_end` to `grid_end`). Defaults to 10.
+        tail_power (int, optional): Tail . Defaults to 7.
+
+    Returns:
+        ndarray: Result from an integration on `axis=-1`
+    """
     grid_sampling = np.linspace(-grid_end, grid_end, grid)
     tail_sampling = np.logspace(
         np.log10(grid_end), tail_power, tail)[1:]
@@ -99,6 +119,24 @@ def integrate_with_tails(integrand, grid=4096, tail=1024, grid_end=10, tail_powe
 
 
 def pi_integral(wn, spectral_function, **kwargs):
+    """Broadcastable integral for the Current-current response function
+
+    Integrate the spectral function :math:`\sigma(\omega)`
+    .. math::
+        \\Pi(i\\omega_n) = \\int_{-\infty}^{\\infty}
+        \\frac{\\omega^2}{\\omega^2+\\omega_n^2}\sigma()_{i}
+    using :func:`~integrate_with_tails`
+
+    Args:
+        wn (array): Matsubara frequencies at which to compute the response
+        spectral_function (function): Callable spectral function
+
+    Keyword Args:
+        see :func:`~deep_continuation.function_generator.integrate_with_tails` 
+    
+    Returns:
+        array: Result from an integration on `axis=-1`
+    """
     if isinstance(wn, np.ndarray):
         wn = wn[:, np.newaxis]
 
