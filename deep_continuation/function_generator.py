@@ -119,7 +119,7 @@ def integrate_with_tails(integrand, grid=4096, tail=1024, grid_end=10, tail_powe
 
 
 def pi_integral(wn, spectral_function, **kwargs):
-    """Broadcastable integral for the Current-current response function
+    """Broadcastable integral for the Current-current response function.
 
     Integrate the spectral function :math:`\sigma(\omega)`
     .. math::
@@ -146,62 +146,226 @@ def pi_integral(wn, spectral_function, **kwargs):
 
 
 def normalization(f, **kwargs):
+    """Integrate function using :func:`~integrate_with_tails`
+
+    Args:
+        f (function): Function to be integrated.
+
+    Returns:
+        float: Normalization value
+    """    
     def integrand(x): return f(x)
     return integrate_with_tails(integrand, **kwargs)
 
 
 def first_moment(f, **kwargs):
+    """Computes the first central moment (average) using :func:`~integrate_with_tails`
+
+    Args:
+        f (function): Input function for which the moment is computed
+    
+    Returns:
+        float: First central moment (average)
+    """
     def integrand(x): return x*f(x)
     return integrate_with_tails(integrand, **kwargs)
 
 
 def second_moment(f, **kwargs):
+    """Computes the sencond central moment (variance) using :func:`~integrate_with_tails`
+
+    Args:
+        f (function): Input function for which the moment is computed
+
+    Returns:
+        float: Second central moment (variance)
+    """
     def integrand(x): return ((x - first_moment(f))**2)*f(x)
     return integrate_with_tails(integrand, **kwargs)
 
 
 def gaussian(x, c, w, h):
+    """Gaussian distributions.
+
+    Args:
+        x (array): Values at which the gaussian is evaluated
+        c (float): Center of the distribution (average)
+        w (float): Width of the distribution (variance)
+        h (float): Height/weight of the distribtuion (area under the curve)
+
+    Returns:
+        array: Values of the gaussian at values in `x`
+    """
     return (h/(np.sqrt(2*np.pi)*w))*np.exp(-((x-c)/w)**2/2)
 
 
 def lorentzian(x, c, w, h):
+    """Lorentz distributions.
+
+    Args:
+        x (array): Values at which the lorentzian is evaluated
+        c (float): Center of the distribution
+        w (float): Width of the distribution (at half height)
+        h (float): Height/weight of the distribtuion (area under the curve)
+
+    Returns:
+        array: Values of the lorentzian at values in `x`
+    """
     return (h/np.pi)*w/((x-c)**2+w**2)
 
 
-def even_lorentzian(x, c=0, w=1, h=1):
+def even_lorentzian(x, c, w, h):
+    """Even pair of identical Lorentz distributions.
+    
+    Args:
+        x (array): Values at which the lorentzian is evaluated
+        c (float): Center of the distribution (+ or -)
+        w (float): Width of the distribution (variance)
+        h (float): Height/weight of the distribtuion (area under the curve)
+
+    Returns:
+        array: Values of the lorentzian pair at values in `x`
+    """
     return (1/np.pi)*4*c*w*h/(((x-c)**2+w**2)*((x+c)**2+w**2))
 
 
-def analytic_pi(x, c=0, w=0, h=0):
+def analytic_pi(x, c, w, h):
+    """Analytic response function for an even pair of Lorentz distributions.
+
+    Correspond to
+    .. math::
+        \\Pi(x) = \\int_{-\infty}^{\\infty}
+        \\frac{\\omega^2}{\\omega^2+x^2}\sigma()_{i}
+    where :math:`\\sigma(\\omega)` is :func:`~even_lorentzian`.
+
+    Args:
+        x (array): matsubara at which the response function is evaluated
+        c (float): Center of the distribution (+ or -)
+        w (float): Width of the distribution (variance)
+        h (float): Height/weight of the distribtuion (area under the curve)
+
+    Returns:
+        array: Values of the integral at imaginary `x`
+    """
     return 2*h*c/(c**2+(x+w)**2)
 
 
 def beta_dist(x, a, b):
+    """Beta distribution.
+
+    Args:
+        x (array): Values at which to evaluate the distribution
+        a (float): First Beta function parameter
+        b (float): Second Beta function parameter
+
+    Returns:
+        array: Values of the function at the values of `x`
+    """    
     return (gamma(a+b)/(SMALL+gamma(a)*gamma(b)))\
         * np.nan_to_num((x**(a-1))*((1-x)**(b-1))\
         * (x > 0) * (x < 1), copy=False)
 
 
 def centered_beta(x, a, b):
+    """Beta distribution centered at x=0.
+
+    Args:
+        x (array): Values at which to evaluate the distribution
+        a (float): First Beta function parameter
+        b (float): Second Beta function parameter
+
+    Returns:
+        array: Values of the function at the values of `x`
+    """
     c = a/(a+b)
     return beta_dist(x+c, a, b)
 
 
 def standardized_beta(x, a, b):
+    """Beta distribution centered at x=0 with variance 1.
+
+    Args:
+        x (array): Values at which to evaluate the distribution
+        a (float): First Beta function parameter
+        b (float): Second Beta function parameter
+
+    Returns:
+        array: Values of the function at the values of `x`
+    """
     w = np.sqrt(a*b/((a+b+1)*(a+b)**2))
     return centered_beta(x*w, a, b)*w
 
 
 def free_beta(x, c, w, h, a, b):
+    """Beta distribution with user-defined center, width and height.
+
+    Args:
+        x (array): Values at which to evaluate the distribution
+        c (float): Center of the distribution (average)
+        w (float): Width of the distribution (variance)
+        h (float): Height/weight of the distribtuion (area under
+            the curve)
+        a (float): First Beta function parameter
+        b (float): Second Beta function parameter
+
+    Returns:
+        array: Values of the function at the values of `x`
+    """
     return h*standardized_beta((x-c)/w, a, b)/w
 
 
 class SigmaGenerator():
+    """Base class for conductivity functions generators, with static factory method."""
+    
     def generate(self):
-        '''outputs one function'''
-        raise NotImplementedError
+        """Each call outputs a new random function as specified in subclasses."""
+        raise NotImplementedError("To be overridden in subclasses")
 
     def factory(variant, **kwargs):
+        """Static factory method: Creates the subclass specified by `variant`.
+        
+        The available generators include:
+            - Gaussian mixture generator (G)
+            - Beta mixture generator (B)
+            - Lorentzian mixture generator (L)
+
+        Args:
+            variant (string): Specifies which subclass to instanciate
+            nmbrs (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the number of peaks
+                in each group. Defaults to [[0,4],[0,6]] (two groups
+                of peaks, one up to 4 peaks the other up to 6).
+            cntrs (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the centers of the
+                peaks in each group. Defaults to [[0.00, 0.00], 
+                [4.00, 16.0]] (two groups of peaks, the firsts
+                centered at 0 the other centered between 4 and 16).
+            wdths (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the widths of the
+                peaks in each group. Defaults to [[0.04, 0.40],
+                [0.04, 0.40]].
+            wgths (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the heights/widths
+                of the peaks in each group. Defaults to 
+                [[0.00, 1.00], [0.00, 1.00]].
+            arngs (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the `a` parameters
+                for Beta peaks. Defaults to 
+                [[2.00, 5.00], [0.50, 5.00]].
+            brths (list of tuples, optional): List of groups of peaks
+                where tuples indicate a range for the `b` parameters
+                for Beta peaks. Defaults to 
+                [[2.00, 5.00], [0.50, 5.00]].
+            norm (int, optional): Total weight. Defaults to 1.
+            anormal (bool, optional): All peaks are equally weighted.
+                Defaults to False.
+
+        Raises:
+            ValueError: if `variant` is not recognized
+
+        Returns:
+            SigmaGenerator: One subclass of SigmaGenerator
+        """        
         if variant in ["G", "Gaussian", "gaussian"]:
             return GaussianMix(**kwargs)
         elif variant in ["B", "Beta", "beta"]:
@@ -214,6 +378,8 @@ class SigmaGenerator():
     
     
 class GaussianMix(SigmaGenerator):
+    """Gaussian mixture generator, doc at :func:`~SigmaGenerator.factory`"""
+    
     def __init__(self, 
         nmbrs=[[0,4],[0,6]],
         cntrs=[[0.00, 0.00], [4.00, 16.0]],
@@ -229,14 +395,14 @@ class GaussianMix(SigmaGenerator):
         self.norm = norm
         self.anormal = anormal
 
-    def random_num_per_group(self):
+    def _random_num_per_group(self):
         num_per_group = [np.random.randint(n[0], n[1]+1) for n in self.nmbrs]
         if all(num_per_group) == 0:
             lucky_group = np.random.randint(0,len(num_per_group)-1)
             num_per_group[lucky_group] = 1
         return num_per_group
 
-    def random_cwh(self, num_per_groups):
+    def _random_cwh(self, num_per_groups):
         cl, wl, hl = [], [], []
         for i, n in enumerate(num_per_groups):
             cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
@@ -254,22 +420,26 @@ class GaussianMix(SigmaGenerator):
         return c, w, h
 
     def generate(self):
-        c, w, h = self.random_cwh(self.random_num_per_group())
+        c, w, h = self._random_cwh(self._random_num_per_group())
         sigma = lambda x: sum_on_args(gaussian, x, c, w, h)
         return sigma
 
 
 class LorentzMix(GaussianMix):
+    """Lorentzian mixture generator, doc at :func:`~SigmaGenerator.factory`"""
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def generate(self):
-        c, w, h = self.random_cwh(self.random_num_per_group())
+        c, w, h = self._random_cwh(self._random_num_per_group())
         sigma = lambda x: sum_on_args(lorentzian, x, c, w, h)
         return sigma
 
 
 class BetaMix(GaussianMix):
+    """Beta mixture generator, doc at :func:`~SigmaGenerator.factory`"""
+
     def __init__(self, 
         arngs=[[2.00, 5.00], [0.50, 5.00]],
         brths=[[2.00, 5.00], [0.50, 5.00]],
@@ -279,7 +449,7 @@ class BetaMix(GaussianMix):
         self.arngs = arngs
         self.brths = brths
 
-    def random_ab(self, num_per_groups):
+    def _random_ab(self, num_per_groups):
         al, bl = [], []
         for i, n in enumerate(num_per_groups):
             al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
@@ -289,16 +459,16 @@ class BetaMix(GaussianMix):
         return a, b
 
     def generate(self):
-        num_per_groups = self.random_num_per_group()
-        c, w, h = self.random_cwh(num_per_groups)
-        a, b = self.random_ab(num_per_groups)
+        num_per_groups = self._random_num_per_group()
+        c, w, h = self._random_cwh(num_per_groups)
+        a, b = self._random_ab(num_per_groups)
         sigma = lambda x: sum_on_args(free_beta, x, c, w, h, a, b)
         return sigma
 
 
 class SigmaPiGenerator():
     def generate(self):
-        '''outputs two functions'''
+        """outputs two functions"""
         raise NotImplementedError
 
     def factory(variant, **kwargs):
