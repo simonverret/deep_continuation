@@ -69,12 +69,13 @@ def main():
 
 
 def sum_on_args(f, x, *args):
-    x = x[np.newaxis, :]
-    args = [a for a in args]  # copy args to allow reassign
-    for i in range(len(args)):
-        if isinstance(args[i], np.ndarray):
-            while len(args[i].shape) < len(x.shape):
-                args[i] = args[i][:, np.newaxis]
+    if isinstance(x, np.ndarray):
+        x = x[np.newaxis, :]
+        args = [a for a in args]  # copy args to allow reassign
+        for i in range(len(args)):
+            if isinstance(args[i], np.ndarray):
+                while len(args[i].shape) < len(x.shape):
+                    args[i] = args[i][:, np.newaxis]
     return f(x, *args).sum(axis=0)
 
 
