@@ -69,6 +69,13 @@ def main():
 
 
 def sum_on_args(f, x, *args):
+    ''' Broadcast a 1D function to all arguments and return the sum:
+        f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1,1], ...) + ...
+    args:
+        - f: function
+        - x: values on which to apply and return the function
+        - args: arrays of values for the regular arguments of the function
+    '''
     if isinstance(x, np.ndarray):
         x = x[np.newaxis, :]
         args = [a for a in args]  # copy args to allow reassign
