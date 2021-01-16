@@ -10,7 +10,7 @@ from deep_continuation import monotonous_functions as monofunc
 
 
 SMALL = 1e-10
-INF = 1e10
+BIG = 1e10
 
 default_parameters = {
     'seed': int(time.time()),
@@ -28,14 +28,35 @@ default_parameters = {
     # lorentz
     'num_peaks': 10000,
     'width': 0.05,
+    # rescale
+    'rescale': 4.0,
 }
+
+
+def simple_plot(pi, wn, sigma, w):
+    fig, ax = plt.subplots(1, 3, figsize=[10, 5])
+    
+    ax[0].set_ylabel(r"$\Pi(i\omega_n)$")
+    ax[0].set_xlabel(r"$\omega_n$")
+    ax[0].plot(wn.T, pi.T, '.')
+
+    ax[1].set_xlabel(r"$n$")
+    ax[1].plot( pi.T, '.')
+    
+    ax[2].set_ylabel(r"$\sigma(\omega)$")
+    ax[2].set_xlabel(r"$\omega$")
+    ax[2].plot(w.T, sigma.T, ms=2, lw=1)
+    
+    # fig.tight_layout()
+    plt.show()
+
 
 def main():
     args = utils.parse_file_and_command(default_parameters, {})
     generator = SigmaPiGenerator.factory(**vars(args))
 
     np.random.seed(args.seed)
-    sigma, pi = generator.generate()
+    sigma_func, pi_func = generator.generate()
     
     wmax_list = [20]
     M = 512
@@ -43,35 +64,18 @@ def main():
     N = 128
 
     wn = np.array([np.arange(0, N)*2*np.pi/beta for beta in beta_list])
-    Pi = np.array([pi(np.arange(0, N)*2*np.pi/beta) for beta in beta_list])
-
-    fig, ax = plt.subplots(1, 3, figsize=[10, 5])
-    ax[0].set_ylabel(r"$\Pi(i\omega_n)$")
-    ax[0].set_xlabel(r"$\omega_n$")
-    ax[0].plot(wn.T, Pi.T, '.')
-
-    ax[1].set_xlabel(r"$\omega_n$")
-    ax[1].plot(Pi.T, '.')
-
+    Pi = np.array([pi_func(np.arange(0, N)*2*np.pi/beta) for beta in beta_list])
+    
     w = np.array([np.linspace(-wmax, wmax, 2*M+1) for wmax in wmax_list])
-    sigma = np.array([(wmax/20)*sigma(np.linspace(-wmax, wmax, 2*M+1)) for wmax in wmax_list])
+    sigma = np.array([(wmax/20)*sigma_func(np.linspace(-wmax, wmax, 2*M+1)) for wmax in wmax_list])
     
-    ax[2].set_ylabel(r"$\sigma(\omega)$")
-    ax[2].set_xlabel(r"$\omega$")
-    ax[2].plot(sigma.T)
-    
-    fig.tight_layout()
-    plt.show()
-
-    # s = INF**2*pi_integral(INF, sigma, grid_end=self.wmax)
-    # new_wmax = np.sqrt(s) * 4.0
-    # sigma_r[i] = (new_wmax/self.wmax) * sigma(omega)
+    simple_plot(Pi, wn, sigma, w)
 
 
 def sum_on_args(f, x, *args):
     """Broadcasts a 1D function to all arguments and return the sum.
 
-    computes: `f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1,1], ...) + ...`
+    computes: `f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1], ...) + ...`
 
     Args:
         f (function): Function to broadcast.
@@ -140,8 +144,7 @@ def pi_integral(wn, spectral_function, **kwargs):
     if isinstance(wn, np.ndarray):
         wn = wn[:, np.newaxis]
 
-    def integrand(x): return (1/np.pi) * x**2 / \
-        (x**2+wn**2) * spectral_function(x)
+    integrand = lambda x: (1/np.pi) * x**2 / (x**2+wn**2) * spectral_function(x)
     return integrate_with_tails(integrand, **kwargs)
 
 
@@ -471,12 +474,15 @@ class SigmaPiGenerator():
         """outputs two functions"""
         raise NotImplementedError
 
-    def factory(variant, **kwargs):
+    def factory(variant, rescale=False, **kwargs):
         if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
             return LorentzComb(**kwargs)
-        else:
-            sigma_generator = SigmaGenerator.factory(variant, **kwargs)
-            return IntegralGenerator(sigma_generator, **kwargs)
+
+        sigma_generator = SigmaGenerator.factory(variant, **kwargs)
+        if rescale:
+            return Fix2ndMomentGenerator(sigma_generator, **kwargs)
+
+        return IntegralGenerator(sigma_generator, **kwargs)
     factory = staticmethod(factory)
 
 
@@ -486,10 +492,30 @@ class IntegralGenerator(SigmaPiGenerator):
         self.wmax = wmax
 
     def generate(self):
-        sigma = self.sigma_generator.generate()
-        sigma_even = lambda x: 0.5*(sigma(x)+sigma(-x))
+        sigma_base = self.sigma_generator.generate()
+        sigma_even = lambda x: 0.5*(sigma_base(x)+sigma_base(-x))
         pi = lambda x: pi_integral(x, sigma_even, grid_end=self.wmax)
         return sigma_even, pi
+
+
+class Fix2ndMomentGenerator(IntegralGenerator):
+    def __init__(self, sigma_generator, factor=4.0, **kwargs):
+        super().__init__(sigma_generator, **kwargs)
+        self.factor = factor
+        print("YEAH")
+
+    def generate(self):
+        sigma_base = self.sigma_generator.generate()
+        sigma_even = lambda x: 0.5*(sigma_base(x)+sigma_base(-x))
+        
+        # rescaling
+        sec_moment = (BIG**2)*pi_integral(BIG, sigma_even, grid_end=self.wmax)
+        new_wmax = np.sqrt(sec_moment) * self.factor
+        s = (new_wmax/self.wmax)
+        sigma_rescaled = lambda x: s*sigma_even(s*x) 
+        
+        pi = lambda x: pi_integral(x, sigma_rescaled, grid_end=new_wmax)
+        return sigma_rescaled, pi
 
 
 class LorentzComb(SigmaPiGenerator):
