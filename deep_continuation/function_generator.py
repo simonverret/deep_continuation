@@ -58,9 +58,9 @@ def main():
     np.random.seed(args.seed)
     sigma_func, pi_func = generator.generate()
     
-    wmax_list = [20]
+    wmax_list = [args.wmax]
     M = 512
-    beta_list = [20,30, 40, 50, 60]
+    beta_list = [200,400,600]
     N = 128
 
     wn = np.array([np.arange(0, N)*2*np.pi/beta for beta in beta_list])
@@ -502,7 +502,6 @@ class Fix2ndMomentGenerator(IntegralGenerator):
     def __init__(self, sigma_generator, factor=4.0, **kwargs):
         super().__init__(sigma_generator, **kwargs)
         self.factor = factor
-        print("YEAH")
 
     def generate(self):
         sigma_base = self.sigma_generator.generate()
