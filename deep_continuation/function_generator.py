@@ -73,7 +73,7 @@ def main():
 
 
 def sum_on_args(f, x, *args):
-    """Broadcasts a 1D function to all arguments and return the sum.
+    """Broadcast a 1D function to all arguments and return the sum.
 
     computes: `f(x, a0[0], a1[0], ...) + f(x, a0[1], a1[1], ...) + ...`
 
@@ -306,8 +306,7 @@ def free_beta(x, c, w, h, a, b):
         x (array): Values at which to evaluate the distribution
         c (float): Center of the distribution (average)
         w (float): Width of the distribution (variance)
-        h (float): Height/weight of the distribtuion (area under
-            the curve)
+        h (float): Height/weight of the distribtuion (area under the curve)
         a (float): First Beta function parameter
         b (float): Second Beta function parameter
 
