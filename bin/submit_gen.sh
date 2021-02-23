@@ -24,7 +24,7 @@ cp -r ~/codes/deep_continuation/* job/
 cd job
 pip install --no-index -e .
 cd deep_continuation
-python data_generator.py data/FournierB_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
-python data_generator.py data/FournierB_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
+python data_generator.py data/Fournier_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
+python data_generator.py data/Fournier_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
 
 cp -r data/* ~/scratch/deep_continuation/data/
