@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from deep_continuation.function_generator import (
     default_parameters,
     pi_integral,
@@ -39,24 +40,20 @@ dataset = np.concatenate(data_list, axis=0)
 
 #%% model
 class DeepContinuor(nn.Module):
-    def __init__(self, layers=[128+1,512,512,1]):
+    def __init__(self, x_dim, h_dim, y_dim):
         super().__init__()
+        self.layer1 = nn.Linear(x_dim, h_dim)
+        self.layer2 = nn.Linear(h_dim, h_dim)
+        self.layer3 = nn.Linear(h_dim, h_dim)
+        self.layer4 = nn.Linear(h_dim, y_dim)
 
-        self.layers = nn.ModuleList()
-        sizeA = layers[0]
-        for sizeB in layers[1:]:
-            self.layers.append(nn.Linear(sizeA, sizeB))
-            # self.layers.append(nn.BatchNorm1d(sizeB))
-            self.layers.append(nn.ReLU())
-            sizeA = sizeB
-        self.layers.append(nn.Linear(sizeA, layers[-1]))
-        # self.layers.append(nn.Softplus(layers[-1]))
 
     def forward(self, x):
-        out = x
-        for layer in self.layers:
-            out = layer(out)
-        return out
+        x = F.relu(self.layer1(x) + x)
+        x = F.relu(self.layer2(x) + x)
+        x = F.relu(self.layer3(x) + x)
+        x = self.layer4(x)
+        return x
 
 
 def init_weights(module):
@@ -64,20 +61,20 @@ def init_weights(module):
         torch.nn.init.normal_(module.weight,0,0.1)
         torch.nn.init.zeros_(module.bias)
 
-model = DeepContinuor(layers=[Nwn+1,128,128,128,1])
+model = DeepContinuor(Nwn+1, Nwn+1, 1)
 model.apply(init_weights)
-optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)
+optimizer = torch.optim.Adam(model.parameters(), lr=3e-3)
 criterion = nn.MSELoss()
 
 # training 1 epoch
 np.random.shuffle(dataset)
 
-model.train()
 batch_size = 100
 num_batch = (Ns*Nw)//batch_size
 for i in range(num_batch):
     batch = dataset[batch_size*i:batch_size*(i+1)]
 
+    model.train()
     inputs = (torch.Tensor(batch[:,:-1])).to(device).float()
     targets = (torch.Tensor(batch[:,-1])).to(device).float()
     optimizer.zero_grad()
