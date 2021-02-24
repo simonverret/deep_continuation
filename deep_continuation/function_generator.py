@@ -479,7 +479,7 @@ class SigmaPiGenerator():
 
         sigma_generator = SigmaGenerator.factory(variant, **kwargs)
         if rescale:
-            return Fix2ndMomentGenerator(sigma_generator, **kwargs)
+            return Fix2ndMomentGenerator(sigma_generator, factor=rescale, **kwargs)
 
         return IntegralGenerator(sigma_generator, **kwargs)
     factory = staticmethod(factory)
