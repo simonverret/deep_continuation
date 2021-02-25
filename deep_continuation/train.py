@@ -55,6 +55,7 @@ default_parameters = {
     'beta': [20.0],
     'plot': False,
     'standardize': False,
+    'init_gain': 0.1
 }
 
 help_strings = {
@@ -140,9 +141,9 @@ class MLP(nn.Module):
         return out
 
 
-def init_weights(module):
+def init_weights(module, gain=0.1):
     if type(module) == nn.Linear:
-        torch.nn.init.xavier_uniform_(module.weight)
+        torch.nn.init.xavier_uniform_(module.weight, gain=gain)
         torch.nn.init.zeros_(module.bias)
 
 
@@ -190,7 +191,8 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
     # model
     model = MLP(args).to(device)
     if args.initw:
-        model.apply(init_weights)
+        init_weights_gain = lambda m: init_weights(m, gain=args.init_gain)
+        model.apply(init_weights_gain)
     if USE_WANDB: 
         wandb.watch(model)
         model_insights = {
@@ -373,6 +375,7 @@ def main():
         'F': 'data/Fournier/',
         'G': 'data/G1/',
         'B': 'data/B1/',
+        'BL': 'data/BL/',
     }
 
     loss_dict = {
