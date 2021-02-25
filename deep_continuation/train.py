@@ -127,7 +127,7 @@ class MLP(nn.Module):
         elif args.out_unit in ['ReLU', 'relu']:
             self.layers.append(nn.ReLU())
         elif args.out_unit in ['Softmax', 'softmax']:
-            self.layers.append(RenormSoftmax())
+            self.layers.append(nn.Softmax(dim=-1))
         elif args.out_unit in ['Normalizer', 'normalizer']:
             self.layers.append(Normalizer())
         else:

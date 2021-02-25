@@ -10,7 +10,7 @@ from deep_continuation import monotonous_functions as monofunc
 
 
 SMALL = 1e-10
-BIG = 1e10
+INF = 1e10
 
 default_parameters = {
     'seed': int(time.time()),
@@ -30,6 +30,7 @@ default_parameters = {
     'width': 0.05,
     # rescale
     'rescale': 4.0,
+    'spurious': False,
 }
 
 
@@ -473,13 +474,16 @@ class SigmaPiGenerator():
         """outputs two functions"""
         raise NotImplementedError
 
-    def factory(variant, rescale=False, **kwargs):
+    def factory(variant, rescale=False, spurious=False, **kwargs):
         if variant in ["LC", "Lorentz_comb", "lorentz_comb"]:
             return LorentzComb(**kwargs)
 
         sigma_generator = SigmaGenerator.factory(variant, **kwargs)
         if rescale:
-            return Fix2ndMomentGenerator(sigma_generator, factor=rescale, **kwargs)
+            if spurious:
+                return Fix2ndMomSpuriousGenerator(sigma_generator, factor=rescale, **kwargs)
+            else:
+                return Fix2ndMomentGenerator(sigma_generator, factor=rescale, **kwargs)
 
         return IntegralGenerator(sigma_generator, **kwargs)
     factory = staticmethod(factory)
@@ -490,30 +494,55 @@ class IntegralGenerator(SigmaPiGenerator):
         self.sigma_generator = sigma_generator
         self.wmax = wmax
 
-    def generate(self):
+    def generate_sigma_even(self):
         sigma_base = self.sigma_generator.generate()
         sigma_even = lambda x: 0.5*(sigma_base(x)+sigma_base(-x))
-        pi = lambda x: pi_integral(x, sigma_even, grid_end=self.wmax)
+        return sigma_even
+    
+    def generate_integrator_pi(self, sigma_even, grid_end):
+        return lambda x: pi_integral(x, sigma_even, grid_end=self.wmax)
+
+    def generate(self):
+        sigma_even = self.generate_sigma_even()
+        pi = self.generate_integrator_pi(sigma_even, grid_end=self.wmax)
         return sigma_even, pi
+
+
+def rescaling(sigma_even, wmax, factor):
+    sec_moment = (INF**2)*pi_integral(INF, sigma_even, grid_end=wmax)
+    new_wmax = np.sqrt(sec_moment) * factor
+    s = (new_wmax/wmax)
+    resc_sigma = lambda x: s*sigma_even(s*x)
+    return resc_sigma, new_wmax
 
 
 class Fix2ndMomentGenerator(IntegralGenerator):
     def __init__(self, sigma_generator, factor=4.0, **kwargs):
         super().__init__(sigma_generator, **kwargs)
         self.factor = factor
-
+        self.tmp_wmax = self.wmax
+    
     def generate(self):
-        sigma_base = self.sigma_generator.generate()
-        sigma_even = lambda x: 0.5*(sigma_base(x)+sigma_base(-x))
-        
-        # rescaling
-        sec_moment = (BIG**2)*pi_integral(BIG, sigma_even, grid_end=self.wmax)
-        new_wmax = np.sqrt(sec_moment) * self.factor
-        s = (new_wmax/self.wmax)
-        sigma_rescaled = lambda x: s*sigma_even(s*x) 
-        
-        pi = lambda x: pi_integral(x, sigma_rescaled, grid_end=new_wmax)
-        return sigma_rescaled, pi
+        sigma_even = self.generate_sigma_even()
+        resc_sigma, self.tmp_wmax = rescaling(sigma_even, self.wmax, self.factor)
+        pi = self.generate_integrator_pi(resc_sigma, grid_end=self.tmp_wmax)        
+        return resc_sigma, pi
+
+
+class Fix2ndMomSpuriousGenerator(Fix2ndMomentGenerator):
+    """Uses the original Pi with the rescaled sigma
+
+    The Pi obtained before rescaling is compatible with the rescaled sigma but
+    causes a spurious correlation between temperature and sigma structure 
+    """
+    def __init__(self, sigma_generator, **kwargs):
+        super().__init__(sigma_generator, **kwargs)
+    
+    def generate(self):
+        sigma_even = self.generate_sigma_even()
+        pi = self.generate_integrator_pi(sigma_even, grid_end=self.wmax)        
+        resc_sigma, self.tmp_wmax = rescaling(sigma_even, self.wmax, self.factor)
+        return resc_sigma, pi
 
 
 class LorentzComb(SigmaPiGenerator):

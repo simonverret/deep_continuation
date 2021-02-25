@@ -43,7 +43,8 @@ class ContinuationData(torch.utils.data.Dataset):
             x = (x - self.avg[b])/self.std[b]
         
         if self.rescaled:
-            y = self.wmaxs[index] * self.y_data['R'][index] / 20.0
+            # y = self.wmaxs[index] * self.y_data['R'][index] / 20.0
+            y = self.base_scale * self.y_data['R'][index] / 20.0
         else: 
             y = self.base_scale * self.y_data['N'][index] / 20.0
         return x, y
