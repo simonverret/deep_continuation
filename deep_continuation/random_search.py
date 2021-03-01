@@ -78,7 +78,7 @@ search_space = {
     "lr": [0.0005, 0.00001],
     "dropout": (0, [0.0,0.8]),
     'initw': (True,True,False),
-    "out_unit": ('None', 'Softmax', 'Normalizer'), #('None', 'ReLU', 'Softmax', 'Normalizer'),
+    "out_unit": ('None', 'Softmax'), #('None', 'ReLU', 'Softmax', 'Normalizer'),
     "batchnorm": (True,True,False),
     "factor": [0.2,0.8], 
     "patience": [4,10],
