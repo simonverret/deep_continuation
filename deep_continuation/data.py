@@ -19,7 +19,7 @@ class ContinuationData(torch.utils.data.Dataset):
         self.base_scale = base_scale
 
         self.fullBetaList = fullBetaList     
-        self.x_data = {2.0: np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")}
+        self.x_data = {}#{2.0: np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")}
         for b in self.fullBetaList :
             self.x_data[b] = np.loadtxt(open(path+f"Pi_beta_{b}.csv", "rb"), delimiter=",")
         self.avg = {b: self.x_data[b].mean(axis=-2) for b in self.fullBetaList}
