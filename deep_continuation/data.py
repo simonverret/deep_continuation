@@ -19,7 +19,7 @@ class ContinuationData(torch.utils.data.Dataset):
         self.base_scale = base_scale
 
         self.fullBetaList = fullBetaList     
-        self.x_data = {2.0: np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")}
+        self.x_data = {}#{2.0: np.loadtxt(open(path+"Pi.csv", "rb"), delimiter=",")}
         for b in self.fullBetaList :
             self.x_data[b] = np.loadtxt(open(path+f"Pi_beta_{b}.csv", "rb"), delimiter=",")
         self.avg = {b: self.x_data[b].mean(axis=-2) for b in self.fullBetaList}
@@ -43,9 +43,10 @@ class ContinuationData(torch.utils.data.Dataset):
             x = (x - self.avg[b])/self.std[b]
         
         if self.rescaled:
-            y = self.wmaxs[index] * self.y_data['R'][index] / 20.0
+            # y = self.wmaxs[index] * self.y_data['R'][index] / 20.0
+            y = self.y_data['R'][index]
         else: 
-            y = self.base_scale * self.y_data['N'][index] / 20.0
+            y = self.y_data['N'][index]
         return x, y
 
 

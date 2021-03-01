@@ -78,7 +78,7 @@ search_space = {
     "lr": [0.0005, 0.00001],
     "dropout": (0, [0.0,0.8]),
     'initw': (True,True,False),
-    "out_unit": ('None', 'ReLU', 'Softmax', 'Normalizer'),
+    "out_unit": ('None', 'Softmax'), #('None', 'ReLU', 'Softmax', 'Normalizer'),
     "batchnorm": (True,True,False),
     "factor": [0.2,0.8], 
     "patience": [4,10],
@@ -187,7 +187,7 @@ for i in range(30):
     metric_list = []
     for p, path in path_dict.items():
         dataset = data.ContinuationData(
-            path,
+            path+"valid/",
             base_scale=15 if p=="F" else 20
         )
         for n, noise in noise_dict.items():

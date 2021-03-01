@@ -10,14 +10,13 @@ import matplotlib.colors as mcolors
 from deep_continuation import utils
 from deep_continuation.function_generator import (
     default_parameters,
-    pi_integral,
+    rescaling,
     SigmaPiGenerator,
 )
 
 np.set_printoptions(precision=4)
 HERE = Path(__file__).parent
 SMALL = 1e-10
-INF = 1e10
 COLORS = list(mcolors.TABLEAU_COLORS)
 
 
@@ -33,8 +32,6 @@ def infer_scales(Pi, sigma):
     
     wmaxs = M*dm
     betas = 2*N*np.sqrt((np.pi**3)*PiN/(dm**3*sum2))
-    print(betas.shape)
-    print(wmaxs.shape)
     return wmaxs, betas
 
 
@@ -68,7 +65,7 @@ def unscaled_plot(Pi, sigma, filename=None):
         plt.show()
 
 
-def scale_plot(Pi, sigma, betas, wmaxs, filename=None):
+def scale_plot(Pi, sigma, betas, wmaxs, filename=None, default_wmax=20.0):
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi(i\omega_n)$")
     plt.setp(ax[0, 0].get_xticklabels(), visible=False)
@@ -90,7 +87,7 @@ def scale_plot(Pi, sigma, betas, wmaxs, filename=None):
     w = wmaxs[:, np.newaxis] * np.linspace(0, 1, M)
     cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M)**2*sigma, axis=-1))
     for i in range(len(sigma)):
-        ax[0, 1].plot(w[i], sigma[i], c=COLORS[i%10])
+        ax[0, 1].plot(w[i], (default_wmax/wmaxs[i])*sigma[i], c=COLORS[i%10])
         ax[1, 1].plot(w[i], cumul_sum2[i], c=COLORS[i%10])
 
     fig.tight_layout()
@@ -100,10 +97,10 @@ def scale_plot(Pi, sigma, betas, wmaxs, filename=None):
         plt.show()
 
 
-def infer_scale_plot(Pi, sigma, filename=None):
+def infer_scale_plot(Pi, sigma, filename=None, default_wmax=20.0):
     wmaxs, betas = infer_scales(Pi, sigma)
     print(f" infered scales:\n  betas =\n{betas}\n  wmaxs =\n{wmaxs}")
-    scale_plot(Pi, sigma, betas, wmaxs, filename)
+    scale_plot(Pi, sigma, betas, wmaxs, filename, default_wmax)
 
 
 class DataGenerator():
@@ -113,6 +110,7 @@ class DataGenerator():
         self.beta = beta
         self.wmax = wmax
         self.rescale = rescale
+        # note that rescale is not passed to the factory below, so the base SigmaPiIntegrator is used
         self.generator = SigmaPiGenerator.factory(wmax=wmax, **kwargs)
 
     def generate_batch(self, size):
@@ -121,41 +119,27 @@ class DataGenerator():
         sigma = np.zeros((size, self.Nw))
         sigma_r = np.zeros((size, self.Nw))
         wmaxs = np.zeros(size)
-
-        # s_func, _ = self.generator.generate()
         
         for i in range(size):
             if (i == 0 or (i+1)%(max(1, size//100)) == 0): print(f"{i+1}/{size}")
 
-            # ss = 1/(1+i*0.1)
-            # sigma_func = lambda x: ss*s_func(ss*x)
-            # pi_func = lambda x: pi_integral(x, sigma_func, grid_end=self.wmax) 
-            
             sigma_func, pi_func = self.generator.generate()
+            omega = np.linspace(0, self.wmax, self.Nw)
+            sigma[i] = sigma_func(omega)
+            sigma[i] *= (2*self.wmax)/(self.Nw*np.pi)  # so that sum=1  (x2 because half spectrum, (wmax/pi)/Nw is the integral discretizedcod
+            wmaxs[i] = self.wmax
 
-            if self.rescale > SMALL:
-                s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
-                wmax = np.sqrt(s) * self.rescale
-                omega = np.linspace(0, wmax, self.Nw)
-                sigma_r[i] = (wmax/self.wmax) * sigma_func(omega)
-                wmaxs[i] = wmax
-            # if self.rescale > SMALL:
-            #     s = INF**2*pi_integral(INF, sigma_func, grid_end=self.wmax)
-            #     wmax = np.cbrt(s) * self.rescale
-            #     omega = np.linspace(0, wmax, self.Nw)
-            #     sigma_r[i] = sigma_func(omega)
-            #     wmaxs[i] = wmax
-            else:
-                wmaxs[i] = self.wmax
-            
             for b, beta in enumerate(self.beta):
                 omega_n = np.arange(0, self.Nwn)*2*np.pi/beta        
                 Pi[b,i] = pi_func(omega_n)
                 betas[b,i] = beta
-
-            omega = np.linspace(0, self.wmax, self.Nw)
-            sigma[i] = sigma_func(omega)
-
+            
+            if self.rescale > SMALL:
+                sigma_r_func, new_wmax = rescaling(sigma_func, self.wmax, self.rescale)
+                sigma_r[i] = sigma_r_func(omega)
+                sigma_r[i] *= (2*self.wmax)/(self.Nw*np.pi)  # so that sum=1
+                wmaxs[i] = new_wmax
+            
         return Pi, sigma, betas, wmaxs, sigma_r
 
     def generate_files(self, size, sigma_path, pi_path, wmaxs_path=None):
@@ -178,16 +162,22 @@ class DataGenerator():
         Pi, sigma, betas, wmaxs, sigma_r = self.generate_batch(size)
         print(f" true scales:\n  betas =\n{betas}\n  wmaxs = {wmaxs}")
         print(f" Pi normalization check\n{Pi[:,:,0]}")
-        print(f" sigma normalization check\n{sigma.sum(-1)*(2*wmaxs)/(self.Nw*np.pi)}")
+        print(f" sigma normalization check\n{sigma.sum(-1)}")
 
         if self.rescale:
             sigma = sigma_r
         if basic:
             unscaled_plot(Pi, sigma, name+"_basic.pdf" if name else None)
         if scale:
-            scale_plot(Pi, sigma, betas, wmaxs, name +"_scale.pdf" if name else None)
+            scale_plot(Pi, sigma, betas, wmaxs, 
+                name +"_scale.pdf" if name else None, 
+                default_wmax=self.wmax
+            )
         if infer:
-            infer_scale_plot(Pi, sigma, name+"_infer.pdf" if name else None)
+            infer_scale_plot(Pi, sigma,
+                name+"_infer.pdf" if name else None,
+                default_wmax=self.wmax
+            )
 
 
 def main():
@@ -198,7 +188,7 @@ def main():
         'Nwn': 128,
         'Nw': 512,
         'wmax': 20.0,
-        'beta': [10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0],  # 2*np.pi, # 2pi/beta = 1
+        'beta': [20.0],#[10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 50.0],  # 2*np.pi, # 2pi/beta = 1
         'norm': 1.0,
         'rescale': 0.0,
         # plot
