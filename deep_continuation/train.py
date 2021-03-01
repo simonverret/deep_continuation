@@ -8,10 +8,13 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-# try:
-#     import wandb
-#     USE_WANDB = True
-# except ModuleNotFoundError:
+try:
+    import wandb
+    USE_WANDB = True
+except ModuleNotFoundError:
+    pass
+    USE_WANDB = False
+
 USE_WANDB = False
 
 from deep_continuation import data
@@ -55,7 +58,8 @@ default_parameters = {
     'beta': [20.0],
     'plot': False,
     'standardize': False,
-    'init_gain': 0.1
+    'init_gain': 0.1,
+    'metrics': True,
 }
 
 help_strings = {
@@ -84,13 +88,14 @@ help_strings = {
 
 
 class Normalizer(nn.Module):
-    def __init__(self, dim=-1, norm=np.pi/40):
+    def __init__(self, dim=-1, norm=1.0):#np.pi/40):
         super().__init__()
         self.dim = dim
         self.norm = norm
+        self.softplus = nn.Softplus()
     def forward(self, x):
-        N = x.shape[self.dim]
-        return torch.renorm(x, p=1, dim=self.dim, maxnorm=N*self.norm)
+        out = self.softplus(x)
+        return out/((torch.abs(out.detach()).sum(dim=self.dim, keepdims=True)))
 
 
 class RenormSoftmax(nn.Module):
@@ -130,7 +135,7 @@ class MLP(nn.Module):
         elif args.out_unit in ['Softmax', 'softmax']:
             self.layers.append(nn.Softmax(dim=-1))
         elif args.out_unit in ['Normalizer', 'normalizer']:
-            self.layers.append(Normalizer())
+            self.layers.append(Normalizer(dim=-1))
         else:
             raise ValueError('out_unit unknown')
 
@@ -169,7 +174,7 @@ def dc_square_error(outputs, targets):
 
 def train(args, device, train_set, valid_set, loss, metric_list=None):
     if USE_WANDB: 
-        run = wandb.init(project="beta_and_scale", entity="deep_continuation", reinit=True)
+        run = wandb.init(project="post_corrections_test", entity="deep_continuation", reinit=True)
         wandb.config.update(args)
 
     # datasets
@@ -426,26 +431,27 @@ def main():
     )
 
     metric_list = []
-    for p, path in path_dict.items():
-        dataset = data.ContinuationData(
-            path+"valid/",
-            base_scale=15 if p=="F" else 20
-        )
-        for n, noise in noise_dict.items():
-            for b, beta, in beta_dict.items():
-                for s, scale in scale_dict.items():
-                    print(f"loading metric {p+s+n+b}")
-                    metric_list.append(data.EvaluationMetric(
-                        name = f"{p+n+b+s}",
-                        dataset=dataset,
-                        loss_dict=loss_dict,
-                        noise=noise,
-                        beta=beta,
-                        scale=scale,
-                        std=args.standardize,
-                        bs=args.metric_batch_size,
-                        num_workers=args.num_workers,
-                    ))
+    if args.metrics:
+        for p, path in path_dict.items():
+            dataset = data.ContinuationData(
+                path+"valid/",
+                base_scale=15 if p=="F" else 20
+            )
+            for n, noise in noise_dict.items():
+                for b, beta, in beta_dict.items():
+                    for s, scale in scale_dict.items():
+                        print(f"loading metric {p+s+n+b}")
+                        metric_list.append(data.EvaluationMetric(
+                            name = f"{p+n+b+s}",
+                            dataset=dataset,
+                            loss_dict=loss_dict,
+                            noise=noise,
+                            beta=beta,
+                            scale=scale,
+                            std=args.standardize,
+                            bs=args.metric_batch_size,
+                            num_workers=args.num_workers,
+                        ))
     
     loss = loss_dict[args.loss]
     train(args, device, train_set, valid_set, loss, metric_list=metric_list)
