@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-tremblay
-#SBATCH --time=0-11:59
+#SBATCH --time=0-17:59
 #SBATCH --mem-per-cpu=4000M 
 #SBATCH --job-name=genG
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
