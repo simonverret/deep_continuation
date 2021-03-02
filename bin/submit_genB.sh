@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --account=def-tremblay
-#SBATCH --time=0-11:59
+#SBATCH --time=0-17:59
 #SBATCH --mem-per-cpu=4000M 
 #SBATCH --job-name=genB
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
@@ -27,5 +27,5 @@ cd deep_continuation
 python data_generator.py data/B1_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
 python data_generator.py data/B1_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
 
-mkdir -p ~/scratch/deep_continuation/data/
+# mkdir -p ~/scratch/deep_continuation/data/
 cp -r data/* ~/scratch/deep_continuation/data/
