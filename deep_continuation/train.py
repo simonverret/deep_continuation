@@ -234,7 +234,7 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
     early_stop_count = args.stop
     best_valid_loss = TORCH_MAX
     for epoch in range(1, args.epochs+1):
-        print(f' epoch {epoch}')
+        print(f' epoch {epoch}, trn {len(train_loader)}, vld {len(valid_loader)}')
         model.epoch = epoch
         model.train()
         model.avg_train_loss = 0
@@ -299,12 +299,12 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
                     os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
                 )
         
-        model_chkpt = deepcopy(model)
-        for metric in metric_list:
-            is_best = metric.evaluate(model_chkpt, device, fraction=args.valid_fraction)
-            if is_best:
-                early_stop_count = args.stop
-            metric.print_results()
+        # model_chkpt = deepcopy(model)
+        # for metric in metric_list:
+        #     is_best = metric.evaluate(model_chkpt, device, fraction=args.valid_fraction)
+        #     if is_best:
+        #         early_stop_count = args.stop
+        #     metric.print_results()
          
         if USE_WANDB: 
             dict_to_log = {
@@ -313,14 +313,15 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
                 "train_loss": model.avg_train_loss,
                 "valid_loss": model.avg_valid_loss,
             }
-            dict_to_sum = {}
-            for metric in metric_list:
-                for lname, lvalue in metric.loss_values.items():
-                    dict_to_log[f"{lname}_{metric.name}"] = lvalue
-                    dict_to_sum[f"{lname}_{metric.name}"] = metric.best_losses[lname]
-                    dict_to_sum[f"epoch_{lname}_{metric.name}"] = metric.best_models[lname].epoch
             wandb.log(dict_to_log)
-            wandb.run.summary.update(dict_to_sum)
+
+            # dict_to_sum = {}
+            # for metric in metric_list:
+            #     for lname, lvalue in metric.loss_values.items():
+            #         dict_to_log[f"{lname}_{metric.name}"] = lvalue
+            #         dict_to_sum[f"{lname}_{metric.name}"] = metric.best_losses[lname]
+            #         dict_to_sum[f"epoch_{lname}_{metric.name}"] = metric.best_models[lname].epoch
+            # wandb.run.summary.update(dict_to_sum)
 
         if early_stop_count == 0:
             print('early stopping limit reached!!')
@@ -330,14 +331,14 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
     dict_to_sum = {}
     for metric in metric_list:
         for lname, lvalue in metric.loss_values.items():
-            tmp_model = metric.best_models[lname]
-            tmp_model.eval()
-            metric.evaluate(tmp_model, device, fraction=1.0)
+            # tmp_model = metric.best_models[lname]
+            model.eval()
+            metric.evaluate(model, device, fraction=1.0)
             metric.print_results()
             
             if USE_WANDB:
                 dict_to_sum[f"{lname}_{metric.name}"] = metric.loss_values[lname]
-                dict_to_sum[f"epoch_{lname}_{metric.name}"] = tmp_model.epoch
+                dict_to_sum[f"epoch_{lname}_{metric.name}"] = model.epoch
 
     if USE_WANDB:
         wandb.run.summary.update(dict_to_sum)

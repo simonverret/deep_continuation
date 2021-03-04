@@ -71,6 +71,7 @@ for i in range(nruns):
 
 # create a local virtual environnement (on the compute node)
 cd $SLURM_TMPDIR
+module load httpproxy/1.0
 module load python/3.7
 virtualenv --no-download env
 source env/bin/activate
