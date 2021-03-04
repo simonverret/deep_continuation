@@ -54,6 +54,7 @@ default_dict = {
     'beta': [20.0],
     'plot': False,
     'standardize': False,
+    'init_gain': 0.01,
 }
 
 # the random pick is recursive:
@@ -110,7 +111,13 @@ def new_args_dict_from(search_space, template_dict = default_dict):
     new_args_dict = template_dict
     for parameter, range_def in search_space.items():
         value = pick_from(range_def)
-        new_args_dict[parameter] = value   
+        new_args_dict[parameter] = value
+    
+    if new_args_dict['out_unit'] == "None":
+        new_args_dict['init_gain'] = 0.01
+    elif new_args_dict['out_unit'] == "Softmax":
+        new_args_dict['init_gain'] = 1.0
+    
     return new_args_dict
 
 

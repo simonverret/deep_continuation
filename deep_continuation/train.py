@@ -15,7 +15,7 @@ except ModuleNotFoundError:
     pass
     USE_WANDB = False
 
-USE_WANDB = False
+# USE_WANDB = False
 
 from deep_continuation import data
 from deep_continuation import utils
