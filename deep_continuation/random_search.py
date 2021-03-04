@@ -24,7 +24,7 @@ default_dict = {
     'noise': 1e-5,
     'loss': 'mse',
     'batch_size': 300,
-    'epochs': 500,
+    'epochs': 2000,
     'layers': [
         128,
         2000,
@@ -40,7 +40,7 @@ default_dict = {
     'optimizer': "adam",
     'weight_decay': 0,
     'smoothing': 1.0,
-    'stop': 20,
+    'stop': 40,
     'warmup': True,
     'schedule': True,
     'factor': 0.4,

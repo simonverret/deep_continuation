@@ -330,13 +330,13 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
     print('final_evaluation')
     dict_to_sum = {}
     for metric in metric_list:
-        for lname, lvalue in metric.loss_values.items():
-            # tmp_model = metric.best_models[lname]
-            model.eval()
-            metric.evaluate(model, device, fraction=1.0)
-            metric.print_results()
+        # tmp_model = metric.best_models[lname]
+        model.eval()
+        metric.evaluate(model, device, fraction=1.0)
+        metric.print_results()
             
-            if USE_WANDB:
+        if USE_WANDB:
+            for lname, lvalue in metric.loss_values.items():
                 dict_to_sum[f"{lname}_{metric.name}"] = metric.loss_values[lname]
                 dict_to_sum[f"epoch_{lname}_{metric.name}"] = model.epoch
 
