@@ -90,6 +90,7 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
+WANDB_MODE=dryrun
 srun -l --multi-prog ~/codes/deep_continuation/bin/silly{i}.conf'''
 
     with open(f"submit{i}.sh", 'w') as f:
