@@ -30,4 +30,6 @@ cd $SLURM_TMPDIR/deep_continuation/
 pip install --no-index -e .
 cd $SLURM_TMPDIR/deep_continuation/deep_continuation/
 
+# wandb off
 srun -l --multi-prog ~/codes/deep_continuation/bin/silly8.conf
+# cp -r wandb $SLURM_SUBMIT_DIR/wandb_$SLURM_JOB_ID

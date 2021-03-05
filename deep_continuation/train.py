@@ -299,13 +299,6 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
                     os.path.join(wandb.run.dir, f"best_valid_loss_model.pt")
                 )
         
-        # model_chkpt = deepcopy(model)
-        # for metric in metric_list:
-        #     is_best = metric.evaluate(model_chkpt, device, fraction=args.valid_fraction)
-        #     if is_best:
-        #         early_stop_count = args.stop
-        #     metric.print_results()
-         
         if USE_WANDB: 
             dict_to_log = {
                 "epoch": epoch,
@@ -315,20 +308,16 @@ def train(args, device, train_set, valid_set, loss, metric_list=None):
             }
             wandb.log(dict_to_log)
 
-            # dict_to_sum = {}
-            # for metric in metric_list:
-            #     for lname, lvalue in metric.loss_values.items():
-            #         dict_to_log[f"{lname}_{metric.name}"] = lvalue
-            #         dict_to_sum[f"{lname}_{metric.name}"] = metric.best_losses[lname]
-            #         dict_to_sum[f"epoch_{lname}_{metric.name}"] = metric.best_models[lname].epoch
-            # wandb.run.summary.update(dict_to_sum)
-
         if early_stop_count == 0:
             print('early stopping limit reached!!')
             break
 
     print('final_evaluation')
     dict_to_sum = {}
+    model.load_state_dict(torch.load(
+            os.path.join(wandb.run.dir, f"best_valid_loss_model.pt"),
+            map_location=device
+        ))
     for metric in metric_list:
         # tmp_model = metric.best_models[lname]
         model.eval()
