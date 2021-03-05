@@ -6,7 +6,7 @@
 #SBATCH --output=%x-%j.out      ### %x=job-name, %j=job-ID
 
 cd $SLURM_TMPDIR
-module load httpproxy/1.0
+# module load httpproxy/1.0
 
 # create a local virtual environnement (on the compute node)
 module load python/3.7
