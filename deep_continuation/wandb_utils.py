@@ -100,7 +100,7 @@ def download_wandb_table(project_name):
 
 def get_wandb_model(model_id, device,
     local_path="best_models",
-    wandb_project="deep_continuation/beta_and_scale/",
+    wandb_project="deep_continuation/corrected_beta_scale/",
     remote_model_file="best_valid_loss_model.pt"
 ):
     api = wandb.Api()

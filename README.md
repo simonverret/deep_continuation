@@ -1,6 +1,7 @@
 # DEEP CONTINUATION
 Simon Verret,
 Reza Nourafkan,
+Quinton Weyrich,
 & Andre-Marie Tremablay
 
 Research project on analytical continuation of the conductivity with neural networks.
