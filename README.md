@@ -30,3 +30,5 @@ To remove errors at the beginning, you can comment all the `wandb` lines
 
 ## SLURM CLUSTERS
 Two example submission scripts are provided in `bin/` to run the program on compute canada clusters
+
+
