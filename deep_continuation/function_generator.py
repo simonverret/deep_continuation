@@ -1,4 +1,5 @@
 import time
+import warnings
 
 import numpy as np
 from scipy import integrate
@@ -31,6 +32,28 @@ default_parameters = {
     # rescale
     'rescale': 4.0,
     'spurious': False,
+}
+
+
+default_parameters_help = {
+    'seed': "Random seed used to generate the data",
+    # peaks
+    "variant": "Function generator to use: gaussian (G), Beta (B) or Lorentz (L)",
+    "anormal": "When true, individual peaks are not normalized as in",
+    "wmax": "Maximum frequencies of the discrete samples",
+    "nmbrs": "List of ranges for the number of peaks (list of list)",
+    "cntrs": "List of ranges for the positions of peaks (list of list)",
+    "wdths": "List of ranges for the widths of peaks (list of list)",
+    "wghts": "List of ranges for the weights (heights) of peaks",
+    "arngs": "List of ranges of the a parameters of Beta functions",
+    "brths": "List of ranges of the b parameters of Beta functions",
+    "even": "Make a copy of each peaks at negative positions",
+    # lorentz (if variant == L)
+    'num_peaks': "Number of Lorentz peaks used in the Lorentz comb",
+    'width': "Width of Lorentz peaks of the Lorentz comb",
+    # rescale
+    'rescale': "Value for fixing the variance of all spectra",
+    'spurious': "If True, will compute Matsubara responses BEFORE rescaling, introducing spurious correlation",
 }
 
 
@@ -265,9 +288,12 @@ def beta_dist(x, a, b):
     Returns:
         array: Values of the function at the values of `x`
     """    
-    return (gamma(a+b)/(SMALL+gamma(a)*gamma(b)))\
-        * np.nan_to_num((x**(a-1))*((1-x)**(b-1))\
-        * (x > 0) * (x < 1), copy=False)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return (gamma(a+b)/(SMALL+gamma(a)*gamma(b)))\
+            * np.nan_to_num((x**(a-1))*((1-x)**(b-1))\
+            * (x > 0) * (x < 1), copy=False)
 
 
 def centered_beta(x, a, b):

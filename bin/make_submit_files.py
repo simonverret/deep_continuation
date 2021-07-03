@@ -2,7 +2,19 @@ import os
 import json
 import glob
 
+"""
+This python script creates multiple submit files for compute canada clusters.
+Each submission requests 1 GPU to run three simultaneous jobs.
+Each job runs a random search for given temperature, rescaling and dataset.
+Requirements before submitting:
+    - Datasets prepared and placed in `~/scratch/deep_continuation/data`.
+    - Code cloned on the cluster at `~/codes/deep_continuation`.
+    - `wandb` working to record results.
+The last point is important, as nothing is copied from the compute node back to 
+home at the end of the computation. 
 
+This script only produces submit files, you have to sumbit them manually.
+"""
 
 scale_dict = {
         'N': False,
@@ -51,9 +63,6 @@ for i in range(nruns):
     with open(f"silly{i}.conf", 'w') as f:
         for i, filename in enumerate(file_list[i*njobs:(i+1)*njobs]):
             f.write(f"{i} python random_search.py ../bin/{filename} --num_workers {ncpus}\n")
-
-
-
 
 
 for i in range(nruns):

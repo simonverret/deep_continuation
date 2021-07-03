@@ -10,6 +10,7 @@ import matplotlib.colors as mcolors
 from deep_continuation import utils
 from deep_continuation.function_generator import (
     default_parameters,
+    default_parameters_help,
     rescaling,
     SigmaPiGenerator,
 )
@@ -197,7 +198,23 @@ def main():
         'scaled_plot': False,
         'infer_scale': False,
     })
-    args = utils.parse_file_and_command(default_parameters, {})
+
+    default_parameters_help.update({
+        'plot': "Number of conductivities to plot",
+        'generate': "Number of conductivities to save",
+        'path': "Path where to save the data",
+        'Nwn': "Number of Matsubara frequencies",
+        'Nw': "Number of real frequencies (sampling only, integration is higher)",
+        'beta': "List of temperatures",
+        'norm': "Normalization",
+        # plot
+        'plot_name': "Plot title",
+        'basic_plot': "Default plot",
+        'scaled_plot': "Plot with the true scale",
+        'infer_scale': "Plot with the user infered scale",
+    })
+    
+    args = utils.parse_file_and_command(default_parameters, default_parameters_help)
     print(f"seed : {args.seed}")
     np.random.seed(args.seed)
 

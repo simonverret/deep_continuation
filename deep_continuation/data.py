@@ -111,10 +111,3 @@ class EvaluationMetric():
         for lname in self.loss_dict.keys():
             print(f' {self.loss_values[lname]:.9f} ({lname})  ', end='')
         print()
-
-
-def main():
-    pass
-    
-if __name__ == "__main__":
-    main()
