@@ -12,8 +12,8 @@ Requirements before submitting:
     - `wandb` working to record results.
 The last point is important, as nothing is copied from the compute node back to 
 home at the end of the computation. 
-This scripts only produce the files, nothing is sumbitted.
-You can try it safely.
+
+This script only produces submit files, you have to sumbit them manually.
 """
 
 scale_dict = {
