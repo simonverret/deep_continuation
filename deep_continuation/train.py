@@ -8,14 +8,17 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
+WANDB_PROJECT = None #"corrected_beta_scale"
 try:
     import wandb
-    USE_WANDB = True
+    if WANDB_PROJECT:
+        USE_WANDB = True
+        WANDB_ENTITY = "deep_continuation"
+    else:
+        USE_WANDB = False
 except ModuleNotFoundError:
     pass
     USE_WANDB = False
-
-# USE_WANDB = False
 
 from deep_continuation import data
 from deep_continuation import utils
@@ -174,7 +177,7 @@ def dc_square_error(outputs, targets):
 
 def train(args, device, train_set, valid_set, loss, metric_list=None):
     if USE_WANDB: 
-        run = wandb.init(project="corrected_beta_scale", entity="deep_continuation", reinit=True)
+        run = wandb.init(project=WANDB_PROJECT, entity=WANDB_ENTITY, reinit=True)
         wandb.config.update(args)
 
     # datasets
