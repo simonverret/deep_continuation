@@ -34,26 +34,22 @@ default_parameters = {
     'spurious': False,
 }
 
-
 default_parameters_help = {
     'seed': "Random seed used to generate the data",
-    # peaks
-    "variant": "Function generator to use: gaussian (G), Beta (B) or Lorentz (L)",
-    "anormal": "When true, individual peaks are not normalized as in",
-    "wmax": "Maximum frequencies of the discrete samples",
-    "nmbrs": "List of ranges for the number of peaks (list of list)",
-    "cntrs": "List of ranges for the positions of peaks (list of list)",
-    "wdths": "List of ranges for the widths of peaks (list of list)",
-    "wghts": "List of ranges for the weights (heights) of peaks",
-    "arngs": "List of ranges of the a parameters of Beta functions",
-    "brths": "List of ranges of the b parameters of Beta functions",
-    "even": "Make a copy of each peaks at negative positions",
-    # lorentz (if variant == L)
+    'variant': "Gaussian (G), Beta (B) or Lorentz (L)",
+    'anormal': "(bool) When true, individual peaks are not normalized as in",
+    'wmax': "Maximum frequencies of the discrete samples",
+    'nmbrs': "(list of list) List of ranges for number of peaks (for each peak group)",
+    'cntrs': "(list of list) List of ranges for positions of peaks",
+    'wdths': "(list of list) List of ranges for widths of peaks",
+    'wghts': "(list of list) List of ranges for weights (heights) of peaks",
+    'arngs': "(list of list) List of ranges of the a parameters of Beta peaks",
+    'brths': "(list of list) List of ranges of the b parameters of Beta peaks",
+    'even': "(bool) Make a copy of each peaks at negative positions",
     'num_peaks': "Number of Lorentz peaks used in the Lorentz comb",
     'width': "Width of Lorentz peaks of the Lorentz comb",
-    # rescale
     'rescale': "Value for fixing the variance of all spectra",
-    'spurious': "If True, will compute Matsubara responses BEFORE rescaling, introducing spurious correlation",
+    'spurious': "(bool) Compute Matsubara responses BEFORE rescaling, introducing spurious correlation",
 }
 
 
