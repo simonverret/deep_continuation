@@ -24,7 +24,7 @@ default_parameters = {
     "wdths": [[0.40, 4.00], [0.40, 4.00]],
     "wghts": [[0.00, 1.00], [0.00, 1.00]],
     "arngs": [[2.00, 10.00], [0.70, 10.00]],
-    "brths": [[2.00, 10.00], [0.70, 10.00]],
+    "brngs": [[2.00, 10.00], [0.70, 10.00]],
     "even": True,
     # lorentz
     'num_peaks': 10000,
@@ -44,7 +44,7 @@ default_parameters_help = {
     'wdths': "(list of list) List of ranges for widths of peaks",
     'wghts': "(list of list) List of ranges for weights (heights) of peaks",
     'arngs': "(list of list) List of ranges of the a parameters of Beta peaks",
-    'brths': "(list of list) List of ranges of the b parameters of Beta peaks",
+    'brngs': "(list of list) List of ranges of the b parameters of Beta peaks",
     'even': "(bool) Make a copy of each peaks at negative positions",
     'num_peaks': "Number of Lorentz peaks used in the Lorentz comb",
     'width': "Width of Lorentz peaks of the Lorentz comb",
@@ -377,7 +377,7 @@ class SigmaGenerator():
                 where tuples indicate a range for the `a` parameters
                 for Beta peaks. Defaults to 
                 [[2.00, 5.00], [0.50, 5.00]].
-            brths (list of tuples, optional): List of groups of peaks
+            brngs (list of tuples, optional): List of groups of peaks
                 where tuples indicate a range for the `b` parameters
                 for Beta peaks. Defaults to 
                 [[2.00, 5.00], [0.50, 5.00]].
@@ -467,18 +467,18 @@ class BetaMix(GaussianMix):
 
     def __init__(self, 
         arngs=[[2.00, 5.00], [0.50, 5.00]],
-        brths=[[2.00, 5.00], [0.50, 5.00]],
+        brngs=[[2.00, 5.00], [0.50, 5.00]],
         **kwargs
     ):
         super().__init__(**kwargs)
         self.arngs = arngs
-        self.brths = brths
+        self.brngs = brngs
 
     def _random_ab(self, num_per_groups):
         al, bl = [], []
         for i, n in enumerate(num_per_groups):
             al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
-            bl.append(np.random.uniform(self.brths[i][0], self.brths[i][1], n))
+            bl.append(np.random.uniform(self.brngs[i][0], self.brngs[i][1], n))
         a = np.hstack(al)
         b = np.hstack(bl)
         return a, b
