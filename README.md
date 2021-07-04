@@ -11,13 +11,14 @@ Install with
     cd deep_continuation/
     pip install -e .
 
-
-## Usage
 All the code is in `deep_continuation/deep_continuation/`, so move there:
 
     cd deep_continuation
 
-### Generate data
+
+## Generate data
+
+### Default Data (using Beta functions)
 
 Generate 4 temporary conductivities (using Beta functions) and plot them:
 
@@ -41,20 +42,45 @@ Note that 1000 conductivities is not enough for proper training of neural networ
     python data_generator.py data/B1_train.json --generate 100000 --rescale 4
     python data_generator.py data/B1_valid.json --generate 10000 --rescale 4
 
-As an example, here are the actual calls I used to generate data for experiments on the temperature agnostic training. I is very long to generate, it produces 100000 conductivies and the matsubara responses functions at 8 different temperatures. You will also find these command lines in submission scripts of the `bin` folder.
+Here are the calls used to generate data for the experiments on temperature agnostic training. It is very long to generate, it produces 100000 conductivies and the matsubara responses functions at 8 different temperatures. You will also find these command lines in submission scripts of the `bin` folder.
 
     python data_generator.py data/B1_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
     python data_generator.py data/B1_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
 
 
-**More Details**: Data generation is highly configurable. There are two ways to modify the generation parameters. The first way is to change the content of the `data/B1_valid.json` file, or use another file. For example:
+### Custom Configuration
+
+There are two ways to modify the data generation process. The first way is to change the content of the `data/B1_valid.json` file. For instance, we can use another file: 
 
     python data_generator.py data/G1_train.json --plot 4
 
-Another way is to use command line arguments:
+Another way is to use command line arguments like `--variant G` here:
 
-    python data_generator.py data/B1_train.json --variant G
+    python data_generator.py data/B1_train.json --plot 4 --variant G
 
+To get a list of all such configurable parameters, use `--help`
+
+    python data_generator.py --help
+
+Or look for `default_parameters` and `default_parameters_help` dictionaries in the code. Here is an example, from the `function_generator.py` file, at the core of the data generating process:
+
+    {
+        'seed': "Random seed used to generate the data",
+        'variant': "Gaussian (G), Beta (B) or Lorentz (L)",
+        'anormal': "(bool) When true, individual peaks are not normalized as in",
+        'wmax': "Maximum frequencies of the discrete samples",
+        'nmbrs': "(list of list) List of ranges for number of peaks (for each peak group)",
+        'cntrs': "(list of list) List of ranges for positions of peaks",
+        'wdths': "(list of list) List of ranges for widths of peaks",
+        'wghts': "(list of list) List of ranges for weights (heights) of peaks",
+        'arngs': "(list of list) List of ranges of the a parameters of Beta peaks",
+        'brths': "(list of list) List of ranges of the b parameters of Beta peaks",
+        'even': "(bool) Make a copy of each peaks at negative positions",
+        'num_peaks': "Number of Lorentz peaks used in the Lorentz comb",
+        'width': "Width of Lorentz peaks of the Lorentz comb",
+        'rescale': "Value for fixing the variance of all spectra",
+        'spurious': "(bool) Compute Matsubara responses BEFORE rescaling, introducing spurious correlation",
+    }
 
 
 ### Train neural networks
