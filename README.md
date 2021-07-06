@@ -112,12 +112,11 @@ TODO: simple script that trains the best neural network
 
 ### `train.py`
 contains the model definition and training function. 
-- `data.py` contains a pytorch dataset that handles multiple temperature. It is unecessarily complicated. This should be reused. in the future.
-- `random_search.py` contains a loop to generate random configurations and call the train.py functions with those. 
+- `data.py` contains a pytorch dataset that handles multiple temperature. It is unecessarily complicated. This shouldn't be reused.
+- `random_search.py` contains a loop to generate random configurations and call the train.py functions with those.
 - `wandb_utils.py` provides a few utilities that allow to load the results from the wandb server to restore the best neural nets.
 
 ### Other Files
-
 - `monotonous_functions.py` contains multiple functions to distribute Lorentz peaks for the Lorentz comb generating variant. Most of them are useless. You can generate plots (which are saved in the `plots/` directory) of those functions by running.
 
         python monotonous_function.py
