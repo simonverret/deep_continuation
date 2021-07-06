@@ -18,31 +18,30 @@ All the code is in `deep_continuation/deep_continuation/`, so move there:
 
 ## Generate data
 
-The data generation code is located in two files:
-- `function_generator.py` provides generators that produce pairs of functions (actual python functions) that can be used at any frequencies and temperatures (Matsubara frequencies).
-- `data_generator.py` uses the above to produce the discrete samples of these functions (vectors) at specific freqencies and temperatures. It also provides the tools to plot and save these vectors.
+### `function_generator.py`
+This module provides generators that produce pairs of functions (actual python functions) that can be used at any frequencies and temperatures (Matsubara frequencies).
 
+### `data_generator.py`
+This module uses the above function generator to produce the discrete samples of these functions (vectors) at specific freqencies and temperatures. It also provides the tools to plot and save these vectors. Here are multiple examples:
 
-### Basic usage (using Beta functions)
+- Generate 4 temporary conductivities (using Beta functions) and plot them:
 
-Generate 4 temporary conductivities (using Beta functions) and plot them:
+        python data_generator.py data/B1_train.json --plot 4
 
-    python data_generator.py data/B1_train.json --plot 4
+- Change the seed to get different conductivities:
 
-Change the seed to get different conductivities:
+        python data_generator.py data/B1_train.json --plot 4 --seed 1
 
-    python data_generator.py data/B1_train.json --plot 4 --seed 1
+- Rescale them to see the temperature agnostic case:
 
-Rescale them to see the temperature agnostic case:
+        python data_generator.py data/B1_train.json --plot 4 --seed 1 --rescale 4
 
-    python data_generator.py data/B1_train.json --plot 4 --seed 1 --rescale 4
+- Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
 
-Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
+        python data_generator.py data/B1_train.json --generate 1000 --rescale 4
+        python data_generator.py data/B1_valid.json --generate 200 --rescale 4
 
-    python data_generator.py data/B1_train.json --generate 1000 --rescale 4
-    python data_generator.py data/B1_valid.json --generate 200 --rescale 4
-
-Note that 1000 conductivities is not enough for proper training of neural networks. You have to manually remove existing dataset to create a new one with the same name. The following gives a proper dataset, but is very long to run:
+- 1000 conductivities is not enough for proper training of neural networks. You have to manually remove existing dataset to create a new one with the same name. The following gives a proper dataset, but is very long to run:
 
     python data_generator.py data/B1_train.json --generate 100000 --rescale 4
     python data_generator.py data/B1_valid.json --generate 10000 --rescale 4
@@ -106,18 +105,16 @@ The `data/B1_train.json` used up to now defines these parameters:
 
 ## Train a neural networks
 
-The neural network training code is located in three files
-- `train.py` contains 
-
-    
-
-- `data.py`
+TODO: simple script that trains the best neural network
 
 
-## Search the optimal hyperparameters
+## Hyperparameters search
 
-- `random_search.py`
-- `wandb_utils.py`
+### `train.py`
+contains the model definition and training function. 
+- `data.py` contains a pytorch dataset that handles multiple temperature. It is unecessarily complicated. This should be reused. in the future.
+- `random_search.py` contains a loop to generate random configurations and call the train.py functions with those. 
+- `wandb_utils.py` provides a few utilities that allow to load the results from the wandb server to restore the best neural nets.
 
 ### Other Files
 
