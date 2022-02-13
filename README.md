@@ -15,6 +15,14 @@ All the code is in `deep_continuation/deep_continuation/`, so move there:
 
     cd deep_continuation
 
+## Documentation
+Build and navigate the automatic Sphinx documentation (under construction)
+
+    pip install sphinx furo
+    cd docs
+    make html
+    open build/html/index.html
+
 
 ## Generate data
 

@@ -13,6 +13,9 @@ wandb
 */plots/best_models
 */plots/cedar_env
 */plots/best_ever.yaml
+docs/build
+
+
 deep_continuation/small_data/B1_test.json
 deep_continuation/small_data/B1_train.json
 deep_continuation/small_data/B1_valid.json
@@ -97,3 +100,4 @@ deep_continuation/small_data/G1/valid/Pi.csv
 deep_continuation/small_data/G1/valid/SigmaRe_scaled_4.0.csv
 deep_continuation/small_data/G1/valid/SigmaRe.csv
 deep_continuation/small_data/G1/valid/wmaxs.csv
+
