@@ -1,30 +1,18 @@
 # Deep Continuation
-Python module by S. Verret, with the help of R. Nourafkan, Q. Weyrich, & A.-M. S. Tremblay, for Analytic continuation of response functions with temperature-agnostic neural networks.
+Analytic continuation of response functions with temperature-agnostic neural networks.
 
 ## Install
-Download with
-
-    git clone https://github.com/simonverret/deep_continuation.git
-
 Install with
 
     cd deep_continuation
     pip install -e .
 
-All the code is in `deep_continuation/deep_continuation/`, so move there:
-
-    cd deep_continuation
-
-## Documentation
-Build and navigate the automatic Sphinx documentation (under construction)
-
-    pip install sphinx furo
-    cd docs
-    make html
-    open build/html/index.html
-
-
 ## Generate data
+Generate the training data with:
+
+    python deep_continuation/data.py
+
+It can take several minutes, the data is saved under `deep_continuation 
 
 ### `function_generator.py`
 This module provides generators that produce pairs of functions (actual python functions) that can be used at any frequencies and temperatures (Matsubara frequencies).
@@ -113,28 +101,4 @@ The `data/B1_train.json` used up to now defines these parameters:
 
 ## Train a neural networks
 
-TODO: simple script that trains the best neural network
-
-
-## Hyperparameters search
-
-### `train.py`
-contains the model definition and training function. 
-- `data.py` contains a pytorch dataset that handles multiple temperature. It is unecessarily complicated. This shouldn't be reused.
-- `random_search.py` contains a loop to generate random configurations and call the train.py functions with those.
-- `wandb_utils.py` provides a few utilities that allow to load the results from the wandb server to restore the best neural nets.
-
-### Other Files
-- `monotonous_functions.py` contains multiple functions to distribute Lorentz peaks for the Lorentz comb generating variant. Most of them are useless. You can generate plots (which are saved in the `plots/` directory) of those functions by running.
-
-        python monotonous_function.py
-
-- `infinite_data.py` is a failed attempt at using the actual functions as a dataset rather than discretized vectors, and feed the frequencies to the neural network. You can run it to see the dataset of functions being generated and the neural network learning nothing.
-
-        python infinite_data.py
-
-
-## Supercomputing clusters
-Examples of Slurm submission scripts are provided in `bin/` to run the program on compute canada clusters.
-
-
+Simple script that trains the best neural network
