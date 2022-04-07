@@ -15,5 +15,6 @@ setup(name='deep_continuation',
             'torch',
             'fire',
             'tqdm',
+            'ipykernel',
         ]
     )

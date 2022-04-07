@@ -1,6 +1,6 @@
 import os
+import json
 from pathlib import Path
-import multiprocessing
 HERE = Path(__file__).parent
 
 from tqdm import tqdm
@@ -13,44 +13,51 @@ from deep_continuation.conductivity import get_sigma_and_pi
 from deep_continuation.plotting import *
 
 
-def build_dataset(
-    # generation parameters
+def main(
+    # interactive parameters
     plot=0,
     save=0,
-    seed=55555,
-    name="B1",
-    path=f"{HERE}/data/",
-    plot_name=f"{HERE}/plots/last",
     basic=False,
     scale=False,
     infer=False,
-    # dataset parameters
+    # conductivity parameters
     Nwn=128, 
     Nw=512, 
     beta=30, 
     wmax=20, 
     rescale=False,
     spurious=False,
-    # spectra parameters
-    variant="Beta",
-    nmbrs=[[0, 4], [0, 6]],
-    cntrs=[[0.00, 0.00], [4.00, 16.0]],
-    wdths=[[0.40, 4.00], [0.40, 4.00]],
-    wghts=[[0.00, 1.00], [0.00, 1.00]],
-    arngs=[[2.00, 10.00], [0.70, 10.00]],
-    brngs=[[2.00, 10.00], [0.70, 10.00]],
-    anormal=False,
-
+    # distribution parameters
+    file="default",
+    seed=55555,
+    path=f"{HERE}/data/",
+    name="B1",
+    overwrite=False,
 ):
-    size = max(save, plot)
-    sigma = np.empty((size, Nw))
-    Pi = np.empty((size, Nwn))
-    s = np.empty(size)
+    file_path = f"{HERE}/data/{file}.json"
+    if os.path.exists(file_path):
+        with open(file_path) as f:
+            file_parameters = json.load(f)
+        
+        variant = file_parameters.get('variant')
+        anormal = file_parameters.get('anormal')
+        nmbrs = file_parameters.get('nmbrs')
+        cntrs = file_parameters.get('cntrs')
+        wdths = file_parameters.get('wdths')
+        wghts = file_parameters.get('wghts')
+        arngs = file_parameters.get('arngs')
+        brngs = file_parameters.get('brngs')
+
 
     distrib_generator = get_distribution_generator(
         variant, nmbrs, cntrs, wdths, wghts, arngs, brngs, anormal,
     )
     
+    size = max(save, plot)
+    sigma = np.empty((size, Nw))
+    Pi = np.empty((size, Nwn))
+    s = np.empty(size)
+
     np.random.seed(seed)
     for i in (tqdm(range(size)) if save else range(size)):
         distrib = distrib_generator.generate()
@@ -59,21 +66,26 @@ def build_dataset(
         )
 
     if save > 0:
-        setstr = f"{name}_{size}_seed{seed}"
-        pi_path = path + f"Pi_{setstr}_{Nwn}_beta{beta}.txt"
-        sigma_path = path + f"sigma_{setstr}_{Nw}_wmax{wmax}_rescaled{rescale}.txt"
-        scale_path = path + f"scale_{setstr}_{Nwn}_beta{beta}.txt"
+        pi_path, sigma_path, scale_path = get_file_paths(
+            path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
+        )
+        already_exist = (
+            os.path.exists(pi_path)
+            or os.path.exists(sigma_path)
+            or os.path.exists(scale_path)
+        )
         
-        if os.path.exists(sigma_path) or os.path.exists(pi_path):
+        if not overwrite and already_exist:
             raise ValueError("there is already a dataset on this path")
         np.savetxt(pi_path, Pi, delimiter=",")
         np.savetxt(sigma_path, sigma, delimiter=",")
         np.savetxt(scale_path, s, delimiter=",")
 
     elif plot > 0:
-        print(f"scales\n  s     = {s}\n  betas = {beta/s}\n  wmaxs = {s*wmax}")
         print(f"normalizations\n  Pi    : {Pi[:,0]}\n  sigma : {sigma.sum(-1)}")
+        print(f"scales\n  s     = {s}\n  betas = {s*beta}\n  wmaxs = {s*wmax}")
 
+        plot_name = f"{HERE}/plots/{name}"
         if basic:
             plot_basic(Pi, sigma, 
                 f"{plot_name}_basic.pdf" if plot_name else None
@@ -84,9 +96,9 @@ def build_dataset(
                 # beta / scale,
                 # wmax * np.ones_like(scale),
                 ### or s*wmax
-                beta * np.ones_like(scale),
-                wmax * scale,
-                f"{plot_name}_scale.pdf" if plot_name else None,
+                betas=beta * np.ones_like(s),
+                wmaxs=wmax * s,
+                filename=f"{plot_name}_scale.pdf" if plot_name else None,
                 default_wmax=wmax,
             )
         if infer:
@@ -99,5 +111,19 @@ def build_dataset(
         print("nothing to do, use --plot 10 or --save 10000")
 
 
+def get_file_paths(
+    path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
+):
+    set_str = f"{name}_{size}_seed{seed}"
+    spurious_str = '_spurious' if spurious else ''
+    rescale_str = f'_rescaled{rescale}' if rescale else ''
+    
+    pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{spurious_str}.txt"
+    sigma_path = path + f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.txt"
+    scale_path = path + f"scale_{set_str}_{Nwn}_beta{beta}{rescale_str}.txt"
+    
+    return pi_path, sigma_path, scale_path
+
+
 if __name__ == "__main__":
-    Fire(build_dataset)  # turns th function in a command line interface
+    Fire(main)  # turns th function in a command line interface
