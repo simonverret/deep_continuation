@@ -16,14 +16,14 @@ def get_sigma_and_pi(
     beta=30,
     wmax=20,
     rescale=False,
-    spurious=False,   
+    spurious=False,
 ):
     def sigma_func(x): 
         return 0.5 * (distrib(x) + distrib(-x))    
 
     if rescale:
         sec_moment = second_moment(sigma_func, grid_end=wmax)
-        s = np.sqrt(sec_moment) * rescale/wmax * np.sqrt(1/np.pi)
+        s = np.sqrt(sec_moment) / rescale
         def new_sigma_func(w):
             return s * sigma_func(s * w)
 

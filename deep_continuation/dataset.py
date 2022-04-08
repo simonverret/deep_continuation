@@ -62,7 +62,7 @@ def main(
     for i in (tqdm(range(size)) if save else range(size)):
         distrib = distrib_generator.generate()
         sigma[i], Pi[i], s[i] = get_sigma_and_pi(
-            distrib, Nwn, Nw, beta, wmax, rescale, spurious,    
+            distrib, Nwn, Nw, beta, wmax, rescale, spurious
         )
 
     if save > 0:
@@ -115,7 +115,7 @@ def get_file_paths(
     path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
 ):
     set_str = f"{name}_{size}_seed{seed}"
-    spurious_str = '_spurious' if spurious else ''
+    spurious_str = '_spurious' if spurious and rescale else ''
     rescale_str = f'_rescaled{rescale}' if rescale else ''
     
     pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{spurious_str}.txt"
