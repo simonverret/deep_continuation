@@ -69,17 +69,24 @@ def main(
         pi_path, sigma_path, scale_path = get_file_paths(
             path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
         )
-        already_exist = (
-            os.path.exists(pi_path)
-            or os.path.exists(sigma_path)
-            or os.path.exists(scale_path)
-        )
+        pi_exists = os.path.exists(pi_path)
+        sigma_exists = os.path.exists(sigma_path)
+        scale_exists = os.path.exists(scale_path)
         
-        if not overwrite and already_exist:
-            raise ValueError("there is already a dataset on this path")
-        np.savetxt(pi_path, Pi, delimiter=",")
-        np.savetxt(sigma_path, sigma, delimiter=",")
-        np.savetxt(scale_path, s, delimiter=",")
+        if not overwrite and pi_exists:
+            print(f"WARNING: Skipping existing {pi_path}")
+        else:
+            np.savetxt(pi_path, Pi, delimiter=",")
+        
+        if not overwrite and sigma_exists:
+            print(f"WARNING: Skipping existing {sigma_path}")
+        else:
+            np.savetxt(sigma_path, sigma, delimiter=",")
+        
+        if not overwrite and scale_exists:
+            print(f"WARNING: Skipping existing {scale_path}")
+        else:
+            np.savetxt(scale_path, s, delimiter=",")
 
     elif plot > 0:
         print(f"normalizations\n  Pi    : {Pi[:,0]}\n  sigma : {sigma.sum(-1)}")
