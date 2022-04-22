@@ -1,4 +1,5 @@
-from abc import ABC, abstractmethod
+import json
+import os
 import warnings
 
 import numpy as np
@@ -7,7 +8,28 @@ from scipy.special import gamma
 SMALL = 1e-10
 
 
-def get_distribution_generator(
+def get_generator_from_file(file_path, seed=None, legacy=True):
+    with open(file_path) as f:
+        file_parameters = json.load(f)
+    
+    variant = file_parameters.get('variant')
+    anormal = file_parameters.get('anormal')
+    nmbrs = file_parameters.get('nmbrs')
+    cntrs = file_parameters.get('cntrs')
+    wdths = file_parameters.get('wdths')
+    wghts = file_parameters.get('wghts')
+    arngs = file_parameters.get('arngs')
+    brngs = file_parameters.get('brngs')
+    if seed is None:
+        seed = file_parameters.get('seed')
+
+    generator = get_generator(
+        variant, nmbrs, cntrs, wdths, wghts, arngs, brngs, anormal, seed,
+    )
+    return generator
+
+
+def get_generator(
     variant="Beta",
     nmbrs=[[0, 4], [0, 6]],
     cntrs=[[0.00, 0.00], [4.00, 16.0]],
@@ -16,8 +38,9 @@ def get_distribution_generator(
     arngs=[[2.00, 10.00], [0.70, 10.00]],
     brngs=[[2.00, 10.00], [0.70, 10.00]],
     anormal=False,
+    seed=None,
 ):
-    """Creates the DistributionGenerator object according to arguments.
+    """Creates the distribution generator object according to arguments.
 
     The available generators include:
         - Gaussian mixture generator (G)
@@ -59,7 +82,7 @@ def get_distribution_generator(
         ValueError: if `variant` is not recognized
 
     Returns:
-        DistributionGenerator: One subclass of DistributionGenerator
+        distribution generator: One subclass of distribution generator
     """
     if variant in ["G", "Gaussian", "gaussian"]:
         return GaussianMix(
@@ -68,6 +91,7 @@ def get_distribution_generator(
             wdths=wdths,
             wghts=wghts,
             anormal=anormal,
+            seed=seed,
         )
     elif variant in ["L", "Lorentzian", "lorentzian"]:
         return LorentzMix(
@@ -76,6 +100,7 @@ def get_distribution_generator(
             wdths=wdths,
             wghts=wghts,
             anormal=anormal,
+            seed=seed,
         )
     elif variant in ["B", "Beta", "beta"]:
         return BetaMix(
@@ -86,18 +111,13 @@ def get_distribution_generator(
             arngs=arngs,
             brngs=brngs,
             anormal=anormal,
+            seed=seed,
         )
     else:
-        raise ValueError(f"DistributionGenerator variant {variant} not recognized")
+        raise ValueError(f"distribution generator variant {variant} not recognized")
 
 
-class DistributionGenerator(ABC):
-    @abstractmethod
-    def generate(self):
-        pass
-
-
-class GaussianMix(DistributionGenerator):
+class GaussianMix():
     """Gaussian mixture generator, doc at :func:`~random_distribution_generator`"""
 
     def __init__(
@@ -108,6 +128,7 @@ class GaussianMix(DistributionGenerator):
         wghts=[[0.00, 1.00], [0.00, 1.00]],
         norm=1,
         anormal=False,
+        seed=None,
     ):
         self.nmbrs = nmbrs
         self.cntrs = cntrs
@@ -115,20 +136,25 @@ class GaussianMix(DistributionGenerator):
         self.wghts = wghts
         self.norm = norm
         self.anormal = anormal
-
+        
+        # legacy compatible random number generator
+        self.random = np.random.RandomState(seed)  
+        # # newer version
+        # self.random = np.random.default_rng(seed)  # newer (must find and replace `randint` for `integers`)
+        
     def _random_num_per_group(self):
-        num_per_group = [np.random.randint(n[0], n[1] + 1) for n in self.nmbrs]
+        num_per_group = [self.random.randint(n[0], n[1] + 1) for n in self.nmbrs]
         if all(num_per_group) == 0:
-            lucky_group = np.random.randint(0, len(num_per_group) - 1)
+            lucky_group = self.random.randint(0, len(num_per_group) - 1)
             num_per_group[lucky_group] = 1
         return num_per_group
 
     def _random_cwh(self, num_per_groups):
         cl, wl, hl = [], [], []
         for i, n in enumerate(num_per_groups):
-            cl.append(np.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
-            wl.append(np.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
-            hl.append(np.random.uniform(self.wghts[i][0], self.wghts[i][1], n))
+            cl.append(self.random.uniform(self.cntrs[i][0], self.cntrs[i][1], n))
+            wl.append(self.random.uniform(self.wdths[i][0], self.wdths[i][1], n))
+            hl.append(self.random.uniform(self.wghts[i][0], self.wghts[i][1], n))
         c = np.hstack(cl)
         w = np.hstack(wl)
         h = np.hstack(hl)
@@ -174,8 +200,8 @@ class BetaMix(GaussianMix):
     def _random_ab(self, num_per_groups):
         al, bl = [], []
         for i, n in enumerate(num_per_groups):
-            al.append(np.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
-            bl.append(np.random.uniform(self.brngs[i][0], self.brngs[i][1], n))
+            al.append(self.random.uniform(self.arngs[i][0], self.arngs[i][1], n))
+            bl.append(self.random.uniform(self.brngs[i][0], self.brngs[i][1], n))
         a = np.hstack(al)
         b = np.hstack(bl)
         return a, b
