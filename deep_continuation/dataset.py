@@ -69,7 +69,7 @@ def main(
         
         if not overwrite and os.path.exists(scale_path):
             print(f"WARNING: Skipping existing {scale_path}")
-        else:
+        elif rescale:
             np.savetxt(scale_path, s, delimiter=",")
 
     elif plot > 0:
