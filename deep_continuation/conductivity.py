@@ -21,43 +21,25 @@ def get_sigma_and_pi(
     def sigma_func(x): 
         return 0.5 * (distrib(x) + distrib(-x))    
 
+    w = np.linspace(0, wmax, Nw)
     if rescale:
         sec_moment = second_moment(sigma_func, grid_end=wmax)
         s = np.sqrt(sec_moment) / rescale
         def new_sigma_func(w):
             return s * sigma_func(s * w)
 
-        # # get sigma using the new wmax with the old sigma        
-        # new_wmax = s*wmax
-        # w = np.linspace(0, new_wmax, Nw)
-        # sigma = sigma_func(w)
-        # sigma *= (2*new_wmax)/(Nw*np.pi)  # sum(sigma) == 1 to use with softmax
-
-        # or the old wmax with the new sigma
-        w = np.linspace(0, wmax, Nw)
         sigma = new_sigma_func(w)
-        sigma *= (2*wmax)/(Nw*np.pi)  # sum(sigma) == 1 to use with softmax
     else:
-        w = np.linspace(0, wmax, Nw)
         sigma = sigma_func(w)
-        sigma *= (2*wmax)/(Nw*np.pi)
         s = 1
+    sigma *= (2*wmax)/(Nw*np.pi)  # sum(sigma) == 1 to use with softmax
 
     if rescale and not spurious:
-        # # get the new pi using the old sigma with the new temperature:
-        # new_beta = beta/s
-        # pi_func = lambda x: pi_integral(x, sigma_func, grid_end=new_wmax)  # using the new_wmax (natural treshold of the old function) make the integral more precise
-        # w_n = np.arange(0, Nwn) * 2*np.pi/new_beta
-        # Pi = pi_func(w_n)
-        
-        # or using the new sigma with old temperature (and old wmax)
         pi_func = lambda x: pi_integral(x, new_sigma_func, grid_end=wmax)
-        w_n = np.arange(0, Nwn) * 2*np.pi/beta
-        Pi = pi_func(w_n)
     else:
         pi_func = lambda x: pi_integral(x, sigma_func, grid_end=wmax)
-        w_n = np.arange(0, Nwn) * 2*np.pi/beta
-        Pi = pi_func(w_n)
+    w_n = np.arange(0, Nwn) * 2*np.pi/beta
+    Pi = pi_func(w_n)
     
     return sigma, Pi, s
     
