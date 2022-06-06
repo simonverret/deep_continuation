@@ -77,7 +77,9 @@ def main(
         print(f"scales\n  s     = {s}\n  betas = {s*beta}\n  wmaxs = {s*wmax}")
 
         plot_name = f"{HERE}/plots/{name}"
-        if basic:
+
+        none_specified = (not any([basic, scale, infer]))
+        if basic or none_specified:
             plot_basic(Pi, sigma, 
                 f"{plot_name}_basic.pdf" if plot_name else None
             )
@@ -107,12 +109,12 @@ def get_file_paths(
 ):
     set_str = f"{name}_{size}_seed{seed}"
     
-    spurious_str = '_spurious' if spurious and rescale else ''
-    pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{spurious_str}.txt"
-    
     rescale_str = f'_rescaled{rescale}' if rescale else ''
     sigma_path = path + f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.txt"
     scale_path = path + f"scale_{set_str}_{Nwn}_beta{beta}{rescale_str}.txt"
+    
+    pi_rescale_str = rescale_str if rescale and not spurious else ''
+    pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{pi_rescale_str}.txt"
     
     return pi_path, sigma_path, scale_path
 

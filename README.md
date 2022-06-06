@@ -33,15 +33,15 @@ Command line script (using [python-fire](https://github.com/google/python-fire) 
 
 - Generate 4 temporary conductivities (using Beta functions) and plot them:
 
-        python deep_continuation/dataset.py --plot 4 --basic
+        python deep_continuation/dataset.py --plot 4
 
 - Change the seed to get different conductivities:
 
-        python deep_continuation/dataset.py --plot 4 --basic --seed 1
+        python deep_continuation/dataset.py --plot 4 --seed 1
 
 - Rescale them to see the temperature agnostic case:
 
-        python deep_continuation/dataset.py --plot 4 --basic --seed 1 --rescale 8.86
+        python deep_continuation/dataset.py --plot 4 --seed 1 --rescale 8.86
 
 - Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
 
