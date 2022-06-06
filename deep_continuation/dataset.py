@@ -7,7 +7,7 @@ from fire import Fire
 import numpy as np
 np.set_printoptions(precision=4)
 
-from deep_continuation.distributions import get_generator_from_file
+from deep_continuation.distribution import get_generator_from_file
 from deep_continuation.conductivity import get_sigma_and_pi
 from deep_continuation.plotting import plot_basic, plot_infer_scale, plot_scaled
 

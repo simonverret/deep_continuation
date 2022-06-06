@@ -19,10 +19,10 @@ Progress is displayed using [tqdm](https://github.com/tqdm/tqdm), and data is sa
 You can train an example neural network and see results in the `tutorial.ipynb` Jupyter notebook.
 
 ## Modules
-#### `distributions.py`
+#### `distribution.py`
 Generators of randomly shaped distributions.
 
-#### `conductivities.py`
+#### `conductivity.py`
 Functions to compute the Matsubara frequency conductivities from the real frequency ones.
 
 #### `plotting.py`
@@ -41,9 +41,9 @@ Command line script (using [python-fire](https://github.com/google/python-fire) 
 
 - Rescale them to see the temperature agnostic case:
 
-        python deep_continuation/dataset.py --plot 4 --basic --seed 1 --rescale 4
+        python deep_continuation/dataset.py --plot 4 --basic --seed 1 --rescale 8.86
 
 - Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
 
-        python deep_continuation/dataset.py --save 1000 --rescale 4
-        python deep_continuation/dataset.py --save 200 --rescale 4
+        python deep_continuation/dataset.py --save 1000 --rescale 8.86
+        python deep_continuation/dataset.py --save 200 --rescale 8.86
