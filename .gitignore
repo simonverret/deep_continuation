@@ -3,13 +3,14 @@ env
 *.egg-info
 .ipynb_checkpoints
 */results/
-*/data/*.txt
+*/data/*.npy
+*/plots/*.pdf
 wandb
-*.pdf
 *.zip
 *.pt
 docs/build
 
+docs/report.pdf
 docs/*.aux
 docs/*.bbl
 docs/*.blg

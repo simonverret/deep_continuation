@@ -1,9 +1,8 @@
-from urllib import request
 import pytest
 import numpy as np
-from pathlib import Path
-HERE = Path(__file__).parent
-EXPECT = HERE/"expected"
+import os
+HERE = os.path.dirname(os.path.abspath(__file__))
+EXPCPATH = os.path.join(HERE,"expected")
 
 from deep_continuation import dataset
 
@@ -27,16 +26,18 @@ def rescale(request):
 def expected_pi(seed, rescale, spurious=False):
     rescale_str = f'_rescaled{rescale}' if rescale else ''
     rescale_str = rescale_str if rescale and not spurious else ''
-    path = EXPECT/f'Pi_B1_4_seed{seed}_128_beta30{rescale_str}.txt'
-    Pi = np.loadtxt(open(path, "rb"), delimiter=',')
+    name = f'Pi_B1_4_seed{seed}_128_beta30{rescale_str}.npy'
+    path = os.path.join(EXPCPATH, name)
+    Pi = np.load(path)
     return Pi
 
 
 @pytest.fixture()
 def expected_sigma(seed, rescale):
     rescale_str = f'_rescaled{rescale}' if rescale else ''
-    path = EXPECT/f'sigma_B1_4_seed{seed}_512_wmax20{rescale_str}.txt'
-    sigma = np.loadtxt(open(path, "rb"), delimiter=',')
+    name = f'sigma_B1_4_seed{seed}_512_wmax20{rescale_str}.npy'
+    path = os.path.join(EXPCPATH, name)
+    sigma = np.load(path)
     return sigma
 
 

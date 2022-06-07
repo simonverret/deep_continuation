@@ -1,6 +1,8 @@
 import os
-from pathlib import Path
-HERE = Path(__file__).parent
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+DATAPATH = os.path.join(HERE, "data")
+PLOTPATH = os.path.join(HERE, "plots")
 
 from tqdm import tqdm
 from fire import Fire
@@ -30,14 +32,13 @@ def main(
     name="B1",
     file="default",
     seed=55555,
-    path=f"{HERE}/data/",
+    path=os.path.join(DATAPATH,""),
     overwrite=False,
 ):
-    
-    distrib_file_path = f"{HERE}/data/{file}.json"
+    distrib_file_path = os.path.join(DATAPATH, f"{file}.json")
     if not os.path.exists(distrib_file_path):
         print(f"WARNING: {file}.json not found. Reverting to default.json")
-        distrib_file_path = f"{HERE}/data/default.json"
+        distrib_file_path = os.path.join(DATAPATH, "default.json")
 
     distrib_generator = get_generator_from_file(distrib_file_path, seed)
     
@@ -60,23 +61,23 @@ def main(
         if not overwrite and os.path.exists(pi_path):
             print(f"WARNING: Skipping existing {pi_path}")
         else:
-            np.savetxt(pi_path, Pi, delimiter=",")
+            np.save(pi_path, Pi)
         
         if not overwrite and os.path.exists(sigma_path):
             print(f"WARNING: Skipping existing {sigma_path}")
         else:
-            np.savetxt(sigma_path, sigma, delimiter=",")
+            np.save(sigma_path, sigma)
         
         if not overwrite and os.path.exists(scale_path):
             print(f"WARNING: Skipping existing {scale_path}")
         elif rescale:
-            np.savetxt(scale_path, s, delimiter=",")
+            np.save(scale_path, s)
 
     elif plot > 0:
         print(f"normalizations\n  Pi    : {Pi[:,0]}\n  sigma : {sigma.sum(-1)}")
         print(f"scales\n  s     = {s}\n  betas = {s*beta}\n  wmaxs = {s*wmax}")
 
-        plot_name = f"{HERE}/plots/{name}"
+        plot_name = os.path.join(PLOTPATH,name)
 
         none_specified = (not any([basic, scale, infer]))
         if basic or none_specified:
@@ -110,11 +111,11 @@ def get_file_paths(
     set_str = f"{name}_{size}_seed{seed}"
     
     rescale_str = f'_rescaled{rescale}' if rescale else ''
-    sigma_path = path + f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.txt"
-    scale_path = path + f"scale_{set_str}_{Nwn}_beta{beta}{rescale_str}.txt"
+    sigma_path = path + f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.npy"
+    scale_path = path + f"scale_{set_str}_{Nwn}_beta{beta}{rescale_str}.npy"
     
     pi_rescale_str = rescale_str if rescale and not spurious else ''
-    pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{pi_rescale_str}.txt"
+    pi_path = path + f"Pi_{set_str}_{Nwn}_beta{beta}{pi_rescale_str}.npy"
     
     return pi_path, sigma_path, scale_path
 

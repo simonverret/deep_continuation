@@ -1,10 +1,7 @@
 #!/usr/bin/env python
-from pathlib import Path
-
 import numpy as np
 from scipy import integrate
 
-HERE = Path(__file__).parent
 SMALL = 1e-10
 INF = 1e10
 
