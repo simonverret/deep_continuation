@@ -6,6 +6,26 @@ SMALL = 1e-10
 INF = 1e10
 
 
+def get_rescaled_sigma(sigma_func, rescale, wmax=20):
+    sec_moment = second_moment(sigma_func, grid_end=wmax)
+    s = np.sqrt(sec_moment) / rescale
+    
+    def new_sigma_func(w):
+        return s * sigma_func(s * w)
+    
+    return new_sigma_func, s
+
+
+def get_sigma(sigma_func, Nw, wmax):
+    w = np.linspace(0, wmax, Nw)
+    return (2*wmax)/(Nw*np.pi) * sigma_func(w)  # normalized to 1
+
+
+def get_pi(sigma_func, Nwn=128, beta=30, wmax=20):
+    wn = np.arange(0, Nwn) * 2*np.pi/beta
+    return pi_integral(wn, sigma_func, grid_end=wmax)
+
+
 def get_sigma_and_pi(
     distrib,
     Nwn=128,
@@ -15,32 +35,24 @@ def get_sigma_and_pi(
     rescale=False,
     spurious=False,
 ):
-    def sigma_func(x): 
+    def sigma_func(x):
         return 0.5 * (distrib(x) + distrib(-x))    
 
-    w = np.linspace(0, wmax, Nw)
     if rescale:
-        sec_moment = second_moment(sigma_func, grid_end=wmax)
-        s = np.sqrt(sec_moment) / rescale
-        def new_sigma_func(w):
-            return s * sigma_func(s * w)
-
-        sigma = new_sigma_func(w)
+        new_sigma_func, s = get_rescaled_sigma(sigma_func, rescale, wmax)
+        sigma = get_sigma(new_sigma_func, Nw, wmax)
     else:
-        sigma = sigma_func(w)
-        s = 1
-    sigma *= (2*wmax)/(Nw*np.pi)  # sum(sigma) == 1 to use with softmax
-
+        s=1
+        sigma = get_sigma(sigma_func, Nw, wmax)
+        
     if rescale and not spurious:
-        pi_func = lambda x: pi_integral(x, new_sigma_func, grid_end=wmax)
+        Pi = get_pi(new_sigma_func, Nwn, beta, wmax)
     else:
-        pi_func = lambda x: pi_integral(x, sigma_func, grid_end=wmax)
-    w_n = np.arange(0, Nwn) * 2*np.pi/beta
-    Pi = pi_func(w_n)
-    
-    return sigma, Pi, s
-    
+        Pi = get_pi(sigma_func, Nwn, beta, wmax)
 
+    return sigma, Pi, s
+
+    
 def pi_integral(wn, sigma_func, **kwargs):
     if isinstance(wn, np.ndarray):
         wn = wn[:, np.newaxis]  # to broadcast integral to all wn
