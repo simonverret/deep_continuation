@@ -10,7 +10,7 @@ import numpy as np
 np.set_printoptions(precision=4)
 
 from deep_continuation.distribution import get_generator_from_file
-from deep_continuation.conductivity import get_sigma_and_pi
+from deep_continuation.conductivity import sample_on_grid, get_rescaled_sigma, compute_matsubara_response, second_moment
 from deep_continuation.plotting import plot_basic, plot_infer_scale, plot_scaled
 
 
@@ -49,10 +49,25 @@ def main(
 
     for i in (tqdm(range(size)) if save else range(size)):
         distrib = distrib_generator.generate()
-        sigma[i], Pi[i], s[i] = get_sigma_and_pi(
-            distrib, Nwn, Nw, beta, wmax, rescale, spurious
-        )
+        
+        def sigma_func(x):
+            return 0.5 * (distrib(x) + distrib(-x))    
 
+        if rescale:
+            old_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))
+            new_sigma_func = get_rescaled_sigma(sigma_func, old_std, new_std=rescale)
+        
+            s[i] = old_std / rescale
+            sigma[i] = sample_on_grid(new_sigma_func, Nw, wmax)
+        else:
+            s=1
+            sigma[i] = sample_on_grid(sigma_func, Nw, wmax)
+            
+        if rescale and not spurious:
+            Pi[i] = compute_matsubara_response(new_sigma_func, Nwn, beta, tail_start=wmax)
+        else:
+            Pi[i] = compute_matsubara_response(sigma_func, Nwn, beta, tail_start=wmax)
+        
     if save > 0:
         pi_path, sigma_path, scale_path = get_file_paths(
             path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
