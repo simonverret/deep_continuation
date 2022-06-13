@@ -35,57 +35,62 @@ def main(
     path=DATAPATH,
     overwrite=False,
 ):
+    # obtain the distribution generator
     distrib_file_path = os.path.join(DATAPATH, f"{file}.json")
     if not os.path.exists(distrib_file_path):
         print(f"WARNING: {file}.json not found. Reverting to default.json")
         distrib_file_path = os.path.join(DATAPATH, "default.json")
-
     distrib_generator = get_generator_from_file(distrib_file_path, seed)
     
+    # intializing empty containers for results
     size = max(save, plot)
     sigma = np.empty((size, Nw))
     Pi = np.empty((size, Nwn))
     s = np.empty(size)
-        
+    
+    # get filenames
     pi_path, sigma_path, scale_path = get_file_paths(
         path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
     )
-    
+
+    # setting skipping flags if file exists
     skip_pi =  not overwrite and os.path.exists(pi_path)
     skip_sigma = not overwrite and os.path.exists(sigma_path)
-    
+    skip_all =  skip_pi and skip_sigma
+
+    # loading existing data
     if skip_sigma:
         print(f"WARNING: Skipping existing {sigma_path}")
         sigma = np.load(sigma_path)
         s = np.load(scale_path)
-        
     if skip_pi:
         print(f"WARNING: Skipping existing {pi_path}")
         Pi = np.load(pi_path)
 
+    # main data generation loop
     for i in (tqdm(range(size)) if save else range(size)):
         distrib = distrib_generator.generate()
-        
-        def sigma_func(x):
-            return 0.5 * (distrib(x) + distrib(-x))    
 
-        if not skip_sigma:
-            if rescale:
-                old_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))
-                new_sigma_func = get_rescaled_sigma(sigma_func, old_std, new_std=rescale)
-            
-                s[i] = old_std / rescale
-                sigma[i] = sample_on_grid(new_sigma_func, Nw, wmax)
-            else:
-                s[i]=1
-                sigma[i] = sample_on_grid(sigma_func, Nw, wmax)
-            
-        if not skip_pi:
-            if rescale and not spurious:
-                Pi[i] = compute_matsubara_response(new_sigma_func, Nwn, beta, tail_start=wmax)
-            else:
-                Pi[i] = compute_matsubara_response(sigma_func, Nwn, beta, tail_start=wmax)
+        def sigma_func(x):
+            return 0.5 * (distrib(x) + distrib(-x))   
+
+        if rescale and not skip_all:
+            old_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
+            new_sigma_func = get_rescaled_sigma(sigma_func, old_std, new_std=rescale)    
         
+        if rescale and not skip_sigma:
+            s[i] = old_std / rescale
+            sigma[i] = sample_on_grid(new_sigma_func, Nw, wmax)
+        if not (rescale or skip_sigma):
+            s[i]=1
+            sigma[i] = sample_on_grid(sigma_func, Nw, wmax)
+
+        if rescale and not (skip_pi or spurious):
+            Pi[i] = compute_matsubara_response(new_sigma_func, Nwn, beta, tail_start=wmax)
+        if not (rescale or skip_pi):
+            Pi[i] = compute_matsubara_response(sigma_func, Nwn, beta, tail_start=wmax)
+    
+    # saving or plotting the data
     if save > 0:
         if not skip_sigma:
             np.save(sigma_path, sigma[:save])        
@@ -112,10 +117,6 @@ def main(
             )
         if scale:
             plot_scaled(Pi, sigma,
-                # ### use beta/s
-                # beta / scale,
-                # wmax * np.ones_like(scale),
-                ### or s*wmax
                 betas=beta * np.ones_like(s),
                 wmaxs=wmax * s,
                 filename=f"{plot_name}_scale.pdf" if plot_name else None,
