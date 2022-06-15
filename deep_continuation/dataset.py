@@ -42,7 +42,7 @@ def main(
         distrib_file_path = os.path.join(DATAPATH, "default.json")
     distrib_generator = get_generator_from_file(distrib_file_path, seed)
     
-    # intializing empty containers for results
+    # intialize empty containers for results
     size = max(save, plot)
     sigma = np.empty((size, Nw))
     Pi = np.empty((size, Nwn))
@@ -67,12 +67,10 @@ def main(
         print(f"WARNING: Skipping existing {pi_path}")
         Pi = np.load(pi_path)
 
-    # main data generation loop
+    # generate data
     for i in (tqdm(range(size)) if save else range(size)):
         distrib = distrib_generator.generate()
-
-        def sigma_func(x):
-            return 0.5 * (distrib(x) + distrib(-x))   
+        sigma_func = lambda w: 0.5 * (distrib(w) + distrib(-w))   
 
         if rescale and not skip_all:
             old_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
@@ -81,16 +79,18 @@ def main(
         if rescale and not skip_sigma:
             s[i] = old_std / rescale
             sigma[i] = sample_on_grid(new_sigma_func, Nw, wmax)
+        
         if not (rescale or skip_sigma):
             s[i]=1
             sigma[i] = sample_on_grid(sigma_func, Nw, wmax)
 
         if rescale and not (skip_pi or spurious):
             Pi[i] = compute_matsubara_response(new_sigma_func, Nwn, beta, tail_start=wmax)
+        
         if not (rescale or skip_pi):
             Pi[i] = compute_matsubara_response(sigma_func, Nwn, beta, tail_start=wmax)
     
-    # saving or plotting the data
+    # saving the data
     if save > 0:
         if not skip_sigma:
             np.save(sigma_path, sigma[:save])        
@@ -99,8 +99,8 @@ def main(
         if not skip_pi:
             np.save(pi_path, Pi)
 
-
-    elif plot > 0:
+    # plotting the data
+    if plot > 0:
         sigma = sigma[:plot]
         s = s[:plot]
         Pi = Pi[:plot]
@@ -128,7 +128,7 @@ def main(
                 default_wmax=wmax
             )
 
-    else:    
+    if save==0 and plot==0:    
         print("nothing to do, use --plot 10 or --save 10000")
 
 
