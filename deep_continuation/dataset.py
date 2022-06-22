@@ -87,7 +87,6 @@ def main(
             random_betas = np.random.uniform(
                 beta-width_temp/2, beta+width_temp/2, ntemp
             )
-            print(f"sampled\n  betas = {random_betas}")
         else:
             random_betas = [beta]
 
@@ -116,7 +115,7 @@ def main(
             np.save(scale_path, s[:save*ntemp])
 
         if not skip_pi:
-            np.save(pi_path, Pi)
+            np.save(pi_path, Pi[:save*ntemp])
 
     # plotting the data
     if plot > 0:
@@ -159,7 +158,7 @@ def get_file_paths(
     
     rescale_str = f'_rescaled{rescale}' if rescale else ''
 
-    beta_str = f'_ntemp{ntemp}_{dist_temp}{width_temp}_beta{beta}' if ntemp>1 else f'_beta{beta}'
+    beta_str = f'_ntemp{ntemp}_{dist_temp}{width_temp}_beta{beta}' if (ntemp>1 or width_temp>0) else f'_beta{beta}'
 
     sigma_path = os.path.join(path, f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.npy")
     scale_path = os.path.join(path, f"scale_{set_str}_{Nwn}{beta_str}{rescale_str}.npy")
