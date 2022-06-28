@@ -802,46 +802,5 @@ simplifying~\eqref{Pi_with_eta} to
 
 Therefore,~\eqref{sigma_lorentz} and~\eqref{Pi_lorentz} can be used to generate $p(\omega)$ and $\Pi(i\omega_n)$ data without having to perform costly numerical integrals. We can further get arbitrary $p(\omega)$ either by modulating the peak amplitudes $a_j$, or we can distribute their centers $\omega_j$ non-uniformly. The resulting function will be smooth as long as the width of the peaks are at least twice as large as the spacing between them, and the moments of the spectrum will be well-defined if a large enough number $J$ of Lorentzians are summed. Unfortunately, in practice, this sum can become as costly as a numerical integral.
 
-\subsection{Inferring $s$ and $T$ from $\mathbf \Pi$ and $p(\omega)$}
-
-In the dimensionless notation, equations~\eqref{Pi_normalization} and~\eqref{Pi_moment} can be rewritten as
-\begin{align}
-1&=
-s\int_{-\infty}^{\infty} d\omega
-p(s\omega)
-\end{align}
-and
-\begin{align}
-(\frac{2\pi}{\beta})^2
-\lim_{n\rightarrow\infty}
-n^2
-\Pi_n
-&=
-s^3 
-\int_{-\infty}^{\infty} d\omega \omega^2 
-p(s\omega),
-\end{align}
-where we used the change of variable $\omega\rightarrow s\omega$. If $\vec \Pi$ and $p(\omega)$ are known, these two equations entirely detemine $s$ and $T$. First, a transcendental equation must be solve for $s$,
-\begin{align}
-s
-&=
-\pi \bigg(
-\int_{-\infty}^{\infty}d\omega 
-p(s\omega)
-\bigg)^{-1}.
-\end{align}
-and once $s$ is known, $T$ is given By
-\begin{align}
-T
-&=
-\sqrt{\frac{s^3 
-\int_{-\infty}^{\infty} d\omega\omega^2 
-p(s\omega)}
-{4 \pi^3 k_B^2 
-\lim_{n\rightarrow\infty}
-n^2 \Pi_n}
-}.
-\end{align}
-
 \end{document}
 
