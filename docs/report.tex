@@ -36,7 +36,7 @@
 %	DOCUMENT
 \begin{document}
 
-\title{\bf Analytic continuation of response functions with temperature-agnostic neural networks}
+\title{\bf Analytic continuation of response functions\\with temperature-agnostic neural networks}
 \author{S. \surname{Verret}}
 \affiliation{Institute for Learning Algorithms (MILA), Montr\'eal, Canada}
 \affiliation{Institut Quantique (IQ), Sherbrooke, Canada}
@@ -55,7 +55,7 @@
 
 \subsection{Analytic continuation of conductivity}
 
-The starting point of this report is the following relation (derived in appendix) between the optical conductivity $\sigma(\omega)$ and the Matsubara response function $\Pi(\omega_n)$,
+The starting point of this report is the following relation (partly derived in appendix) between the Matsubara response function $\Pi(i\omega_n)$ and the optical conductivity $\sigma(\omega)$,
 \begin{align}
 \Pi(i\omega_n) 
 =
@@ -63,10 +63,11 @@ The starting point of this report is the following relation (derived in appendix
 \text{Re}\{ \sigma(\omega) \}.
 \label{Pi_continuation}
 \end{align}
-As considered in this work, the analytic continuation problem is the inversion of this equation. That is, recover a numerical estimate of $\text{Re}\{ \sigma(\omega) \}$ given a numerical estimate for $\Pi(i\omega_n)$.
+Here, $\omega$ is a frequency or energy (we set $\hbar=1$), $\omega_n=2\pi k_BTn$ are Matsubara frequency, $T$ is the temperature, and $k_B$ is the Boltzmann constant.
+Four our purpose, the term ``analytic continuation'' refers to the problem of inverting equation~\eqref{Pi_continuation}. That is, recover a numerical estimate of $\text{Re}\{ \sigma(\omega) \}$ given a numerical estimate for $\Pi(i\omega_n)$.
 
 
-Two special cases of the above will be of particular importance. First, the value $\Pi(\omega_n=0)$ corresponds to the normalization of $\text{Re}\{ \sigma(\omega) \}$,
+Two special cases of the above equation will be of particular importance. First, the value $\Pi(i\omega_n=0)$ which corresponds to the normalization of $\text{Re}\{ \sigma(\omega) \}$,
 \begin{align}
 \Pi(0) 
 =
@@ -86,7 +87,7 @@ Second, values of $\Pi(i\omega_n)$ at high $\omega_n$ and values of $\text{Re}\{
 \end{align}
 
 \subsection{Dimensionless formulation}
-We can obtain a dimensionless version of~\eqref{Pi_continuation} by dividing it by~\eqref{Pi_normalization}
+We can obtain a dimensionless version of~\eqref{Pi_continuation} by dividing it by~\eqref{Pi_normalization}. To clarify the dimensional analysis,we substitute $\omega_n = 2\pi k_BTn$, and temporarily restore $\hbar$,
 \begin{align}
 \frac{\Pi(i\omega_n)}{\Pi(0)}
 &=
@@ -100,19 +101,18 @@ We can obtain a dimensionless version of~\eqref{Pi_continuation} by dividing it 
 \right).
 \label{dimensionless}
 \end{align}
-For simplicity, we denote the left-hand side as a vector $\vec \Pi$ with
-\begin{align}
+We will denote the left-hand side as a vector $\vec \Pi$, \begin{align}
 \Pi_n = \frac{\Pi(i\omega_n)}{\Pi(0)} 
 % = \frac{\Pi(i2\pi k_B T n)}{\Pi(0)},
 \end{align}
-and the term in parenthesis as a density function
+and the term in parenthesis as a density function $p(\omega)$,
 \begin{align}
 p(\omega) =
 \frac{\text{Re}\{ \sigma(\omega) \}}
 {\int_{-\infty}^{\infty} d\omega \text{Re}\{ \sigma(\omega) \}}.
 \label{eq_def_density}
 \end{align}
-These are natural dimensionless input $\vec\Pi$ and output $p(\omega)$ for the analytic continuation problem. We then rewrite \eqref{dimensionless} with the change of variable $\omega\rightarrow s\omega$
+These are natural dimensionless input $\vec\Pi$ and output $p(\omega)$ for the analytic continuation problem. We then rewrite \eqref{dimensionless} with a change of variable $\omega\rightarrow s\omega$
 \begin{align}
 \Pi_n
 &=
@@ -125,17 +125,17 @@ p(\omega),
 sp(s\omega).
 \label{dimensionless_with_p2}
 \end{align}
-We thus see that, when applied on $sp(s\omega)$---where $s$ fits the definition of a \emph{scale parameter}---the integral kernel depends on the ratio~$\frac{T}{s}$.
-If we consider that $s$ carries the units of frequency, $\omega$ becomes a dimensionles continuous variable (analogous to the integer $n$ in matsubara frequencies) and the term $\frac{2\pi k_B}{\hbar}\frac{T}{s}$) then corresponds to a dimensionless temperature.
+This allow to isolate an alternative integrand argument $sp(s\omega)$, where $s$ fits the definition of a \emph{scale parameter}.
+If we consider that $s$ carries the units of frequency, $\omega$ becomes a dimensionles continuous variable (analogous to the integer $n$ in matsubara frequencies) and the term $\frac{2\pi k_B}{\hbar}\frac{T}{s}$ then corresponds to a dimensionless temperature.
 
 \subsection{Temperature-agnostic formulation}
 \label{section_temperature_agnostic}
-The above dimensionless formulation shows that there is a degenerancy between analytic continuation problems at different temperatures. We can make this degenerancy explicit by writting integral~\eqref{dimensionless_with_p1} as a functional $\Pi_n = \Pi_n[p(\omega)](T)$, such that lines~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} become 
+The above dimensionless formulation shows that there is a degenerancy between analytic continuation problems at different temperatures. We can make this degenerancy explicit by writing integral~\eqref{dimensionless_with_p1} as a functional $\Pi_n = \Pi_n[p(\omega)](T)$, such that lines~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} become 
 \begin{align}
 \Pi_n[p(\omega)](T) = \Pi_n[sp(s\omega)](T/s).
 \label{degenerancy}
 \end{align}
-This means that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$, for any $s$. Thus, without the temperature $T$ or frequency scale $s$ specified (with $\vec \Pi$ only), the analytic continuation task is ambiguous (degenerate with respect to $s$). Thus, in order to have a well defined problem, either $T$ or $s$ must be fixed.
+This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. Thus, without the temperature $T$ or frequency scale $s$ specified (with $\vec \Pi$ only), the analytic continuation task is ambiguous (degenerate with respect to $s$). Thus, in order to have a well defined problem, either $T$ or $s$ must be fixed.
 
 \paragraph*{Fixing $T$}
 Working from a single temperature $T_\text{{ref}}$ and setting $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
@@ -193,8 +193,9 @@ p(\omega)
 \end{align}
 Preparing every conductivity like this produces a dataset with only reference $p(\omega)$ as targets.
 
-Fixing $\mu_2$ have three noteworthy advantages. First, all reference distributions will have similar widths in the $\omega$ space; there will be no exessively narrow or wide $p(\omega)$. Second, the constant $\mu_2$ simplifies the recovery of conductivity explained in the next section.
-And third, if the generation process for $p_0(\omega)$ allows one to control the second central moment of the distribution analytically, the correct scale can be enforced without numerical overhead (we did not take advantage of this in the current work).
+Fixing $\mu_2$ have three noteworthy advantages. First, all reference distributions will have similar widths in the $\omega$ space; there will be no exessively narrow or wide $p(\omega)$, this is useful when working on a frequency grid. 
+Second, if the generation process for $p_0(\omega)$ allows one to control the second central moment of the distribution analytically, the correct scale can be enforced without numerical overhead (we did not take advantage of this in the current work).
+And third, the constant $\mu_2$ simplifies the recovery of conductivity explained in the next section.
 
 % Note that constant second moment $\mu_2 = \mathbb E[\omega^2]$ is not the only possibility. One could also prepare $p(\omega)$ with constant $\mathbb E [\omega^4 - \mathbb E[\omega^2]^2]$, for example.
 % The latter notably provides stronger guarantees on the domain of $p(\omega)$, which can be shown using a variant of Chebyshev's inequality. However, if one is to use the high frequency information from $\Pi(i\omega_n)$ to extract the real frequency scale, then using the second moment is required.
@@ -203,7 +204,7 @@ And third, if the generation process for $p_0(\omega)$ allows one to control the
 
 \subsection{Recovering conductivity}
 \label{sec_usage}
-Suppose we have access to such an algorithm, for example a neural network $p_{\vec\theta}(\omega,\vec\Pi)$ (with $\vec \theta$ denoting all adjustable parameters) which takes $\vec \Pi$ as an input and approximates a single reference $p(\omega)$ as an output,
+Suppose we have access to a neural network $p_{\vec\theta}(\omega,\vec\Pi)$ (with $\vec \theta$ denoting all adjustable parameters) which takes $\vec \Pi$ as an input and approximates a single reference $p(\omega)$ as an output,
 \begin{align}
 p_{\vec\theta}(\omega,\vec \Pi)\approx p(\omega).
 \end{align}
@@ -251,7 +252,7 @@ s p_{\vec \theta}(s\omega, \vec \Pi).
 \subsection{Discrete formulation}
 \label{section_discrete}
 
-Analytic continuation with neural networks is typically done with  vector-to-vector neural networks~\cite{Fournier2020,Xie2019,Yoon2018,Kades2019}. The output of the neural network is a vector $\hat{\vec p} = p_{\vec \theta}(\vec \Pi)$ targets the desired function $p(\omega)$ discretized on a given grid of real frequencies,
+Analytic continuation with neural networks is typically done with vector-to-vector neural networks~\cite{Fournier2020,Xie2019,Yoon2018,Kades2019}. The output of the neural network is then a vector $\hat{\vec p} = p_{\vec \theta}(\vec \Pi)$ which targets the desired function $p(\omega)$ on a grid of real frequencies,
 \begin{align}
 \omega_m &=
 \Delta\omega m.
@@ -278,23 +279,25 @@ we define the target vector $\vec p$ as
 \begin{align}
     [\vec p]_m = \Delta\omega p(\Delta\omega m).
 \end{align}
-One must be careful and remember that discretizing integrals like the above is only an approximation. 
-As such, we recommended to avoid sums like~\eqref{discretized_continuation}  whenever possible, and perform more accurate integration of $p(\omega)$.
-Furthermore, seeing the kernel in~\eqref{discretized_continuation} as a matrix and inverting that matrix is not the same as solving the continuous analytic continuation problem.
+Training the neural network then amounts to minimize the expected distance between $\hat{\vec p}$ and $\vec p$ over a large training set of $(\vec \Pi,\vec p)$ pairs (see section~\ref{sec_training}).
+
+One must be careful and remember that discretizing integrals as above is only an approximation. 
+As such, we recommend to avoid sums like~\eqref{discretized_continuation} and perform more accurate integration of $p(\omega)$ whenever possible.
+In fact, seeing the kernel in~\eqref{discretized_continuation} as a matrix and inverting that matrix is not the same as solving the continuous inversion problem. This can be understood by imagining the limiting case in which one uses only a handful of points to approximate the integral. The additional difficulty due to the discretization error which is part of the matrix problem, but it is not intrinsic to the continuous problem. Equating the two can be misleading.
 
 Note that $\Delta\omega$ occupies the same position as the scale parameter $s$ which was the focus of the previous section, and indeed, it will play precisely this role in what follows.
 
 \subsection{Normalization}
-It is beneficial to make output components $p_m$ sum to one, in order to use a softmax output unit in the neural network. Considering the discretized normalization integral for $p(\omega)$,
+For various reasons (see section~\ref{sec_training}), it is beneficial to make the neural network's output components $p_m$ sum to one. Considering the discretized normalization integral for $p(\omega)$,
 \begin{align}
 \int d\omega p(\omega) = 1 \approx \sum_m \Delta\omega p(\Delta\omega m),
 \end{align}
-we see that $p_m$ must indeed correspond to $[\vec p]_m = \Delta\omega p(\Delta\omega m)$.
+we see that $p_m$ must correspond to $[\vec p]_m = \Delta\omega p(\Delta\omega m)$, as defined in the previous section.
 There is no problem in combining the rescaling $p(\omega)\rightarrow sp_0(s\omega)$ discussed in previous section with the above normalization. We will note it $\vec p \rightarrow \vec p_s$.
 \begin{align}
     [\vec p_s]_m = s\Delta\omega p_0(s\Delta\omega m).
 \end{align}
-Both $\vec p$ and $\vec p_s$ sum to one, because both $p(s)$ and $sp(s\omega)$ integrate to one. Note, however, that the frequency values at which those functions are sampled are not the same.
+Both $\vec p$ and $\vec p_s$ sum to one, because both $p(s)$ and $sp(s\omega)$ integrate to one. Note, however, that the $\omega_m$ values at which those functions are sampled are not the same; respectively $\Delta\omega m$ and $s\Delta\omega m$.
 
 
 \subsection{Preparing data}
@@ -343,15 +346,16 @@ Let us now consider a fourth way of generating data, an hybrid bewtween~\ref{fix
 
 We will now argue that, because of the fixed $T_{\text{ref}}$, approaches~\ref{fixT} and~\ref{spurious} both lead to spurious correlations. Indeed, when all $\vec \Pi$ are computed at the same temperature, a narrow distribution $p_0(\omega)$ leads to a fast-decreasing $\vec \Pi$, and a wide $p_0(\omega)$ leads to slow-decreasing $\vec \Pi$, as expected from the tail relation~\eqref{Pi_moment}.
 In approach~\ref{fixT}, this correlation should manifest directly: fast-decreasing $\vec \Pi$ are paired with narrow $\vec p$ (meaning $\vec p$ has only a few large components near $\omega=0$) while slow-decreasing $\vec \Pi$ are paired with wide $\vec p$ (many non-negligible components). This is what we mean by ``spurious correlation'' in that case.
-In approach~\ref{spurious}, the spurious correlations get more subtle. Since targets~$\vec p$ are rescaled to the same width (the rescaling leads to fixed second moment), the correlations between the width of $\vec p$ and decreasing rate of $\vec \Pi$ is removed. However, other spurious correlations might remain depending on the process used to generate $p_0(\omega)$. For example, if this process lead to simpler structure (fewer peaks) for narrow $p_0(\omega)$, and more complex structure (many peaks) for wide $p_0(\omega)$ (as in section~\ref{sec_distribution}), then the these correlations between the structure of $p_0(\omega)$ and its width gets transferred through the one between the width of $p_0(\omega)$ and the decreasing rate of $\vec \Pi$. As a result, fast-decreasing $\vec \Pi$ are paired with simpler-structured $\vec p$ and slow-decreasing $\Pi$ are paired with more complex-structured $\vec p$. This is what we mean by ``spurious correlation'' in that case.
+In approach~\ref{spurious}, the spurious correlations get more subtle. Since targets~$\vec p$ are rescaled to the same width (the rescaling leads to fixed second moment), the correlations between the width of $\vec p$ and decreasing rate of $\vec \Pi$ is removed. However, other spurious correlations might remain depending on the process used to generate $p_0(\omega)$. For example, if this process lead to simpler structure (fewer peaks) for narrow $p_0(\omega)$, and more complex structure (many peaks) for wide $p_0(\omega)$ (as in section~\ref{sec_distribution}), then the these correlations between the structure of $p_0(\omega)$ and its width gets transferred through the one between the width of $p_0(\omega)$ and the decreasing rate of $\vec \Pi$. As a result, fast-decreasing $\vec \Pi$ are paired with simpler-structured $\vec p$ and slow-decreasing $\vec \Pi$ are paired with more complex-structured $\vec p$. This is what we mean by ``spurious correlation'' in that case.
 Such spurious correlations may or may not be desirable, but one must be aware they exists.
 
 Approaches~\ref{rescaled} and~\ref{p0rescaled} completely avoid these uncontrolled correlations between the decrease of $\vec \Pi$ and the width or the structure of the output. Approach~\ref{rescaled} do so by rescaling $p_0(\omega)$ and working only with the new function $p(\omega)$ which has fixed width (fixed second moment), and approach~\ref{p0rescaled}, which is equivalent, instead adjusts the temperature $T/s$ and the frequency grid to the second moment of $p_0(\omega)$.
-With these approaches, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate (because all $\vec p(\omega)$ have the same width). In order to get a dataset which correctly spans $\vec \Pi$ space, randomly sampled values of $T$ should be used. One could even control the spurious correlations by varying $T$ as a function of $p_0(\omega)$.
+With these approaches, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate (because all $\vec p(\omega)$ have the same width). In order to get a dataset which correctly spans $\vec \Pi$ space, randomly sampled values of $T$ should be used. One can then control spurious correlations, if desired, by varying $T$ as a function of $p_0(\omega)$.
 
 The above considerations clarify the kind of bias which is induced when preparing the dataset. Constraining the output space of analytic continuation by choosing the training domain is the main benefit of using machine-learning for analytic continuation~\cite{Arsenault2017}. This bias in the space of allowed $p(\omega)$ is desirable since it acts as a form of regularization. Similarly, a bias in the way this space changes with temperature (the spurious correlations discussed above) might also be desirable. Indeed, high temperature $\vec \Pi$ don't provide as much information as low temperature $\vec \Pi$ and therefore simpler $p(\omega)$ might be easier to learn at high temperatures. As described in this section, by being careful with the dataset generation, it is possible to control these biases.
 
 \subsection{Training details}
+\label{sec_training}
 % \paragraph*{standardization} Input data is standardized.
 % \paragraph*{architecture} Fully connected, ReLU, BatchNorm, Softmax output unit.
 % \paragraph*{loss function} L1 loss function
@@ -374,7 +378,7 @@ p(\omega)
 \end{align}
 Each peak parametrized by weight $A_j$, center $\omega_j$, and width $\sigma_j$.
 
-Most machine learning papers on analytic continuation were trained on sets of Gaussian peaks as described above~\cite{Arsenault2017, Yoon2018, Xie2019, Fournier2020}. The most influential paper in that respect is arguably that of Arsenault et al~\cite{Arsenault2017}, which correctly identifies the importance of the data as a mean for regulation. Unfortunately, some of the constraints used for their data generation are described qualitatively, which prevented faithful reproduction here. The work of Yoon et al.~\cite{Yoon2018} uses a difficult distribution on the number of peaks. We therefore prefer the datasets defined by Fournier et al.\cite{Fournier2020} and re-used in Xie et al.\cite{Xie2019}, and are straigthforward to generate. Note however, that their definition implicitely fix $A_j=\sigma_j$ which favours very rounded distributions.
+Most machine learning papers on analytic continuation were trained on sets of Gaussian peaks as described above~\cite{Arsenault2017, Yoon2018, Xie2019, Fournier2020}. The most influential paper in that respect is arguably that of Arsenault et al~\cite{Arsenault2017}, which correctly identifies the importance of the data as a mean for regulation. Unfortunately, some of the constraints used for their data generation are described qualitatively, which prevents faithful reproduction. The work of Yoon et al.~\cite{Yoon2018} uses a somewhat complicated and arbitrary distribution for the number of peaks. The dataset defined by Fournier et al.\cite{Fournier2020} and re-used in Xie et al.\cite{Xie2019}, are more straigthforward to generate. Note however, that their definition implies that $A_j=\sigma_j$ which favours very rounded distributions.
 
 
 \subsection{Beta peaks}
@@ -448,6 +452,14 @@ so it is possible to adjust them to control their center and width as we did for
 
 
 
+\begin{acknowledgments}
+This project was started in close collaboration with Reza Nourafkan and André-Marie Tremblay. I must also acknowledge additional useful discussions with Yoshua Bengio, Maxime Charlebois, Samuel Desrosiers, Sébastien Lachapelle, Vincent Mai and Francesco Rotella.
+\end{acknowledgments}
+
+\bibliography{report}
+    
+\pagebreak
+
 \appendix
 \addcontentsline{toc}{section}{Appendix} % Add the appendix text to the document TOC
 
@@ -500,7 +512,7 @@ f(t<0)
 \end{align}
 As a consequence, a pole-free spectrum $f(z)$ in the upper-half complex plane ($z=z'+iz''$ with $z''>0$ such that $e^{-z''t}$ ensures convergence) correspond to a causal function in time ($f(t<0)=0$).
 
-\paragraph*{Sokhotski–Plemelj} Finally, we remind the useful theorem
+\paragraph*{Sokhotski–Plemelj theorem} Finally, we remind the useful theorem
 \begin{align}
 \lim_{\eta\rightarrow 0}\int_{\-\infty}^{\infty} \frac{f(z)}{z \pm i\eta} dz
 =  
@@ -510,13 +522,13 @@ As a consequence, a pole-free spectrum $f(z)$ in the upper-half complex plane ($
 
 
 \subsection{Linear response theory}
-In classical systems, a "linear response function" $\chi(\omega)$ relates a driving force $F(t)$ to the solution $x(t)$ of a given differential equation. It is defined from a linear relation in the frequency domain as
+In classical systems, a ``linear response function'' $\chi(\omega)$ relates a driving force $F(t)$ to the solution $x(t)$ of a given differential equation. It is defined from a linear relation in the frequency domain as
 \begin{align}
 x(\omega)
 &= \chi(\omega) F(\omega).
 \label{eq_response_freq_def}
 \end{align}
-In the time domain, because of the the convolution theorem, this same definition becomes
+In the time domain, because of the the convolution theorem, this definition becomes
 \begin{align} 
 x(t) = \int_{-\infty}^{\infty}dt' \chi(t-t') F(t').
 \label{eq_response_def}
@@ -532,7 +544,7 @@ can be Fourier transformed such that the linear response is the exact response
 x(\omega) &= \underbrace{\frac{\sum_{m} b_m (-i\omega)^m}{\sum_{n} a_n (-i\omega)^n}}_{\chi(\omega)} F(\omega),
 \end{align}
 
-In quantum systems, response functions show up as $\chi^{R}_{A,B}(\omega)$ in time-dependent perturbation theory. Considering the perturbation $\delta H(t) = a(t) A(t)$, proportional to observable $A(t)$ (hence the subscript $A$). and its effect on the expectation value of another observable $\langle B(t) \rangle$ (hence the subscript $B$), the linear approximation for time evolution in the interaction picture (not shown here) leads to an expression equivalent to~\eqref{eq_response_def},
+In quantum systems, response functions show up as $\chi^{R}_{A,B}(\omega)$ in time-dependent perturbation theory. Considering the perturbation $\delta H(t) = a(t) A(t)$, proportional to observable $A(t)$ (hence the subscript $A$ in $\chi^{R}_{A,B}(\omega)$), and its effect on the expectation value of another observable $\langle B(t) \rangle$ (hence the subscript $B$ in $\chi^{R}_{A,B}(\omega)$), the linear approximation for time evolution in the interaction picture (not shown here) leads to an expression equivalent to~\eqref{eq_response_def},
 \begin{align}
     \langle B(t) \rangle - \langle B(t) \rangle_0 
     &=
@@ -540,7 +552,7 @@ In quantum systems, response functions show up as $\chi^{R}_{A,B}(\omega)$ in ti
     \int_{-\infty}^{t} dt'
     \langle [B(t), \delta H(t')] \rangle
     \\&=
-    \int_{-\infty}^{\infty}
+    \int_{-\infty}^{\infty}dt'
     \underbrace{ 
     \frac{i}{\hbar} 
     \langle [B(t), A(t')] \rangle 
@@ -548,12 +560,12 @@ In quantum systems, response functions show up as $\chi^{R}_{A,B}(\omega)$ in ti
     }_{\chi^{R}_{A,B}(t-t')}
     a(t').
 \end{align}
-Note that the response is \emph{causal}, or \emph{retarded"} (hence the $R$ superscript), since the Heaviside step function $\theta(t-t')$ ensures the response is zero if $t<t'$. This lead to a pole-free spectrum in the upper-half complex plane (as discussed at equations \eqref{causal1}-\eqref{causal2}).
+Note that the response is said to be \emph{causal}, or \emph{retarded} (hence the $R$ superscript) because the Heaviside step function $\theta(t-t')$ ensures the response is zero if $t<t'$. This lead to a pole-free spectrum in the upper-half complex plane (as discussed at equations \eqref{causal1}-\eqref{causal2}).
 
 
 \subsection{Spectral representation}
 Taking the Fourier transform of the above $\chi^R_{A,B}(t-t')$ leads to the spectral representation.
-Omitting the $A,B$ subscript for simplicity, we can cleverly rewrite it as
+Omitting the $A,B$ subscript for simplicity, we can rewrite it as
 \begin{align}
 \chi^{R}(t-t') = 2i\chi''(t-t')\theta(t-t'),
 \label{chi_retarded}
@@ -567,7 +579,7 @@ The Fourier transform of \eqref{chi_retarded} is then
 \chi(z) = \int_{-\infty}^{\infty} \frac{d\omega}{\pi} \frac{\chi''(\omega)}{\omega-z}
 \label{spectral_representation}
 \end{align}
-where $\chi''(\omega)$ is real-valued if its Fourier transform, $\chi''(t-t')$, is even. Since $\chi^{R}(t-t')$ is causal, $\chi(z)$ is analytic in the upper half plane of the complex frequency $z$ (as discussed at equations \eqref{causal1}-\eqref{causal2}). The above $\chi(z)$ unifies various definitions of the response function, notably the advanced response function $\chi^{A}(\omega) = \chi(\omega-i\eta)$, the retarded response functions $\chi^{R}(\omega) = \chi(\omega+i\eta)$, and most important, the the Matsubara response functions $\chi(i\omega_n)$. The latter is
+where $\chi''(\omega)$ is the Fourier transform of $\chi''(t-t')$, and is real-valued if the latter is even. Since $\chi^{R}(t-t')$ is causal, $\chi(z)$ is analytic in the upper half plane of the complex frequency $z$ (as discussed at equations \eqref{causal1}-\eqref{causal2}). The above $\chi(z)$ unifies various definitions of the response function, notably the advanced response function $\chi^{A}(\omega) = \chi(\omega-i\eta)$, the retarded response functions $\chi^{R}(\omega) = \chi(\omega+i\eta)$, and most important, the the Matsubara response functions $\chi(i\omega_n)$. The latter is
 sampled at discrete Matsubara frequencies $\omega_{n} = \frac{2\pi}{\beta}n$ with $n$ integer and the inverse temperature $\beta=\frac{1}{k_B T}$.
 
 Finally, our definitions ensure that $\chi''(\omega)$ is the imaginary part of $\chi^R(\omega)$, as seen with~\eqref{Sokhotski_Plemelj}
@@ -596,10 +608,12 @@ One particularly important response function is the current-current correlation 
 \begin{align}
 \sigma(\omega)
 &=
-\frac{1}{i(\omega + i\eta)}\bigg[\Pi^R(\omega)-\frac{ne^2}{m}\bigg]
+\frac{1}{i(\omega + i\eta)}\bigg[\Pi^R(\omega)-\frac{ne^2}{m}\bigg].
 \label{used_sum_rule1}
-\\
-&=
+\end{align}
+From there, we can develop by substituting the spectral representation of $\Pi^{R}(\omega)$,
+\begin{align}
+\sigma(\omega)&=
 \frac{1}{i(\omega + i\eta)}
 \bigg[
 \int_{-\infty}^{\infty}d\omega'\frac{\Pi''(\omega')}{\omega'-(\omega+i\eta)}
@@ -625,7 +639,7 @@ The last terms in lines \eqref{used_sum_rule1} and \eqref{used_sum_rule2} are eq
 \begin{align}
 \text{Re}\{ \sigma(\omega) \} = \frac{\Pi''(\omega)}{\omega}.
 \end{align}
-For Matsubara frequencies $z=i\omega_n$, the spectral representation $\Pi(z)$ simplifies to
+For Matsubara frequencies $z=i\omega_n$, the spectral representation $\Pi(z)$ then simplifies to
 \begin{align}
 \Pi(i\omega_n) 
 &=
@@ -642,7 +656,7 @@ For Matsubara frequencies $z=i\omega_n$, the spectral representation $\Pi(z)$ si
 }_{=0}.
 \label{chkpt_Pi_continuation}
 \end{align}
-The last term vanishes because $\text{Re}\{\sigma(\omega)\}$ is even (not shown), which shows that $\Pi(i\omega_n)$ is real. Equation~\eqref{chkpt_Pi_continuation} is the same as~\eqref{Pi_continuation}.
+The last term vanishes because $\text{Re}\{\sigma(\omega)\}$ is even (not shown), which guarantees that $\Pi(i\omega_n)$ is real. Equation~\eqref{chkpt_Pi_continuation} is the same as~\eqref{Pi_continuation}.
 
 \section{Miscellaneous}
 \subsection{Lorentz combs with analytic integration}
@@ -788,14 +802,46 @@ simplifying~\eqref{Pi_with_eta} to
 
 Therefore,~\eqref{sigma_lorentz} and~\eqref{Pi_lorentz} can be used to generate $p(\omega)$ and $\Pi(i\omega_n)$ data without having to perform costly numerical integrals. We can further get arbitrary $p(\omega)$ either by modulating the peak amplitudes $a_j$, or we can distribute their centers $\omega_j$ non-uniformly. The resulting function will be smooth as long as the width of the peaks are at least twice as large as the spacing between them, and the moments of the spectrum will be well-defined if a large enough number $J$ of Lorentzians are summed. Unfortunately, in practice, this sum can become as costly as a numerical integral.
 
-\subsection{Inferring $\Delta\omega$ and $T$ from vectors}
+\subsection{Inferring $s$ and $T$ from $\mathbf \Pi$ and $p(\omega)$}
 
-
-\begin{acknowledgments}
-This project was started in close collaboration with Reza Nourafkan and André-Marie Tremblay. I must also acknowledge additional useful discussions with Yoshua Bengio, Maxime Charlebois, Samuel Desrosiers, Sébastien Lachapelle, Vincent Mai and Francesco Rotella.
-\end{acknowledgments}
-
-\bibliography{report}
+In the dimensionless notation, equations~\eqref{Pi_normalization} and~\eqref{Pi_moment} can be rewritten as
+\begin{align}
+1&=
+s\int_{-\infty}^{\infty} d\omega
+p(s\omega)
+\end{align}
+and
+\begin{align}
+(\frac{2\pi}{\beta})^2
+\lim_{n\rightarrow\infty}
+n^2
+\Pi_n
+&=
+s^3 
+\int_{-\infty}^{\infty} d\omega \omega^2 
+p(s\omega),
+\end{align}
+where we used the change of variable $\omega\rightarrow s\omega$. If $\vec \Pi$ and $p(\omega)$ are known, these two equations entirely detemine $s$ and $T$. First, a transcendental equation must be solve for $s$,
+\begin{align}
+s
+&=
+\pi \bigg(
+\int_{-\infty}^{\infty}d\omega 
+p(s\omega)
+\bigg)^{-1}.
+\end{align}
+and once $s$ is known, $T$ is given By
+\begin{align}
+T
+&=
+\sqrt{\frac{s^3 
+\int_{-\infty}^{\infty} d\omega\omega^2 
+p(s\omega)}
+{4 \pi^3 k_B^2 
+\lim_{n\rightarrow\infty}
+n^2 \Pi_n}
+}.
+\end{align}
 
 \end{document}
 
