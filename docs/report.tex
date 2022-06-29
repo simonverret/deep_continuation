@@ -36,7 +36,7 @@
 %	DOCUMENT
 \begin{document}
 
-\title{\bf Analytic continuation of response functions\\with temperature-agnostic neural networks}
+\title{\bf Temperature-agnostic analytic continuation of conductivity with neural nets}
 \author{S. \surname{Verret}}
 \affiliation{Institute for Learning Algorithms (MILA), Montr\'eal, Canada}
 \affiliation{Institut Quantique (IQ), Sherbrooke, Canada}
@@ -51,7 +51,7 @@
 \vspace{-.5cm}
 \tableofcontents
 
-\section{Theory of temperature-agnostic analytic continuation}
+\section{Temperature-agnostic analytic continuation}
 
 \subsection{Analytic continuation of conductivity}
 
@@ -135,10 +135,10 @@ The above dimensionless formulation shows that there is a degenerancy between an
 \Pi_n[p(\omega)](T) = \Pi_n[sp(s\omega)](T/s).
 \label{degenerancy}
 \end{align}
-This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. Thus, without the temperature $T$ or frequency scale $s$ specified (with $\vec \Pi$ only), the analytic continuation task is ambiguous (degenerate with respect to $s$). Thus, in order to have a well defined problem, either $T$ or $s$ must be fixed.
+This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. Thus, without the temperature $T$ or frequency scale $s$ specified (with $\vec \Pi$ only), the analytic continuation task is ambiguous (degenerate with respect to $s$). Thus, for a well defined problem, either $T$ or $s$ must be fixed.
 
 \paragraph*{Fixing $T$}
-Working from a single temperature $T_\text{{ref}}$ and setting $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
+Working from a single temperature $T_\text{{ref}}$ and considering $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
 \begin{align}
     \Pi_n[p(\omega)](T_\text{{ref}}) = \Pi_n[\tfrac{T_{\text{ref}}}{T} p(\tfrac{T_{\text{ref}}}{T}\omega)](T),
     \label{eq_fix_T}
@@ -224,7 +224,7 @@ From the change of variable $s\omega\rightarrow \omega$ in~\eqref{Pi_moment},
 \frac{1}{s^2}
 \int\limits_{-\infty}^{\infty}d\omega \omega^2 p(\omega)
 \\
-&= \frac{\mu_2}{s},
+&= \frac{\mu_2}{s^2},
 \end{align}
 $s$ can be isolated as 
 \begin{align}
@@ -236,7 +236,6 @@ s
     \dfrac{\Pi(i\omega_n)}{\Pi(0)}
     }.
     \label{user_s}
-    % \label{eq_simplified_user_s}
 \end{align}
 This expression depends on the user's temperature through $\omega_n = 2\pi n k_B T$. 
 The user can then recover the desired conductivity by combining this $s$ with~\eqref{Pi_normalization} and~\eqref{eq_def_density},
@@ -247,7 +246,7 @@ s p_{\vec \theta}(s\omega, \vec \Pi).
 
 
 
-\section{Temperature-agnostic neural networks}
+\section{Using neural networks}
 
 \subsection{Discrete formulation}
 \label{section_discrete}
@@ -264,6 +263,7 @@ the spacing between frequencies $\Delta \omega$ can also be expressed as $\Delta
 &\approx
 \sum_{m}
 \Delta\omega \frac{\omega_m^2}{\omega_m^2+\omega_n^2} p(\omega_m)
+\label{discretized_continuation_1}
 \\
 &\approx
 \sum_{m}
@@ -288,6 +288,7 @@ In fact, seeing the kernel in~\eqref{discretized_continuation} as a matrix and i
 Note that $\Delta\omega$ occupies the same position as the scale parameter $s$ which was the focus of the previous section, and indeed, it will play precisely this role in what follows.
 
 \subsection{Normalization}
+\label{sec_normalization}
 For various reasons (see section~\ref{sec_training}), it is beneficial to make the neural network's output components $p_m$ sum to one. Considering the discretized normalization integral for $p(\omega)$,
 \begin{align}
 \int d\omega p(\omega) = 1 \approx \sum_m \Delta\omega p(\Delta\omega m),
@@ -356,14 +357,49 @@ The above considerations clarify the kind of bias which is induced when preparin
 
 \subsection{Training details}
 \label{sec_training}
-% \paragraph*{standardization} Input data is standardized.
-% \paragraph*{architecture} Fully connected, ReLU, BatchNorm, Softmax output unit.
-% \paragraph*{loss function} L1 loss function
-% \paragraph*{optimizer} Adam, learning rate scheduler, learning rate warm-up.
-% \paragraph*{hyper-parameters search}
 
-\subsection{Usage details}
+\paragraph*{Neural network} We considered only the case where the input and output sizes are respectively $N=128$ and $M=512$. The optimal neural network we found is fully connected, with four hidden layers of dimensions neighboring $1000$, $1350$, $1700$, and $1700$, using rectified linear unit (ReLU) activation functions, and a Softmax output unit (producing a normalized $\vec p$). The Softmax requires normalized target outputs as explained in section~\ref{sec_normalization}. Weights are initialized using Xavier initialization.
 
+\paragraph*{Standardized inputs} Any data that enters the neural network is standardized as $(\vec \Pi - \vec\mu)/\vec\sigma$, where $\vec \mu = \mathbb{E}[\vec \Pi]$ and $\vec \sigma = \sqrt{\mathbb{E}[\vec \Pi^2] - \mathbb{E}[\vec \Pi]^2}$ are respectively the average and the standard deviation of the training inputs (element-wise). These expectation values are always taken over the training set. The random noise added to $\vec \Pi$ to simulate Quantum Monte-Carlo response functions is renewed at every epoch and it is added before the standardization.
+
+\paragraph*{Loss functions} As a training loss function, we compared the performance of cross-entropy, 
+\begin{align}
+    \text{CE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m p_m \log \hat{p}_m
+\end{align}
+mean-square error, 
+\begin{align}
+    \text{MSE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m \sqrt{(p_m - \hat{p}_m)^2}
+\end{align}
+and mean-absolute error
+\begin{align}
+    \text{MAE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m |p_m - \hat{p}_m|.
+\end{align}
+We found that using the mean-absolute error as the training objective leads to better final performance for all three metrics.
+
+\paragraph*{Optimizer} We use the Adam optimizer with a initial learning rate of $\alpha = 8\times10^{-5}$ and a scheduler applying $\alpha \rightarrow 0.216\alpha$ whenever the validation loss doesn't improve for five straight epochs, until $\alpha\sim10^{-10}$. We also use a learning rate warm-up, meaning that the learning rate is linearly increased from zero to its initial value for the whole duration of the first epoch.
+
+\paragraph*{Regularization} Our random search for optimal hyper-parameters revealed that neither L2 regularization, dropout, nor batchnorm improve results. However, using slightly larger input noise at training time than at test time leads to better performance, and training on more complex data (Beta peaks) can lead to better performance on simple data (Gaussian peaks) than training on simple data.
+
+\subsection{Usage details (inference)}
+
+Once the user obtain the estimate $\hat{\vec p}$ with the neural network, the only thing left to do is to find the frequency grid $\Delta\omega$ on which to interpret that estimate. Considering the discretization~\eqref{discretized_continuation_1} for the special case of the tail relation~\eqref{Pi_moment},
+\begin{align}
+    2\pi k_B T \lim_{n\rightarrow \infty}n^2 \Pi_n = \Delta\omega^2 \sum_m m^2 p_m
+\end{align}
+We see that $\vec \Pi$ and $\vec p$ provide a closed relation between the temperature and the frequency spacing. If we assume that the discretization is a good approximation for the integral and that the last component $\Pi_N$ correctly captures the limit $n\rightarrow\infty$, then we can cast this relation as
+\begin{align}
+    \Delta\omega^2 = 
+    \frac{
+        2\pi k_B 
+        % \lim_{n\rightarrow \infty}n^2 \Pi_n
+        N^2 \Pi_N
+    }{
+        \sum_m m^2 p_m
+    }
+    T.
+\label{eq_minimal_user}
+\end{align}
+This is a discrete version of~\eqref{user_s} which can be used to recover $\Delta\omega$ from the user's temperature $T$. In principle, however, the continuous version should be preferred. In particular, a simple way to improve on~\eqref{eq_minimal_user} is to use a better estimate than $2\pi k_B T N^2\Pi_N$ for to $\lim_{\omega_n\rightarrow \infty}\omega_n^2 \Pi_n$.
 
 \section{Generating density functions}
 \label{sec_distribution}
