@@ -135,7 +135,7 @@ The above dimensionless formulation shows that there is a degenerancy between an
 \Pi_n[p(\omega)](T) = \Pi_n[sp(s\omega)](T/s).
 \label{degenerancy}
 \end{align}
-This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. Thus, without the temperature $T$ or frequency scale $s$ specified (with $\vec \Pi$ only), the analytic continuation task is ambiguous (degenerate with respect to $s$). Thus, for a well defined problem, either $T$ or $s$ must be fixed.
+This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. In other words, the input $\vec \Pi$ has a continuum of compatible output $sp(s\omega)$, since $s$ can take any value. Thus, without the temperature $T$ or the frequency scale $s$ specified, the analytic continuation task is ambiguous; For a well defined problem, we must either fix $T$ or $s$.
 
 \paragraph*{Fixing $T$}
 Working from a single temperature $T_\text{{ref}}$ and considering $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
@@ -358,11 +358,11 @@ The above considerations clarify the kind of bias which is induced when preparin
 \subsection{Training details}
 \label{sec_training}
 
-\paragraph*{Neural network} We considered only the case where the input and output sizes are respectively $N=128$ and $M=512$. The optimal neural network we found is fully connected, with four hidden layers of dimensions neighboring $1000$, $1350$, $1700$, and $1700$, using rectified linear unit (ReLU) activation functions, and a Softmax output unit (producing a normalized $\vec p$). The Softmax requires normalized target outputs as explained in section~\ref{sec_normalization}. Weights are initialized using Xavier initialization.
+\paragraph*{Neural network} We considered the case where the input and output sizes are respectively $N=128$ and $M=512$. The optimal neural network we found is fully connected, with four hidden layers roughly of dimension $1000$, $1350$, $1700$, and $1700$. We use rectified linear unit (ReLU) activation functions and a Softmax output unit (producing a normalized $\vec p$). The Softmax requires normalized target outputs as explained in section~\ref{sec_normalization}. Weights are initialized using Xavier initialization.
 
-\paragraph*{Standardized inputs} Any data that enters the neural network is standardized as $(\vec \Pi - \vec\mu)/\vec\sigma$, where $\vec \mu = \mathbb{E}[\vec \Pi]$ and $\vec \sigma = \sqrt{\mathbb{E}[\vec \Pi^2] - \mathbb{E}[\vec \Pi]^2}$ are respectively the average and the standard deviation of the training inputs (element-wise). These expectation values are always taken over the training set. The random noise added to $\vec \Pi$ to simulate Quantum Monte-Carlo response functions is renewed at every epoch and it is added before the standardization.
+\paragraph*{Standardized inputs} Any data that enters the neural network is standardized as $(\vec \Pi - \vec\mu)/\vec\sigma$, where $\vec \mu = \mathbb{E}[\vec \Pi]$ and $\vec \sigma = \sqrt{\mathbb{E}[\vec \Pi^2] - \mathbb{E}[\vec \Pi]^2}$ are respectively the average and the standard deviation of the training inputs dataset(element-wise), with expectation values taken over the training set only. The random noise added to $\vec \Pi$ to simulate Quantum Monte-Carlo response functions is renewed at every epoch and it is added before standardization.
 
-\paragraph*{Loss functions} As a training loss function, we compared the performance of cross-entropy, 
+\paragraph*{Loss functions} As a training objective, we compared the performance of cross-entropy, 
 \begin{align}
     \text{CE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m p_m \log \hat{p}_m
 \end{align}
@@ -374,9 +374,9 @@ and mean-absolute error
 \begin{align}
     \text{MAE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m |p_m - \hat{p}_m|.
 \end{align}
-We found that using the mean-absolute error as the training objective leads to better final performance for all three metrics.
+We found that using the mean-absolute error as the training objective leads to better final performance for all three losses.
 
-\paragraph*{Optimizer} We use the Adam optimizer with a initial learning rate of $\alpha = 8\times10^{-5}$ and a scheduler applying $\alpha \rightarrow 0.216\alpha$ whenever the validation loss doesn't improve for five straight epochs, until $\alpha\sim10^{-10}$. We also use a learning rate warm-up, meaning that the learning rate is linearly increased from zero to its initial value for the whole duration of the first epoch.
+\paragraph*{Optimizer} We use the Adam optimizer with learning rate of $\alpha = 8\times10^{-5}$ and a scheduler decreasing the rate as $\alpha \rightarrow 0.216\alpha$ whenever the validation loss doesn't improve for five straight epochs. That decrase stops when the learning rate reach $\alpha\sim10^{-10}$. We also use learning rate warm-up, linearly increasing $\alpha$ from zero to its value of $\alpha = 8\times10^{-5}$ during the first epoch.
 
 \paragraph*{Regularization} Our random search for optimal hyper-parameters revealed that neither L2 regularization, dropout, nor batchnorm improve results. However, using slightly larger input noise at training time than at test time leads to better performance, and training on more complex data (Beta peaks) can lead to better performance on simple data (Gaussian peaks) than training on simple data.
 
@@ -399,7 +399,7 @@ We see that $\vec \Pi$ and $\vec p$ provide a closed relation between the temper
     T.
 \label{eq_minimal_user}
 \end{align}
-This is a discrete version of~\eqref{user_s} which can be used to recover $\Delta\omega$ from the user's temperature $T$. In principle, however, the continuous version should be preferred. In particular, a simple way to improve on~\eqref{eq_minimal_user} is to use a better estimate than $2\pi k_B T N^2\Pi_N$ for to $\lim_{\omega_n\rightarrow \infty}\omega_n^2 \Pi_n$.
+This is a discrete version of~\eqref{user_s} which can be used to recover $\Delta\omega$ from the user's temperature $T$. In principle, however, the continuous version should be preferred. In particular, a simple way to improve on~\eqref{eq_minimal_user} is to use a better estimate for $\lim_{\omega_n\rightarrow \infty}\omega_n^2 \Pi_n$, than $2\pi k_B T N^2\Pi_N$. Note that if the fixed $T_{\text{ref}}$
 
 \section{Generating density functions}
 \label{sec_distribution}
