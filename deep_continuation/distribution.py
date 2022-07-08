@@ -8,7 +8,7 @@ from scipy.special import gamma
 SMALL = 1e-10
 
 
-def get_generator_from_file(file_path, seed=None, legacy=True):
+def get_generator_from_file(file_path, seed=None):
     with open(file_path) as f:
         file_parameters = json.load(f)
     

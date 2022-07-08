@@ -3,11 +3,11 @@ env
 *.egg-info
 .ipynb_checkpoints
 */results/
-*/data/*.npy
 */plots/*.pdf
 wandb
 *.zip
 *.pt
+*.npy
 docs/build
 
 docs/report.pdf

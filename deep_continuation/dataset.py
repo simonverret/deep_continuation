@@ -2,171 +2,170 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 DATAPATH = os.path.join(HERE, "data")
-PLOTPATH = os.path.join(HERE, "plots")
 
 from tqdm import tqdm
 from fire import Fire
 import numpy as np
 np.set_printoptions(precision=4)
 
-from deep_continuation.distribution import beta_dist, get_generator_from_file
+from deep_continuation.distribution import get_generator_from_file
 from deep_continuation.conductivity import sample_on_grid, get_rescaled_sigma, compute_matsubara_response, second_moment
-from deep_continuation.plotting import plot_basic, plot_infer_scale, plot_scaled
+from deep_continuation.plotting import plot_basic
 
 
 def main(
-    # script parameters
-    plot=0,
-    save=0,
-    basic=False,
-    scale=False,
-    infer=False,
-    # conductivity parameters
-    Nwn=128, 
-    Nw=512, 
-    beta=30, 
-    wmax=20,
-    rescale=False,
-    spurious=False,
-    # temperature sampling
-    ntemp=1,
-    width_temp=0,
-    dist_temp='uniform',
-    # distribution parameters
-    name="B1",
-    file="default",
+    path=os.path.join(DATAPATH, "default"),
+    size=1,
     seed=55555,
-    path=DATAPATH,
-    overwrite=False,
+    num_std=1,
+    num_beta=1,
+    Nwn=128,
+    beta=30,
+    Nw=512,
+    wmax=20,
+    fixstd=False,
+    plot=False,
+    save_plot=None,
 ):
-    # obtain the distribution generator
-    distrib_file_path = os.path.join(DATAPATH, f"{file}.json")
-    if not os.path.exists(distrib_file_path):
-        print(f"WARNING: {file}.json not found. Reverting to default.json")
-        distrib_file_path = os.path.join(DATAPATH, "default.json")
-    distrib_generator = get_generator_from_file(distrib_file_path, seed)
-    
-    # intialize empty containers for results
-    ndistrib = max(save, plot)
-    size = ndistrib * ntemp
-    sigma = np.empty((size, Nw))
-    Pi = np.empty((size, Nwn))
-    s = np.empty(size)
-    
-    # get filenames
-    pi_path, sigma_path, scale_path = get_file_paths(
-        path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
-        ntemp, width_temp, dist_temp,
+    # getting filenames
+    beta_path, pi_path, sigma_path, std_path = get_file_paths(
+        path, size, seed, num_std, num_beta, Nwn, beta, Nw, wmax, fixstd,
     )
 
-    # setting skipping flags if file exists
-    skip_pi =  not overwrite and os.path.exists(pi_path)
-    skip_sigma = not overwrite and os.path.exists(sigma_path)
-    skip_all =  skip_pi and skip_sigma
+    # initialize empty containers 
+    true_size = size * num_std * num_beta
+    std_arr = np.empty(true_size)
+    sigma_arr = np.empty((true_size, Nw))
+    pi_arr = np.empty((true_size, Nwn))
+    beta_arr = np.empty(true_size)
 
-    # loading existing data
+    # setting flags to skip unecessary computation
+    load_std = fixstd and os.path.exists(std_path)
+    skip_std = not fixstd or load_std
+    skip_sigma = os.path.exists(sigma_path)
+    skip_pi = os.path.exists(pi_path)
+
+    # load existing data
+    if load_std:
+        print(f"WARNING: Skipping existing {std_path}")
+        std_arr = np.load(std_path)
     if skip_sigma:
         print(f"WARNING: Skipping existing {sigma_path}")
-        sigma = np.load(sigma_path)
-        s = np.load(scale_path)
+        sigma_arr = np.load(sigma_path)
     if skip_pi:
         print(f"WARNING: Skipping existing {pi_path}")
-        Pi = np.load(pi_path)
-
-    # generate data
-    i = 0
-    for _ in tqdm(range(ndistrib)):
-        distrib = distrib_generator.generate()
-        sigma_func = lambda w: 0.5 * (distrib(w) + distrib(-w))   
-
-        if rescale and not skip_all:
-            old_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
-            rescaled_sigma_func = get_rescaled_sigma(sigma_func, old_std, new_std=rescale)    
-        
-        if ntemp>1 or width_temp>0:
-            random_betas = np.random.uniform(
-                beta-width_temp/2, beta+width_temp/2, ntemp
-            )
-        else:
-            random_betas = [beta]
-
-        for b in random_betas:
-
-            if not (rescale or skip_sigma):
-                s[i]=1
-                sigma[i] = sample_on_grid(sigma_func, Nw, wmax)
-
-            if rescale and not skip_sigma:
-                s[i] = old_std / rescale
-                sigma[i] = sample_on_grid(rescaled_sigma_func, Nw, wmax)
-            
-            if not (rescale or skip_pi):
-                Pi[i] = compute_matsubara_response(sigma_func, Nwn, b, tail_start=wmax)
-        
-            if rescale and not (skip_pi or spurious):
-                Pi[i] = compute_matsubara_response(rescaled_sigma_func, Nwn, b, tail_start=wmax)
-            
-            i += 1
+        pi_arr = np.load(pi_path)
+        beta_arr = np.load(beta_path)
     
+    # making single std compatible with our multi-std implementation
+    if type(fixstd) is int or type(fixstd) is float:
+        if num_std > 1:
+            print(f"WARNING: ignoring num_std={num_std} because fixstd={fixstd}")
+            num_std = 1
+
+    # making single beta compatible with our multi-beta implementation
+    if type(beta) is int or type(beta) is float:
+        if num_beta > 1:
+            print(f"WARNING: ignoring num_beta={num_beta} because beta={beta}")
+            num_beta = 1
+
+    # Generate missing data
+    distrib_file_path = os.path.join(path, "param.json")
+    distrib_generator = get_generator_from_file(distrib_file_path, seed)
+    
+    if not (skip_pi and skip_sigma and skip_std):
+        progress_bar = tqdm(total=true_size)
+        i = 0
+        while i < true_size:
+            
+            # generate p
+            distrib = distrib_generator.generate()
+            sigma_func = lambda w: 0.5 * (distrib(w) + distrib(-w))   
+
+            if type(fixstd) is list or type(fixstd) is tuple:
+                fixstd_list = np.random.uniform(fixstd[0], fixstd[1], num_std)
+            else:
+                fixstd_list = [fixstd]
+            for fixstd_value in fixstd_list:
+
+                # compute std
+                if not skip_std:
+                    std_arr[i] = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
+                if fixstd:
+                    rescaled_sigma_func = get_rescaled_sigma(sigma_func, std_arr[i], new_std=fixstd_value)    
+                
+                if type(beta) is list or type(beta) is tuple:
+                    beta_list = np.random.uniform(beta[0], beta[1], num_beta)
+                else:
+                    beta_list = [beta]    
+                for beta_value in beta_list:
+
+                    # compute sigma
+                    if not skip_sigma:
+                        if fixstd:
+                            sigma_arr[i] = sample_on_grid(rescaled_sigma_func, Nw, wmax)
+                        else:
+                            sigma_arr[i] = sample_on_grid(sigma_func, Nw, wmax)
+                    if not skip_pi:
+                        beta_arr[i] = beta_value
+                        if fixstd:
+                            pi_arr[i] = compute_matsubara_response(rescaled_sigma_func, Nwn, beta_value, tail_start=wmax)
+                        else:
+                            pi_arr[i] = compute_matsubara_response(sigma_func, Nwn, beta_value, tail_start=wmax)
+                    i += 1
+                    progress_bar.update(1)
+        progress_bar.close()
+
     # saving the data
-    if save > 0:
+    if plot or save_plot:
+        # usecase with flag --save_plot with no name name provided
+        if save_plot == True: 
+            save_plot = 'saved_plot.pdf' 
+        plot_basic(pi_arr, sigma_arr, save_plot)
+    else:
         if not skip_sigma:
-            np.save(sigma_path, sigma[:save*ntemp])        
-            np.save(scale_path, s[:save*ntemp])
+            np.save(sigma_path, sigma_arr)    
+
+        if not skip_std:    
+            np.save(std_path, std_arr)
 
         if not skip_pi:
-            np.save(pi_path, Pi[:save*ntemp])
-
-    # plotting the data
-    if plot > 0:
-        sigma = sigma[:plot*ntemp]
-        s = s[:plot*ntemp]
-        Pi = Pi[:plot*ntemp]
-
-        print(f"normalizations\n  Pi    : {Pi[:,0]}\n  sigma : {sigma.sum(-1)}")
-        print(f"scales\n  s     = {s}\n  betas = {s*beta}\n  wmaxs = {s*wmax}")
-
-        plot_name = os.path.join(PLOTPATH,name)
-
-        none_specified = (not any([basic, scale, infer]))
-        if basic or none_specified:
-            plot_basic(Pi, sigma, 
-                f"{plot_name}_basic.pdf" if plot_name else None
-            )
-        if scale:
-            plot_scaled(Pi, sigma,
-                betas=beta * np.ones_like(s),
-                wmaxs=wmax * s,
-                filename=f"{plot_name}_scale.pdf" if plot_name else None,
-                default_wmax=wmax,
-            )
-        if infer:
-            plot_infer_scale(Pi, sigma,
-                f"{plot_name}_infer.pdf" if plot_name else None,
-                default_wmax=wmax
-            )
-
-    if save==0 and plot==0:    
-        print("nothing to do, use --plot 10 or --save 10000")
-
+            np.save(pi_path, pi_arr)
+            np.save(beta_path, beta_arr)
 
 def get_file_paths(
-    path, name, size, seed, Nwn, beta, Nw, wmax, rescale, spurious,
-    ntemp, width_temp, dist_temp,
-):
-    set_str = f"{name}_{size}_seed{seed}"
-    
-    rescale_str = f'_rescaled{rescale}' if rescale else ''
+    path=os.path.join(DATAPATH, "default"),
+    size=1,
+    seed=55555,
+    num_std=1,
+    num_beta=1,
+    Nwn=128,
+    beta=30,
+    Nw=512,
+    wmax=20,
+    fixstd=False,
+): 
+    if fixstd:
+        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        std_str = f"_std{list_to_str(fixstd)}"
+    else:
+        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        std_str = ""
+    beta_str = f"_beta{list_to_str(beta)}"
 
-    beta_str = f'_ntemp{ntemp}_{dist_temp}{width_temp}_beta{beta}' if (ntemp>1 or width_temp>0) else f'_beta{beta}'
+    beta_path = os.path.join(path, f"beta_{id}{beta_str}.npy")
+    pi_path = os.path.join(path, f"Pi_{id}_Nwn{Nwn}{beta_str}{std_str}.npy")
+    sigma_path = os.path.join(path, f"sigma_{id}_Nw{Nw}_wmax{wmax}{std_str}.npy")
+    std_path = os.path.join(path, f"std_{id}.npy")
 
-    sigma_path = os.path.join(path, f"sigma_{set_str}_{Nw}_wmax{wmax}{rescale_str}.npy")
-    scale_path = os.path.join(path, f"scale_{set_str}_{Nwn}{beta_str}{rescale_str}.npy")
-    
-    pi_rescale_str = rescale_str if rescale and not spurious else ''
-    pi_path = os.path.join(path, f"Pi_{set_str}_{Nwn}{beta_str}{pi_rescale_str}.npy")
-    
-    return pi_path, sigma_path, scale_path
+    return beta_path, pi_path, sigma_path, std_path
+
+def list_to_str(x):
+    try:
+        return 'to'.join(map(str,x))
+    except TypeError:
+        return x
+
 
 
 if __name__ == "__main__":

@@ -18,41 +18,44 @@ def seed(request):
     
 
 @pytest.fixture(params=[False, 8.86])
-def rescale(request):
+def fixstd(request):
     return request.param
 
 
 @pytest.fixture()
-def expected_pi_and_name(seed, rescale, spurious=False):
-    rescale_str = f'_rescaled{rescale}' if rescale else ''
-    rescale_str = rescale_str if rescale and not spurious else ''
-    name = f'Pi_B1_4_seed{seed}_128_beta30{rescale_str}.npy'
-    path = os.path.join(EXPCPATH, name)
-    Pi = np.load(path)
-    return Pi, name
+def expected_pi_and_path(seed, fixstd):
+    _, pi_path, _, _ = dataset.get_file_paths(
+        path=EXPCPATH,
+        size=4,
+        seed=seed,
+        fixstd=fixstd,
+    )
+    Pi = np.load(pi_path)
+    return Pi, pi_path
 
 
 @pytest.fixture()
-def expected_sigma_and_name(seed, rescale):
-    rescale_str = f'_rescaled{rescale}' if rescale else ''
-    name = f'sigma_B1_4_seed{seed}_512_wmax20{rescale_str}.npy'
-    path = os.path.join(EXPCPATH, name)
-    sigma = np.load(path)
-    return sigma, name
+def expected_sigma_and_path(seed, fixstd):
+    _, _, sigma_path, _ = dataset.get_file_paths(
+        path=EXPCPATH,
+        size=4,
+        seed=seed,
+        fixstd=fixstd,
+    )
+    sigma = np.load(sigma_path)
+    return sigma, sigma_path
 
 
-def test_save(mocker, seed, rescale, expected_pi_and_name, expected_sigma_and_name):
+def test_save(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_path):
     mocker.patch('deep_continuation.dataset.np.save')
     dataset.main(
-        save=4,
+        size=4,
         seed=seed,
-        rescale=rescale,
-        path=HERE
+        fixstd=fixstd,
+        path=EXPCPATH
     )    
-    expected_pi, pi_name = expected_pi_and_name
-    expected_sigma, sigma_name = expected_sigma_and_name
-    expected_pi_path = os.path.join(HERE, pi_name)
-    expected_sigma_path = os.path.join(HERE, sigma_name)
+    expected_pi, expected_pi_path = expected_pi_and_path
+    expected_sigma, expected_sigma_path = expected_sigma_and_path
 
     for call_args in dataset.np.save.call_args_list:
         path_received = call_args[0][0]
@@ -68,27 +71,28 @@ def test_save(mocker, seed, rescale, expected_pi_and_name, expected_sigma_and_na
             assert False
 
 
-def test_skip(mocker, seed, rescale, expected_pi_and_name, expected_sigma_and_name):
+def test_skip(mocker, seed, fixstd):
     mocker.patch('deep_continuation.dataset.np.save')
     dataset.main(
-        save=4,
+        size=4,
         seed=seed,
-        rescale=rescale,
+        fixstd=fixstd,
         path=EXPCPATH
     )    
     assert dataset.np.save.call_count == 0
 
 
-def test_plot(mocker, seed, rescale, expected_pi_and_name, expected_sigma_and_name):
+def test_plot(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_path):
     mocker.patch('deep_continuation.dataset.plot_basic')
     dataset.main(
-        plot=4,
+        size=4,
         seed=seed,
-        rescale=rescale,
+        fixstd=fixstd,
+        plot=True
     )    
 
-    expected_pi, _ = expected_pi_and_name
-    expected_sigma, _ = expected_sigma_and_name
+    expected_pi, _ = expected_pi_and_path
+    expected_sigma, _ = expected_sigma_and_path
     Pi = dataset.plot_basic.call_args[0][0]  # call_args[0] is args, [1] is kwargs    
     sigma =  dataset.plot_basic.call_args[0][1]
     assert np.allclose(Pi, expected_pi)
