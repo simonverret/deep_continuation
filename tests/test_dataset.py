@@ -24,7 +24,7 @@ def fixstd(request):
 
 @pytest.fixture()
 def expected_pi_and_path(seed, fixstd):
-    _, pi_path, _, _ = dataset.get_file_paths(
+    _, pi_path, _, _, _ = dataset.get_file_paths(
         path=EXPCPATH,
         size=4,
         seed=seed,
@@ -36,7 +36,7 @@ def expected_pi_and_path(seed, fixstd):
 
 @pytest.fixture()
 def expected_sigma_and_path(seed, fixstd):
-    _, _, sigma_path, _ = dataset.get_file_paths(
+    _, _, sigma_path, _, _ = dataset.get_file_paths(
         path=EXPCPATH,
         size=4,
         seed=seed,
