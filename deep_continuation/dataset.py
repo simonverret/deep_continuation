@@ -13,6 +13,35 @@ from deep_continuation.conductivity import sample_on_grid, get_rescaled_sigma, c
 from deep_continuation.plotting import plot_basic
 
 
+def get_file_paths(
+    path=os.path.join(DATAPATH, "default"),
+    size=1,
+    seed=55555,
+    num_std=1,
+    num_beta=1,
+    Nwn=128,
+    beta=30,
+    Nw=512,
+    wmax=20,
+    fixstd=False,
+): 
+    if fixstd:
+        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        std_str = f"_std{list_to_str(fixstd)}"
+    else:
+        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        std_str = ""
+    beta_str = f"_beta{list_to_str(beta)}"
+
+    beta_path = os.path.join(path, f"beta_{id}{beta_str}.npy")
+    pi_path = os.path.join(path, f"Pi_{id}_Nwn{Nwn}{beta_str}{std_str}.npy")
+    sigma_path = os.path.join(path, f"sigma_{id}_Nw{Nw}_wmax{wmax}{std_str}.npy")
+    std_path = os.path.join(path, f"std_{id}.npy")
+    fixstd_path = os.path.join(path, f"fixstd_{id}{std_str}.npy")
+
+    return beta_path, pi_path, sigma_path, std_path, fixstd_path
+
+
 def main(
     path=os.path.join(DATAPATH, "default"),
     size=1,
@@ -28,13 +57,14 @@ def main(
     save_plot=None,
 ):
     # getting filenames
-    beta_path, pi_path, sigma_path, std_path = get_file_paths(
+    beta_path, pi_path, sigma_path, std_path, fixstd_path = get_file_paths(
         path, size, seed, num_std, num_beta, Nwn, beta, Nw, wmax, fixstd,
     )
 
     # initialize empty containers 
     true_size = size * num_std * num_beta
     std_arr = np.empty(true_size)
+    fixstd_arr = np.empty(true_size)
     sigma_arr = np.empty((true_size, Nw))
     pi_arr = np.empty((true_size, Nwn))
     beta_arr = np.empty(true_size)
@@ -90,8 +120,10 @@ def main(
 
                 # compute std
                 if not skip_std:
-                    std_arr[i] = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
+                    this_std = np.sqrt(second_moment(sigma_func, tail_start=wmax))        
+                    std_arr[i] = this_std
                 if fixstd:
+                    fixstd_arr[i] = fixstd_value
                     rescaled_sigma_func = get_rescaled_sigma(sigma_func, std_arr[i], new_std=fixstd_value)    
                 
                 if type(beta) is list or type(beta) is tuple:
@@ -99,6 +131,7 @@ def main(
                 else:
                     beta_list = [beta]    
                 for beta_value in beta_list:
+                    fixstd_arr[i] = fixstd_value
 
                     # compute sigma
                     if not skip_sigma:
@@ -128,37 +161,12 @@ def main(
 
         if not skip_std:    
             np.save(std_path, std_arr)
+            np.save(fixstd_path, fixstd_arr)
 
         if not skip_pi:
             np.save(pi_path, pi_arr)
             np.save(beta_path, beta_arr)
 
-def get_file_paths(
-    path=os.path.join(DATAPATH, "default"),
-    size=1,
-    seed=55555,
-    num_std=1,
-    num_beta=1,
-    Nwn=128,
-    beta=30,
-    Nw=512,
-    wmax=20,
-    fixstd=False,
-): 
-    if fixstd:
-        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
-        std_str = f"_std{list_to_str(fixstd)}"
-    else:
-        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
-        std_str = ""
-    beta_str = f"_beta{list_to_str(beta)}"
-
-    beta_path = os.path.join(path, f"beta_{id}{beta_str}.npy")
-    pi_path = os.path.join(path, f"Pi_{id}_Nwn{Nwn}{beta_str}{std_str}.npy")
-    sigma_path = os.path.join(path, f"sigma_{id}_Nw{Nw}_wmax{wmax}{std_str}.npy")
-    std_path = os.path.join(path, f"std_{id}.npy")
-
-    return beta_path, pi_path, sigma_path, std_path
 
 def list_to_str(x):
     try:
