@@ -22,22 +22,6 @@ def simple_plot(pi, wn, sigma, w):
     plt.show()
 
 
-def infer_scales(Pi, sigma):
-    Nwn = len(Pi[0])
-    Nw = len(sigma[0])
-
-    norm = Pi[:, 0]
-    PiN = Pi[:, -1]
-    sum1 = 2 * np.sum(sigma, axis=-1) - np.take(sigma, 0, axis=-1)
-    dm = np.pi * norm / sum1
-    m = np.arange(Nw)
-    sum2 = 2 * np.sum(m**2 * sigma, axis=-1)
-
-    wmaxs = Nw * dm
-    betas = 2 * Nwn * np.sqrt((np.pi**3) * PiN / (dm**3 * sum2))
-    return wmaxs, betas
-
-
 def plot_basic(Pi, sigma, filename=None):
     fig, ax = plt.subplots(2, 2, figsize=[7, 5])
     ax[0, 0].set_ylabel(r"$\Pi_n$")
@@ -99,12 +83,3 @@ def plot_scaled(Pi, sigma, betas, wmaxs, filename=None, default_wmax=20.0):
         fig.savefig(filename)
     plt.show()
 
-
-def plot_infer_scale(Pi, sigma, filename=None, default_wmax=20.0, sigma_normalized=True):
-    Nw = len(sigma[0])
-    if sigma_normalized:
-        sigma = sigma*Nw*np.pi/(2*default_wmax)
-
-    wmaxs, betas = infer_scales(Pi, sigma)
-    print(f"infered scales:\n  betas = {betas}\n  wmaxs = {wmaxs}")
-    plot_scaled(Pi, sigma, betas, wmaxs, filename, default_wmax)
