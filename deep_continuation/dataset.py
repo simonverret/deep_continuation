@@ -99,10 +99,16 @@ def main(
             print(f"WARNING: ignoring num_beta={num_beta} because beta={beta}")
             num_beta = 1
 
-    # Generate missing data
+    # random distribution generator and random number generators
     distrib_file_path = os.path.join(path, "param.json")
+    # using legacy random number generator for compatibility with older datasets
     distrib_generator = get_generator_from_file(distrib_file_path, seed)
+    # using new random number generators (independant)
+    extra_seeds = np.random.SeedSequence(seed).spawn(2)
+    beta_random_state = np.random.default_rng(extra_seeds[0])
+    fixstd_random_state = np.random.default_rng(extra_seeds[1])
     
+    # Generate missing data
     if not (skip_pi and skip_sigma and skip_std):
         progress_bar = tqdm(total=true_size)
         i = 0
@@ -113,7 +119,7 @@ def main(
             sigma_func = lambda w: 0.5 * (distrib(w) + distrib(-w))   
 
             if type(fixstd) is list or type(fixstd) is tuple:
-                fixstd_list = np.random.uniform(fixstd[0], fixstd[1], num_std)
+                fixstd_list = fixstd_random_state.uniform(fixstd[0], fixstd[1], num_std)
             else:
                 fixstd_list = [fixstd]
             for fixstd_value in fixstd_list:
@@ -127,7 +133,7 @@ def main(
                     rescaled_sigma_func = get_rescaled_sigma(sigma_func, std_arr[i], new_std=fixstd_value)    
                 
                 if type(beta) is list or type(beta) is tuple:
-                    beta_list = np.random.uniform(beta[0], beta[1], num_beta)
+                    beta_list = beta_random_state.uniform(beta[0], beta[1], num_beta)
                 else:
                     beta_list = [beta]    
                 for beta_value in beta_list:
