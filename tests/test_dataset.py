@@ -17,8 +17,13 @@ def seed(request):
     return request.param
     
 
-@pytest.fixture(params=[False, 8.86])
+@pytest.fixture(params=[False, 8.86, [5,15]])
 def fixstd(request):
+    return request.param
+
+
+@pytest.fixture(params=[30, [0,60]])
+def beta(request):
     return request.param
 
 
