@@ -1,140 +1,49 @@
 # Deep Continuation
-Python module by S. Verret, with the help of R. Nourafkan, Q. Weyrich, & A.-M. S. Tremblay, for Analytic continuation of response functions with temperature-agnostic neural networks.
+Analytic continuation of response functions with temperature-agnostic neural networks.
 
 ## Install
-Download with
-
-    git clone https://github.com/simonverret/deep_continuation.git
-
 Install with
 
     cd deep_continuation
     pip install -e .
 
-All the code is in `deep_continuation/deep_continuation/`, so move there:
+## Usage
+Generate the training dataset (100 000 spectra) with:
 
-    cd deep_continuation
+    python deep_continuation/dataset.py --save 100000
 
-## Documentation
-Build and navigate the automatic Sphinx documentation (under construction)
+Progress is displayed using [tqdm](https://github.com/tqdm/tqdm), and data is saved under `deep_continuation/data/`. Validation set (10 000 spectra) requires a different seed.
 
-    pip install sphinx furo
-    cd docs
-    make html
-    open build/html/index.html
+    python deep_continuation/dataset.py --save 10000 --seed 555
 
+You can train an example neural network and see results in the `tutorial.ipynb` Jupyter notebook.
 
-## Generate data
+## Modules
+#### `distribution.py`
+Generators of randomly shaped distributions.
 
-### `function_generator.py`
-This module provides generators that produce pairs of functions (actual python functions) that can be used at any frequencies and temperatures (Matsubara frequencies).
+#### `conductivity.py`
+Functions to compute the Matsubara frequency conductivities from the real frequency ones.
 
-### `data_generator.py`
-This module uses the above function generator to produce the discrete samples of these functions (vectors) at specific freqencies and temperatures. It also provides the tools to plot and save these vectors. Here are multiple examples:
+#### `plotting.py`
+Plotting functions, along with temperature and frequency scale extraction.
+
+#### `dataset.py`
+Command line script (using [python-fire](https://github.com/google/python-fire) to produce training input and output vectors for the neural network, with utilities to plot and save them. Here are other usage examples:
 
 - Generate 4 temporary conductivities (using Beta functions) and plot them:
 
-        python data_generator.py data/B1_train.json --plot 4
+        python deep_continuation/dataset.py --plot 4
 
 - Change the seed to get different conductivities:
 
-        python data_generator.py data/B1_train.json --plot 4 --seed 1
+        python deep_continuation/dataset.py --plot 4 --seed 1
 
 - Rescale them to see the temperature agnostic case:
 
-        python data_generator.py data/B1_train.json --plot 4 --seed 1 --rescale 4
+        python deep_continuation/dataset.py --plot 4 --seed 1 --rescale 8.86
 
 - Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
 
-        python data_generator.py data/B1_train.json --generate 1000 --rescale 4
-        python data_generator.py data/B1_valid.json --generate 200 --rescale 4
-
-- 1000 conductivities is not enough for proper training of neural networks. You have to manually remove existing dataset to create a new one with the same name. The following gives a proper dataset, but is very long to run:
-
-    python data_generator.py data/B1_train.json --generate 100000 --rescale 4
-    python data_generator.py data/B1_valid.json --generate 10000 --rescale 4
-
-Here are the calls used to generate data for the experiments on temperature agnostic training. It is very long to generate, it produces 100000 conductivies and the matsubara responses functions at 8 different temperatures. You will also find these command lines in submission scripts of the `bin` folder.
-
-    python data_generator.py data/B1_valid.json --generate 10000 --beta 2 10 15 20 25 30 35 50 --rescale 4
-    python data_generator.py data/B1_train.json --generate 100000 --beta 2 10 15 20 25 30 35 50 --rescale 4
-
-
-### Advanced usage (Custom Configuration)
-
-There are two ways to modify the data generation process. The first way is to change the content of the `data/B1_valid.json` file. For instance, we can use another file: 
-
-    python data_generator.py data/G1_train.json --plot 4
-
-Another way is to use command line arguments like `--variant G` here:
-
-    python data_generator.py data/B1_train.json --plot 4 --variant G
-
-To get a list of all configurable parameters, use `--help`:
-
-    python data_generator.py --help
-
-Or look for `default_parameters` and `default_parameters_help` dictionaries in the code. Here is an example, from the `function_generator.py` file, at the core of the data generating process:
-
-    {
-        'seed': "Random seed used to generate the data",
-        'variant': "Gaussian (G), Beta (B) or Lorentz (L)",
-        'anormal': "(bool) When true, individual peaks are not normalized as in",
-        'wmax': "Maximum frequencies of the discrete samples",
-        'nmbrs': "(list of list) List of ranges for number of peaks (for each peak group)",
-        'cntrs': "(list of list) List of ranges for positions of peaks",
-        'wdths': "(list of list) List of ranges for widths of peaks",
-        'wghts': "(list of list) List of ranges for weights (heights) of peaks",
-        'arngs': "(list of list) List of ranges of the a parameters of Beta peaks",
-        'brths': "(list of list) List of ranges of the b parameters of Beta peaks",
-        'even': "(bool) Make a copy of each peaks at negative positions",
-        'num_peaks': "Number of Lorentz peaks used in the Lorentz comb",
-        'width': "Width of Lorentz peaks of the Lorentz comb",
-        'rescale': "Value for fixing the variance of all spectra",
-        'spurious': "(bool) Compute Matsubara responses BEFORE rescaling, introducing spurious correlation",
-    }
-
-The `data/B1_train.json` used up to now defines these parameters:
-
-    {
-        "seed": 55555,
-        "generate": 100000,
-        "path": "data/B1/train",
-        "variant": "Beta",
-        "wmax": 20.0,
-        "beta": [10.0],
-        "nmbrs": [[0, 4],[0, 6]],
-        "cntrs": [[0.00, 0.00], [4.00, 16.0]],
-        "wdths": [[0.20, 4.00], [0.40, 4.00]],
-        "wghts": [[0.00, 1.00], [0.00, 1.00]],
-        "arngs": [[2.00, 10.0], [0.50, 10.0]],
-        "brngs": [[2.00, 10.0], [0.50, 10.0]]
-    }
-
-## Train a neural networks
-
-TODO: simple script that trains the best neural network
-
-
-## Hyperparameters search
-
-### `train.py`
-contains the model definition and training function. 
-- `data.py` contains a pytorch dataset that handles multiple temperature. It is unecessarily complicated. This shouldn't be reused.
-- `random_search.py` contains a loop to generate random configurations and call the train.py functions with those.
-- `wandb_utils.py` provides a few utilities that allow to load the results from the wandb server to restore the best neural nets.
-
-### Other Files
-- `monotonous_functions.py` contains multiple functions to distribute Lorentz peaks for the Lorentz comb generating variant. Most of them are useless. You can generate plots (which are saved in the `plots/` directory) of those functions by running.
-
-        python monotonous_function.py
-
-- `infinite_data.py` is a failed attempt at using the actual functions as a dataset rather than discretized vectors, and feed the frequencies to the neural network. You can run it to see the dataset of functions being generated and the neural network learning nothing.
-
-        python infinite_data.py
-
-
-## Supercomputing clusters
-Examples of Slurm submission scripts are provided in `bin/` to run the program on compute canada clusters.
-
-
+        python deep_continuation/dataset.py --save 1000 --rescale 8.86
+        python deep_continuation/dataset.py --save 200 --rescale 8.86

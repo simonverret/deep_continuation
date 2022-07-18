@@ -2,10 +2,10 @@
 from distutils.core import setup
 
 setup(name='deep_continuation',
-    version='0.2',
+    version='1.0',
     description='Analytical continuation with neural networks',
     author='Simon Verret',
-    author_email='simon.verret@mila.quebec',
+    author_email='verret.simon@gmail.com',
     url='https://github.com/simonverret/deep_continuation',
     packages=['deep_continuation'],
     install_requires=[
@@ -13,5 +13,8 @@ setup(name='deep_continuation',
             'scipy',
             'matplotlib',
             'torch',
+            'fire',
+            'tqdm',
+            'ipykernel',
         ]
     )
