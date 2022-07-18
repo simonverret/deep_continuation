@@ -43,6 +43,7 @@ def get_file_paths(
 
 
 def main(
+    name=None,
     path=os.path.join(DATAPATH, "default"),
     size=1,
     seed=55555,
@@ -56,6 +57,10 @@ def main(
     plot=False,
     save_plot=None,
 ):
+
+    if name is not None:
+        path=os.path.join(DATAPATH, name)
+        
     # getting filenames
     beta_path, pi_path, sigma_path, std_path, fixstd_path = get_file_paths(
         path, size, seed, num_std, num_beta, Nwn, beta, Nw, wmax, fixstd,
