@@ -7,10 +7,12 @@ from tqdm import tqdm
 from fire import Fire
 import numpy as np
 np.set_printoptions(precision=4)
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+COLORS = list(mcolors.TABLEAU_COLORS)
 
 from deep_continuation.distribution import get_generator_from_file
 from deep_continuation.conductivity import sample_on_grid, get_rescaled_sigma, compute_matsubara_response, second_moment
-from deep_continuation.plotting import plot_basic
 
 
 def get_file_paths(
@@ -165,7 +167,7 @@ def main(
         # usecase with flag --save_plot with no name name provided
         if save_plot == True: 
             save_plot = 'saved_plot.pdf' 
-        plot_basic(pi_arr, sigma_arr, save_plot)
+        plot_data(pi_arr, sigma_arr, save_plot)
     else:
         if not skip_sigma:
             np.save(sigma_path, sigma_arr)    
@@ -185,6 +187,33 @@ def list_to_str(x):
     except TypeError:
         return x
 
+
+def plot_data(Pi, sigma, filename=None):
+    fig, ax = plt.subplots(2, 2, figsize=[7, 5])
+    ax[0, 0].set_ylabel(r"$\Pi_n$")
+    plt.setp(ax[0, 0].get_xticklabels(), visible=False)
+    ax[1, 0].set_ylabel(r"$\sqrt{n^2 \Pi_n}$")
+    ax[1, 0].set_xlabel(r"$n$")
+    ax[0, 1].set_ylabel(r"$\sigma_m$")
+    plt.setp(ax[0, 1].get_xticklabels(), visible=False)
+    ax[1, 1].set_ylabel(r"$\sqrt{ \sum_{r}^{n} n^2 \sigma_n }$")
+    ax[1, 1].set_xlabel(r"$m$")
+
+    N = len(Pi[0])
+    n2Pi = np.sqrt(np.arange(N) ** 2 * Pi)
+    for i in range(len(Pi)):
+        ax[0, 0].plot(Pi[i], ".", c=COLORS[i % 10])
+        ax[1, 0].plot(n2Pi[i], ".", c=COLORS[i % 10])
+    M = len(sigma[0])
+    cumul_sum2 = np.sqrt(np.cumsum(np.linspace(0, 1, M) ** 2 * sigma, axis=-1))
+    for i in range(len(sigma)):
+        ax[0, 1].plot(sigma[i], c=COLORS[i % 10])
+        ax[1, 1].plot(cumul_sum2[i], c=COLORS[i % 10])
+
+    fig.tight_layout()
+    if filename is not None:
+        fig.savefig(filename)
+    plt.show()
 
 
 if __name__ == "__main__":

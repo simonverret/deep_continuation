@@ -89,7 +89,7 @@ def test_skip(mocker, seed, fixstd):
 
 
 def test_plot(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_path):
-    mocker.patch('deep_continuation.dataset.plot_basic')
+    mocker.patch('deep_continuation.dataset.plot_data')
     dataset.main(
         size=4,
         seed=seed,
@@ -99,8 +99,8 @@ def test_plot(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_pat
 
     expected_pi, _ = expected_pi_and_path
     expected_sigma, _ = expected_sigma_and_path
-    Pi = dataset.plot_basic.call_args[0][0]  # call_args[0] is args, [1] is kwargs    
-    sigma =  dataset.plot_basic.call_args[0][1]
+    Pi = dataset.plot_data.call_args[0][0]  # call_args[0] is args, [1] is kwargs    
+    sigma =  dataset.plot_data.call_args[0][1]
     assert np.allclose(Pi, expected_pi)
     assert np.allclose(sigma, expected_sigma)
 
