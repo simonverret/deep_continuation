@@ -7,43 +7,45 @@ Install with
     cd deep_continuation
     pip install -e .
 
+## Tests
+Install tests requirements
+
+    pip install pytest pytest-mock
+
+Run the tests
+
+    pytest
+
 ## Usage
-Generate the training dataset (100 000 spectra) with:
+You can train an example neural network in the `examples/tutorial.ipynb`. Install and open the Jupyter notebook editor
 
-    python deep_continuation/dataset.py --save 100000
+    pip install notebook
+    jupyter notebook
 
-Progress is displayed using [tqdm](https://github.com/tqdm/tqdm), and data is saved under `deep_continuation/data/`. Validation set (10 000 spectra) requires a different seed.
+The notebook lets you generate the datasets, by you can also do it from prompt.
+Generate the validation set (10 000 spectra) with a explicit seed.
 
     python deep_continuation/dataset.py --save 10000 --seed 555
 
-You can train an example neural network and see results in the `tutorial.ipynb` Jupyter notebook.
+Progress is shown and data is saved under `deep_continuation/data/default/`. 
+Generate the training dataset (100 000 spectra) with the default seed (55555):
 
-## Modules
-#### `distribution.py`
-Generators of randomly shaped distributions.
+    python deep_continuation/dataset.py --save 100000
 
-#### `conductivity.py`
-Functions to compute the Matsubara frequency conductivities from the real frequency ones.
-
-#### `plotting.py`
-Plotting functions, along with temperature and frequency scale extraction.
-
-#### `dataset.py`
-Command line script (using [python-fire](https://github.com/google/python-fire) to produce training input and output vectors for the neural network, with utilities to plot and save them. Here are other usage examples:
+Here are further usage examples for `dataset.py`
 
 - Generate 4 temporary conductivities (using Beta functions) and plot them:
 
-        python deep_continuation/dataset.py --plot 4
+        python deep_continuation/dataset.py --size 4 --plot
 
 - Change the seed to get different conductivities:
 
-        python deep_continuation/dataset.py --plot 4 --seed 1
+        python deep_continuation/dataset.py --size 4 --plot --seed 1
 
-- Rescale them to see the temperature agnostic case:
+- Generate them with a fixed second moment:
 
-        python deep_continuation/dataset.py --plot 4 --seed 1 --rescale 8.86
+        python deep_continuation/dataset.py --size 4 --plot --seed 1 --fixstd 8.86
 
-- Generate 1000 training conductivities and 200 validation conductivities and save them instead of plotting them:
+- Generate them with a fixed second moment and random temperature:
 
-        python deep_continuation/dataset.py --save 1000 --rescale 8.86
-        python deep_continuation/dataset.py --save 200 --rescale 8.86
+        python deep_continuation/dataset.py --size 4 --plot --seed 1 --fixstd 8.86 --beta [0,60]

@@ -1,28 +1,29 @@
+import os
+import sys
+
 import pytest
 import numpy as np
-import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXPCPATH = os.path.join(HERE,"expected")
 
 from deep_continuation import dataset
 
+TEST_SEEDS = [55555, 555, 1]
+TEST_FIXSTD = [False, 8.86, [5,15]]
+TEST_BETAS = [30, [0,60]]
 
-# fixtures are pytest way to setup variables. The name of the fixture function 
-# is the name of the variable. Parametrized fixtures (using params, request, and 
-# request.param as below) automatically generates all combinations of variables
-# called by a test, so that it tests all possible input state.
 
-@pytest.fixture(params=[55555, 555, 1])
+@pytest.fixture(params=TEST_SEEDS)
 def seed(request):
     return request.param
     
 
-@pytest.fixture(params=[False, 8.86, [5,15]])
+@pytest.fixture(params=TEST_FIXSTD)
 def fixstd(request):
     return request.param
 
 
-@pytest.fixture(params=[30, [0,60]])
+@pytest.fixture(params=TEST_BETAS)
 def beta(request):
     return request.param
 
@@ -102,3 +103,27 @@ def test_plot(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_pat
     sigma =  dataset.plot_basic.call_args[0][1]
     assert np.allclose(Pi, expected_pi)
     assert np.allclose(sigma, expected_sigma)
+
+
+def generate_expected():
+    '''Generates the expected files from current code (changes the tests)
+
+    When finding a fundamental bug in how the data is produce, the expected 
+    output of the tests should change. This function automatically generate the
+    tests expected files.
+    '''
+    for seed in TEST_SEEDS:
+        for fixstd in TEST_FIXSTD:
+            for beta in TEST_BETAS:
+                dataset.main(
+                    path=EXPCPATH,
+                    size=4,
+                    seed=seed,
+                    fixstd=fixstd,
+                    beta=beta
+                )
+
+
+if __name__ == "__main__":
+    if sys.argv[1] in ["renew", "expected"]:
+        generate_expected()
