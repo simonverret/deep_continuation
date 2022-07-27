@@ -40,11 +40,12 @@ def get_file_paths(
     sigma_path = os.path.join(path, f"sigma_{id}_Nw{Nw}_wmax{wmax}{std_str}.npy")
     std_path = os.path.join(path, f"std_{id}.npy")
     fixstd_path = os.path.join(path, f"fixstd_{id}{std_str}.npy")
+    full_id = f"{id}{beta_str}{std_str}_{Nw}x{Nwn}_wmax{wmax}"
 
-    return beta_path, pi_path, sigma_path, std_path, fixstd_path
+    return beta_path, pi_path, sigma_path, std_path, fixstd_path, full_id
 
 
-def main(
+def get_dataset(
     name=None,
     path=os.path.join(DATAPATH, "default"),
     size=1,
@@ -64,7 +65,7 @@ def main(
         path=os.path.join(DATAPATH, name)
         
     # getting filenames
-    beta_path, pi_path, sigma_path, std_path, fixstd_path = get_file_paths(
+    beta_path, pi_path, sigma_path, std_path, fixstd_path, full_id = get_file_paths(
         path, size, seed, num_std, num_beta, Nwn, beta, Nw, wmax, fixstd,
     )
 
@@ -84,13 +85,13 @@ def main(
 
     # load existing data
     if load_std:
-        print(f"WARNING: Skipping existing {std_path}")
+        print(f"loading existing {std_path}")
         std_arr = np.load(std_path)
     if skip_sigma:
-        print(f"WARNING: Skipping existing {sigma_path}")
+        print(f"loading existing {sigma_path}")
         sigma_arr = np.load(sigma_path)
     if skip_pi:
-        print(f"WARNING: Skipping existing {pi_path}")
+        print(f"loading existing {pi_path}")
         pi_arr = np.load(pi_path)
         beta_arr = np.load(beta_path)
     
@@ -108,10 +109,8 @@ def main(
 
     # random distribution generator and random number generators
     distrib_file_path = os.path.join(path, "param.json")
-    # using legacy random number generator for compatibility with older datasets
-    distrib_generator = get_generator_from_file(distrib_file_path, seed)
-    # using new random number generators (independant)
-    extra_seeds = np.random.SeedSequence(seed).spawn(2)
+    distrib_generator = get_generator_from_file(distrib_file_path, seed)  # Numpy's legacy random number generator for compatibility with older datasets    
+    extra_seeds = np.random.SeedSequence(seed).spawn(2)  # Numpy's new random number generators (independant) for beta and fixstd
     beta_random_state = np.random.default_rng(extra_seeds[0])
     fixstd_random_state = np.random.default_rng(extra_seeds[1])
     
@@ -180,6 +179,8 @@ def main(
             np.save(pi_path, pi_arr)
             np.save(beta_path, beta_arr)
 
+    return pi_path, sigma_path, full_id
+
 
 def list_to_str(x):
     try:
@@ -217,4 +218,4 @@ def plot_data(Pi, sigma, filename=None):
 
 
 if __name__ == "__main__":
-    Fire(main)  # turns the function in a command line interface (CLI)
+    Fire(get_dataset)  # turns the function in a command line interface (CLI)

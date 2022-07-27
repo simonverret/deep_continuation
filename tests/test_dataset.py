@@ -54,7 +54,7 @@ def expected_sigma_and_path(seed, fixstd):
 
 def test_save(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_path):
     mocker.patch('deep_continuation.dataset.np.save')
-    dataset.main(
+    dataset.get_dataset(
         size=4,
         seed=seed,
         fixstd=fixstd,
@@ -79,7 +79,7 @@ def test_save(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_pat
 
 def test_skip(mocker, seed, fixstd):
     mocker.patch('deep_continuation.dataset.np.save')
-    dataset.main(
+    dataset.get_dataset(
         size=4,
         seed=seed,
         fixstd=fixstd,
@@ -90,7 +90,7 @@ def test_skip(mocker, seed, fixstd):
 
 def test_plot(mocker, seed, fixstd, expected_pi_and_path, expected_sigma_and_path):
     mocker.patch('deep_continuation.dataset.plot_data')
-    dataset.main(
+    dataset.get_dataset(
         size=4,
         seed=seed,
         fixstd=fixstd,
@@ -115,7 +115,7 @@ def generate_expected():
     for seed in TEST_SEEDS:
         for fixstd in TEST_FIXSTD:
             for beta in TEST_BETAS:
-                dataset.main(
+                dataset.get_dataset(
                     path=EXPCPATH,
                     size=4,
                     seed=seed,
