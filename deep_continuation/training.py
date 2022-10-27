@@ -1,8 +1,8 @@
 import os
+import json
 from copy import deepcopy
 
 import numpy as np
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from fire import Fire
@@ -11,7 +11,7 @@ from deep_continuation import dataset
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 TORCH_MAX = torch.finfo(torch.float64).max
-MODEL_PATH = os.path.join(dataset.HERE, "saved_models")
+MODELS_PATH = os.path.join(dataset.HERE, "saved_models")
 
 class ContinuationData(torch.utils.data.Dataset):
     def __init__(
@@ -98,23 +98,28 @@ def train_mlp(
     early_stop_limit = 40,
     warmup = True,
 ):
+    config_dict = locals()
     train_pi_path, train_sigma_path, _ = dataset.get_dataset(
         size=100000, seed=55555, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
         Nwn=Nwn, beta=beta, Nw=Nw, wmax=wmax, fixstd=fixstd,
     )
-    valid_pi_path, valid_sigma_path, valid_id = dataset.get_dataset(
+    valid_pi_path, valid_sigma_path, valid_set_id = dataset.get_dataset(
         size=10000, seed=555, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
         Nwn=Nwn, beta=beta, Nw=Nw, wmax=wmax, fixstd=fixstd,
     )
 
+    config_id = f"n{noise}"
+
     train_set = ContinuationData(
-        pi_path=train_pi_path, sigma_path=train_sigma_path, noise=noise
+        pi_path=train_pi_path, sigma_path=train_sigma_path, noise=noise,
+        standardize=standardize,
     )
     valid_set = ContinuationData(
-        pi_path=valid_pi_path, sigma_path=valid_sigma_path, noise=noise, 
-        avg=train_set.avg, std=train_set.std
+        pi_path=valid_pi_path, sigma_path=valid_sigma_path, noise=noise,
+        standardize=standardize,
+        avg=train_set.avg, std=train_set.std,
     )
 
     train_loader = torch.utils.data.DataLoader(
@@ -124,7 +129,7 @@ def train_mlp(
         valid_set, batch_size=batch_size, shuffle=False, drop_last=True
     )
     
-    # everything else
+    # model, loss, optimizer, scheduler
     model = MLP(layers=layers).to(device)
     model.apply(initialize_weights)
     loss_function = nn.L1Loss()  
@@ -134,7 +139,9 @@ def train_mlp(
         optimizer, factor=factor, patience=patience, min_lr=min_lr, verbose=True
     )
 
+    # training loop
     best_valid_loss = TORCH_MAX
+    loss_id = None
     early_stop_count = early_stop_limit
     for epoch in range(1, n_epochs+1):
         print(f' epoch {epoch}')
@@ -183,6 +190,8 @@ def train_mlp(
         print(f'   valid loss: {avg_valid_loss:.9f}, mse:{avg_valid_mse:.9f}')
         
         scheduler.step(avg_train_loss)
+        
+        # saving and 
         early_stop_count -= 1
         if avg_valid_loss < best_valid_loss:
             early_stop_count = early_stop_limit
@@ -190,9 +199,18 @@ def train_mlp(
             best_epoch = epoch
             best_model = deepcopy(model)
             
-            model_filename = os.path.join(MODEL_PATH, f"best_model_n{noise}_{valid_id}.pt")
-            os.makedirs(MODEL_PATH, exist_ok=True)
-            torch.save(best_model.state_dict(), model_filename)    
+            if loss_id is not None:
+                os.remove(model_path)
+                os.remove(config_path)
+            loss_id = f"noise{noise}_epoch{best_epoch}_mse{avg_valid_mse}_loss{best_valid_loss}"
+            model_dir = os.path.join(MODELS_PATH, f"trained_on_{valid_set_id}")
+            model_path = os.path.join(model_dir, f"model_{loss_id}.pt")
+            config_path = os.path.join(model_dir, f"config_{loss_id}.json")
+
+            os.makedirs(model_dir, exist_ok=True)
+            torch.save(best_model.state_dict(), model_path)
+            with open(config_path, 'w') as fp:
+                json.dump(config_dict, fp, indent=4) 
         
         if early_stop_count == 0:
             print('early stopping limit reached!!')

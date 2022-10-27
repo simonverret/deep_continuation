@@ -21,3 +21,5 @@ docs/*.out
 docs/*.synctex.gz
 docs/*.toc
 docs/*Notes.bib
+
+saved_models
