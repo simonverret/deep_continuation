@@ -123,13 +123,13 @@ p(\omega),
 \\
 &=
 \int_{-\infty}^{\infty} d\omega \frac{\omega^2}{\omega^2 + \left(\frac{2\pi k_B}{\hbar}\frac{T}{s}\right)^2n^2}
-sp(s\omega).
+sp(s\omega),
 \label{dimensionless_with_p2}
 \end{align}
-This allow to isolate an alternative integrand argument $sp(s\omega)$, where $s$ fits the definition of a \emph{scale parameter}.
+which lets us isolate an alternative integrand argument $sp(s\omega)$, where $s$ fits the definition of a \emph{scale parameter}.
 If we consider that $s$ carries the units of frequency, $\omega$ becomes a dimensionles continuous variable (analogous to the integer $n$ in matsubara frequencies) and the term $\frac{2\pi k_B}{\hbar}\frac{T}{s}$ then corresponds to a dimensionless temperature.
 
-\subsection{Temperature-agnostic formulation}
+\subsection{Temperature-agnostic formulations}
 \label{section_temperature_agnostic}
 The above dimensionless formulation shows that there is a degenerancy between analytic continuation problems at different temperatures. We can make this degenerancy explicit by writing integral~\eqref{dimensionless_with_p1} as a functional $\Pi_n = \Pi_n[p(\omega)](T)$, such that lines~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} become 
 \begin{align}
@@ -144,28 +144,25 @@ Working from a single temperature $T_\text{{ref}}$ and considering $s=T_\text{{r
     \Pi_n[p(\omega)](T_\text{{ref}}) = \Pi_n[\tfrac{T_{\text{ref}}}{T} p(\tfrac{T_{\text{ref}}}{T}\omega)](T),
     \label{eq_fix_T}
 \end{align}
-we see that results at any $T$ can be obtained by rescaling the distribution $p(\omega)$ obtained at~$T_\text{{ref}}$. 
-However, with $T_\text{{ref}}$ fixed in this way, the space of functions $p(\omega)$ we have to search to find the one compatible with $\vec \Pi$ includes all $sp(s\omega)$. In other words, any function $sp(s\omega)$ has to be ``outputable''. Equation~\eqref{eq_fix_T} simply tells us how to adjust $s$ when using a temperature different from $T_{\text{ref}}$.
+we see that results at any $T$ can be obtained by rescaling the distribution $p(\omega)$ obtained at~$T_\text{{ref}}$. This is the first way to get temperature-agnostic analytic continuation.
 
 \paragraph*{Fixing $s$}
-Fixing $s$ instead of $T$ narrows down the search from all possible $sp(s\omega)$ to a single scale $s$ per $p(\omega)$. One way to do so is to fix the second moment of $p(\omega)$, as shown in section~\ref{sec_data_rescaling}. In this work, we hypothesize that narrowing the search space with fixed $s$ is desirable, and so we focus on that case from here on.
-
-With this in mind, we define \emph{temperature-agnostic analytic continuation} as the task of mapping the response function vector $\Pi_n = \Pi_n[sp(s\omega)](T/s)$, obtained for temperature $T/s$ and density function $sp(s\omega)$ at any~$s$, to a single \emph{reference} density $p(\omega)$, same for all $s$:
+Working with a single $s$ is also possible, but requires more care. However, as we will argue in the rest of this report, fixing $s$ provides several desirable advantages over the simpler fixed-$T$ approach. In the fixed-$s$ approach, we redefine analytic continuation as the task mapping all response function vectors $\Pi_n = \Pi_n[sp(s\omega)](T/s)$ (obtained at temperature $T/s$ and density function $sp(s\omega)$ for any~$s$) to a single \emph{reference} density $p(\omega)$ (independent of $s$):
 \begin{align}
     \Pi_n[sp(s\omega)](T/s) &\longrightarrow p(\omega) &\text{for any }s.
     \label{eq_agnostic_ac}
 \end{align}
-With analytic continuation defined this way, we can ignore temperature alltogether and work in terms of $\vec \Pi$ and $p(\omega)$ only.
-As we shall explain next (section \ref{sec_usage}), once the reference $p(\omega)$ is obtained, the missing scale $s$ can be recovered from $\vec \Pi$.
-Also, there is freedom in the specific choice of reference $p(\omega)$ to represent all other $sp(s\omega)$, and this choice requires care.
+With analytic continuation defined this way, we can ignore temperature alltogether and work in terms of $\vec \Pi$ and $p(\omega)$ only. This is the second way to get temperature-agnostic analytic continuation.
 
+However, two things must be clarified for the fixed-$s$ scheme to be well-defined. First, we must choose the reference $p(\omega)$ to represent all other $sp(s\omega)$. Second,
+we must explain how to recover the missing scale $s$ from $\vec \Pi$ alone once the reference $p(\omega)$ is obtained. These considerations are respectively adressed in the next two sections.
 
-\subsection{Rescaling to fixed second moment}
+\subsection{Fixing the second moment}
 \label{sec_data_rescaling}
-The above procedures depend on the existence of the neural network $p_{\vec \theta}(\omega, \vec \Pi)$. Training such neural networks requires training data, more specifically several thousand pairs of inputs $\vec \Pi$ and output targets $p(\omega)$. Here we only explain how to remove any $sp(s\omega)$ from the training dataset to get only reference distributions $p(\omega)$.
+Suppose we want to train a neural network $p_{\vec \theta}(\omega, \vec \Pi)$ to perform the analytic continuation task defined in~\eqref{eq_agnostic_ac}. Training such neural networks requires training data, more specifically several thousand pairs of inputs $\vec \Pi$ and output targets $p(\omega)$. Here we explain how to remove any $sp(s\omega)$ from the training dataset to get only reference distributions $p(\omega)$.
 
-To create each ($\vec \Pi$, $p(\omega)$) pair, we start by generating an arbitrary distribution $p_0(\omega)$ as described in section~\ref{sec_distribution}. However, we presume the latter is not a reference distribution; it is inherently scaled as $p_0(\omega)=sp(s\omega)$, for some unknown $s$.
-To find $s$, we make a choice. We define all reference $p(\omega)$ so that they have the same second central moment $\mu_2$. This $\mu_2$ becomes a constant of the dataset,
+To create each ($\vec \Pi$, $p(\omega)$) pair, we start by generating an arbitrary distribution $p_0(\omega)$. We will describe a way to do so in section~\ref{sec_distribution}. For now, let us simply presume the latter is not a reference distribution; it is inherently scaled as $p_0(\omega)=sp(s\omega)$, for some unknown $s$.
+To find $s$, we make a choic: we define all reference $p(\omega)$ so that they have the same second central moment $\mu_2$. This $\mu_2$ becomes a constant of the dataset,
 \begin{align}
 \mu_2
 &=
