@@ -73,7 +73,6 @@ def get_generator(
             where tuples indicate a range for the `b` parameters
             for Beta peaks. Defaults to
             [[2.00, 5.00], [0.50, 5.00]].
-        norm (int, optional): Total weight. Defaults to 1.
         anormal (bool, optional): All peaks are equally weighted.
             Defaults to False.
 
