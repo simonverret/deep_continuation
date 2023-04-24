@@ -99,7 +99,7 @@ def train_mlp(
     warmup = True,
 ):
     config_dict = locals()
-    train_pi_path, train_sigma_path, _ = dataset.get_dataset(
+    train_pi_path, train_sigma_path, train_set_id = dataset.get_dataset(
         size=100000, seed=55555, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
         Nwn=Nwn, beta=beta, Nw=Nw, wmax=wmax, fixstd=fixstd,
@@ -203,7 +203,8 @@ def train_mlp(
                 os.remove(model_path)
                 os.remove(config_path)
             loss_id = f"noise{noise}_epoch{best_epoch}_mse{avg_valid_mse}_loss{best_valid_loss}"
-            model_dir = os.path.join(MODELS_PATH, f"trained_on_{valid_set_id}")
+            model_dir = os.path.join(MODELS_PATH, f"trained_on_{name}_{train_set_id}")
+            model_dir = os.path.join(model_dir, f"validated_on_{name}_{valid_set_id}")
             model_path = os.path.join(model_dir, f"model_{loss_id}.pt")
             config_path = os.path.join(model_dir, f"config_{loss_id}.json")
 
