@@ -1,7 +1,6 @@
 %	DOCUMENT TYPE
-\documentclass[notitlepage,11pt,nofootinbib]{revtex4-1}
+\documentclass[notitlepage, 11pt, aps]{revtex4-1}
 % \documentclass[aps,prb,notitlepage,11pt,nofootnoteinbib]{revtex4-1}
-% \documentclass[aps,preprint,prb,linenumbers]{revtex4-1}
 
 %	PACKAGES
 \usepackage[utf8]{inputenc}
@@ -51,11 +50,16 @@
 \vspace{-.5cm}
 \tableofcontents
 
+
+
+\section{Introduction}
+
+
 \section{Temperature-agnostic analytic continuation}
 
 \subsection{Analytic continuation of conductivity}
 
-The starting point of this report is the following relation (partly derived in appendix) between the Matsubara response function $\Pi(i\omega_n)$ and the optical conductivity $\sigma(\omega)$,
+The starting point of this paper is the following relation (partly derived in appendix) between the Matsubara response function $\Pi(i\omega_n)$ and the optical conductivity $\sigma(\omega)$,
 \begin{align}
 \Pi(i\omega_n) 
 =
@@ -129,134 +133,91 @@ sp(s\omega),
 which lets us isolate an alternative integrand argument $sp(s\omega)$, where $s$ fits the definition of a \emph{scale parameter}.
 If we consider that $s$ carries the units of frequency, $\omega$ becomes a dimensionles continuous variable (analogous to the integer $n$ in matsubara frequencies) and the term $\frac{2\pi k_B}{\hbar}\frac{T}{s}$ then corresponds to a dimensionless temperature.
 
-\subsection{Temperature-agnostic formulations}
+\subsection{Temperature-agnostic formulation}
 \label{section_temperature_agnostic}
-The above dimensionless formulation shows that there is a degenerancy between analytic continuation problems at different temperatures. We can make this degenerancy explicit by writing integral~\eqref{dimensionless_with_p1} as a functional $\Pi_n = \Pi_n[p(\omega)](T)$, such that lines~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} become 
+Equations~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} reveal a degenerancy between analytic continuation problems at different temperatures. This means that the solutions of an analytic continuation problems at temperature $T$ can be obtained from the solution of a corresponding problem at temperature $T/s$. The main goal of this paper is to clarify and compare the possibilities granted by that degenerancy.
+
+The degenerancy can be expressed explicitly by writing integral~\eqref{dimensionless_with_p1} as a functional function $\Pi_n = \Pi_n[p(\omega)](T)$, such that lines~\eqref{dimensionless_with_p1} and~\eqref{dimensionless_with_p2} become 
 \begin{align}
 \Pi_n[p(\omega)](T) = \Pi_n[sp(s\omega)](T/s).
 \label{degenerancy}
 \end{align}
-This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. In other words, the input $\vec \Pi$ has a continuum of compatible output $sp(s\omega)$, since $s$ can take any value. Thus, without the temperature $T$ or the frequency scale $s$ specified, the analytic continuation task is ambiguous. For a well defined problem, we must either fix $T$ or $s$.
+This equality tells us that the same response function components $\Pi_n$ can be found at different temperatures $T$ and $T/s$ for respective distributions $p(\omega)$ and $sp(s\omega)$. In other words, if temperature is not specified, the problem input $\vec \Pi$ has a continuum of compatible solutions $sp(s\omega)$, since $s$ can take any value. Thus, without the temperature $T$ or the frequency scale $s$ specified, the analytic continuation task is ambiguous. For a well defined problem, we must either fix $T$ or $s$.
 
-\paragraph*{Fixing $T$}
-Working from a single temperature $T_\text{{ref}}$ and considering $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
+\subsubsection{Fixing $T$}
+The first way to obtain temperature-agnostic analytic continuation is to work from a single temperature $T_\text{{ref}}$. We then set $s=T_\text{{ref}}/T$ in~\eqref{degenerancy}
 \begin{align}
     \Pi_n[p(\omega)](T_\text{{ref}}) = \Pi_n[\tfrac{T_{\text{ref}}}{T} p(\tfrac{T_{\text{ref}}}{T}\omega)](T),
     \label{eq_fix_T}
 \end{align}
-we see that results at any $T$ can be obtained by rescaling the distribution $p(\omega)$ obtained at~$T_\text{{ref}}$. This is the first way to get temperature-agnostic analytic continuation.
+and see that results at any $T$ can be obtained by rescaling the distribution $p(\omega)$ obtained at~$T_\text{{ref}}$. It is the easiest way to get temperature-agnostic analytic continuation.
 
-\paragraph*{Fixing $s$}
-Working with a single $s$ is also possible, but requires more care. However, as we will argue in the rest of this report, fixing $s$ provides several desirable advantages over the simpler fixed-$T$ approach. In the fixed-$s$ approach, we redefine analytic continuation as the task mapping all response function vectors $\Pi_n = \Pi_n[sp(s\omega)](T/s)$ (obtained at temperature $T/s$ and density function $sp(s\omega)$ for any~$s$) to a single \emph{reference} density $p(\omega)$ (independent of $s$):
+\subsubsection{Fixing $s$}
+\label{sec_usage}
+The second way to obtain temperature-agnostic analytic continuation is to work with a single~$s$. As we will argue in the rest of this paper, fixing $s$ provides several desirable advantages over the simpler fixed-$T$ approach, especially when training neural networks. To fix $s$, we redefine the analytic continuation problem as the task of mapping all response function vectors $\Pi_n = \Pi_n[sp(s\omega)](T/s)$ (obtained at temperature $T/s$ and density function $sp(s\omega)$ for any~$s$) to a single density $p(\omega)$ (independent of $s$):
 \begin{align}
     \Pi_n[sp(s\omega)](T/s) &\longrightarrow p(\omega) &\text{for any }s.
     \label{eq_agnostic_ac}
 \end{align}
-With analytic continuation defined this way, we can ignore temperature alltogether and work in terms of $\vec \Pi$ and $p(\omega)$ only. This is the second way to get temperature-agnostic analytic continuation.
+We call that $p(\omega)$ the \emph{reference} density. With analytic continuation defined this way, we can ignore temperature alltogether and work in terms of $\vec \Pi$ and $p(\omega)$ only.
 
-However, two things must be clarified for the fixed-$s$ scheme to be well-defined. First, we must choose the reference $p(\omega)$ to represent all other $sp(s\omega)$. Second,
-we must explain how to recover the missing scale $s$ from $\vec \Pi$ alone once the reference $p(\omega)$ is obtained. These considerations are respectively adressed in the next two sections.
-
-\subsection{Fixing the second moment}
-\label{sec_data_rescaling}
-Suppose we want to train a neural network $p_{\vec \theta}(\omega, \vec \Pi)$ to perform the analytic continuation task defined in~\eqref{eq_agnostic_ac}. Training such neural networks requires training data, more specifically several thousand pairs of inputs $\vec \Pi$ and output targets $p(\omega)$. Here we explain how to remove any $sp(s\omega)$ from the training dataset to get only reference distributions $p(\omega)$.
-
-To create each ($\vec \Pi$, $p(\omega)$) pair, we start by generating an arbitrary distribution $p_0(\omega)$. We will describe a way to do so in section~\ref{sec_distribution}. For now, let us simply presume the latter is not a reference distribution; it is inherently scaled as $p_0(\omega)=sp(s\omega)$, for some unknown $s$.
-To find $s$, we make a choic: we define all reference $p(\omega)$ so that they have the same second central moment $\mu_2$. This $\mu_2$ becomes a constant of the dataset,
+Here is how a user would operate in the fixed-$s$ scheme. We suppose that the algorithm exist, namely $\hat{p}(\omega, \vec \Pi)$, which takes $\vec \Pi$ as an input and yields the reference $\hat{p}(\omega, \vec \Pi) \approx p(\omega)$ as an output. To perform analytic continuation, the user starts from a response function $\Pi(i\omega_n)$ and prepares the according dimensionless input vector $\vec \Pi$, with
+\begin{align}
+\Pi_n = \frac{\Pi(i\omega_n)}{\Pi(0)}.
+\end{align}
+Using the latter as an input for the algorithm, the user obtains the reference $\hat{p}(\omega, \vec \Pi)\approx p(\omega)$. However, the user desires not the reference distribution $p(\omega)$, but one of the many possible $sp(s\omega)$, with the particular value of $s$ that corresponds to their value of temperature.
+We can find $s$ from a change of variable $s\omega\rightarrow \omega$ in~\eqref{Pi_moment},
+\begin{align}
+\lim_{\omega_n\rightarrow\infty}\omega_n^2
+\frac{\Pi(i\omega_n)}{\Pi(0)}
+&=
+\int_{-\infty}^{\infty}d\omega \omega^2 sp(s\omega)
+\\
+&=
+\frac{1}{s^2}
+\int\limits_{-\infty}^{\infty}d\omega \omega^2 p(\omega).
+\end{align}
+We obtain $s$ as 
+\begin{align}
+s
+&=
+\sqrt{
+\frac{1}{\mu_2}
+\lim\limits_{\omega_n\rightarrow\infty}\omega_n^2
+\dfrac{\Pi(i\omega_n)}{\Pi(0)}
+}.
+\label{user_s}
+\end{align}
+where $\mu_2$ is the second central moment of the reference density
 \begin{align}
 \mu_2
 &=
 \int d\omega \omega^2 p(\omega).
 \label{eq_sec_moment}
 \end{align}
-Performing the change of variable $\omega \rightarrow s\omega$ in~\eqref{eq_sec_moment}, we get
-\begin{align}
-\mu_2&=
-s^2 \int d\omega \omega^2 p_0(\omega),
-\end{align}
-from which we isolate $1/s$ as
-\begin{align}
-\frac{1}{s}
-&=
-\sqrt{
-\frac{1}{\mu_2}
-\int d\omega \omega^2 p_0(\omega),
-}
-\end{align}
-letting us prepare the reference $p(\omega)$ from $p_0(\omega)$ as
-\begin{align}
-p(\omega) 
-&=
-\frac{1}{s}p_0\big(\frac{1}{s}\omega\big).
-\end{align}
-Preparing every conductivity like this produces a dataset with only reference $p(\omega)$ as targets.
-
-Fixing $\mu_2$ have three noteworthy advantages. First, all reference distributions will have similar widths in the $\omega$ space; there will be no exessively narrow or wide $p(\omega)$, this is useful when working on a frequency grid. 
-Second, if the generation process for $p_0(\omega)$ allows one to control the second central moment of the distribution analytically, the correct scale can be enforced without numerical overhead (we did not take advantage of this in the current work).
-And third, the constant $\mu_2$ simplifies the recovery of conductivity explained in the next section.
-
-% Note that constant second moment $\mu_2 = \mathbb E[\omega^2]$ is not the only possibility. One could also prepare $p(\omega)$ with constant $\mathbb E [\omega^4 - \mathbb E[\omega^2]^2]$, for example.
-% The latter notably provides stronger guarantees on the domain of $p(\omega)$, which can be shown using a variant of Chebyshev's inequality. However, if one is to use the high frequency information from $\Pi(i\omega_n)$ to extract the real frequency scale, then using the second moment is required.
-
-
-
-\subsection{Recovering conductivity}
-\label{sec_usage}
-Suppose we have access to a neural network $p_{\vec\theta}(\omega,\vec\Pi)$ (with $\vec \theta$ denoting all adjustable parameters) which takes $\vec \Pi$ as an input and approximates a single reference $p(\omega)$ as an output,
-\begin{align}
-p_{\vec\theta}(\omega,\vec \Pi)\approx p(\omega).
-\end{align}
-To perform analytic continuation, a user starts from a response function $\Pi(i\omega_n)$ and prepare the according dimensionless input vector $\vec \Pi$, with
-\begin{align}
-\Pi_n = \frac{\Pi(i\omega_n)}{\Pi(0)}.
-\end{align}
-Using the latter as an input for the algorithm, the user obtains the reference $p_{\vec\theta}(\omega,\vec \Pi)\approx p(\omega)$. However, the user desires not the reference distribution $p(\omega)$, but one of the many possible $sp(s\omega)$ corresponding to their particular temperature. 
-From the change of variable $s\omega\rightarrow \omega$ in~\eqref{Pi_moment},
-\begin{align}
-    \lim_{\omega_n\rightarrow\infty}\omega_n^2
-    \frac{\Pi(i\omega_n)}{\Pi(0)}
-    &=
-    \int_{-\infty}^{\infty}d\omega \omega^2 sp(s\omega)
-    \\
-    &=
-\frac{1}{s^2}
-\int\limits_{-\infty}^{\infty}d\omega \omega^2 p(\omega)
-\\
-&= \frac{\mu_2}{s^2},
-\end{align}
-$s$ can be isolated as 
-\begin{align}
-s
-&=
-\sqrt{
-    \frac{1}{\mu_2}
-    \lim\limits_{\omega_n\rightarrow\infty}\omega_n^2
-    \dfrac{\Pi(i\omega_n)}{\Pi(0)}
-    }.
-    \label{user_s}
-\end{align}
-This expression depends on the user's temperature through $\omega_n = 2\pi n k_B T$. 
-The user can then recover the desired conductivity by combining this $s$ with~\eqref{Pi_normalization} and~\eqref{eq_def_density},
+Note that~\eqref{user_s} depends on the user's temperature through $\omega_n = 2\pi n k_B T$, so the desired conductivity can be recovered. One simply puts $s$ in the output of the algorithm $sp(s\omega) \approx s\hat{p}(s\omega, \vec \Pi)$ and use~\eqref{Pi_normalization} and~\eqref{eq_def_density} to get 
 \begin{align}
 \text{Re}\{ \sigma(\omega) \} = \pi\Pi(0) 
-s p_{\vec \theta}(s\omega, \vec \Pi).
+s \hat{p}(s\omega, \vec \Pi).
 \end{align}
 
+\section{Demonstration with neural networks}
 
-
-\section{Using neural networks}
 
 \subsection{Discrete formulation}
 \label{section_discrete}
 
-Analytic continuation with neural networks is typically done with vector-to-vector neural networks~\cite{Fournier2020,Xie2019,Yoon2018,Kades2019}. The output of the neural network is then a vector $\hat{\vec p} = p_{\vec \theta}(\vec \Pi)$ which targets the desired function $p(\omega)$ on a grid of real frequencies,
+Analytic continuation with neural networks is typically done with vector-to-vector neural networks~\cite{Fournier2020,Xie2019,Yoon2018,Kades2019}. The output of the neural network is then a vector $\hat{\vec p} = p_{\vec \theta}(\vec \Pi)$ which targets the desired function $p(\omega)$ on a grid of real frequencies,\footnote{One must be careful and remember that discretizing integrals as above is only an approximation. 
+As such, we recommend to avoid sums like~\eqref{discretized_continuation} and perform more accurate integration of $p(\omega)$ whenever possible.
+In fact, seeing the analytic continuation kernel as a matrix and inverting that matrix is not the same as solving the continuous inversion problem. This can be understood by imagining the limiting case in which one uses only a handful of points to approximate the integral. Such a coarse discretization would contain additional difficulty not found in the continuous problem. Equating the matrix inversion and the integral inversion can therefore be misleading.
+}
 \begin{align}
 \omega_m &=
 \Delta\omega m.
 &\text{with }m\in\{-M,...1,0,1,...,M\}.
 \label{eq_discrete_grid}
 \end{align}
-the spacing between frequencies $\Delta \omega$ can also be expressed as $\Delta\omega =\omega_{\text{max}}/M$ with $\omega_{\text{max}}$ marking the end of the sampling. Discretizing~\eqref{dimensionless_with_p1} on this grid,\begin{align}
+the spacing between frequencies $\Delta \omega$ can also be expressed as $\Delta\omega =\omega_{\text{max}}/M$ with $\omega_{\text{max}}$ marking the end of the sampling. Discretizing~\eqref{dimensionless_with_p1} on this grid leads to\begin{align}
 [\vec \Pi]_n
 &\approx
 \sum_{m}
@@ -273,137 +234,37 @@ the spacing between frequencies $\Delta \omega$ can also be expressed as $\Delta
 [\vec p]_m
 \label{discretized_continuation}
 \end{align}
-we define the target vector $\vec p$ as
+where we define the target vector $\vec p$ as
 \begin{align}
     [\vec p]_m = \Delta\omega p(\Delta\omega m).
 \end{align}
-Training the neural network then amounts to minimize the expected distance between $\hat{\vec p}$ and $\vec p$ over a large training set of $(\vec \Pi,\vec p)$ pairs (see section~\ref{sec_training}).
+Training the neural network in this setup amounts to minimize the average distance between~$\hat{\vec p}$ and~$\vec p$ over the dataset. Section~\ref{sec_training} provides an example of how this can be done. 
+But first, we still need to clarify how to prepare the $(\vec \Pi,\vec p)$-pairs from the functions $p_0(\omega)$.
 
-One must be careful and remember that discretizing integrals as above is only an approximation. 
-As such, we recommend to avoid sums like~\eqref{discretized_continuation} and perform more accurate integration of $p(\omega)$ whenever possible.
-In fact, seeing the kernel in~\eqref{discretized_continuation} as a matrix and inverting that matrix is not the same as solving the continuous inversion problem. This can be understood by imagining the limiting case in which one uses only a handful of points to approximate the integral. There is additional difficulty due to the discretization in the matrix problem, but it is not intrinsic to the continuous problem. Equating the two can be misleading.
-
-Note that $\Delta\omega$ occupies the same position as the scale parameter $s$ which was the focus of the previous section, and indeed, it will play precisely this role in what follows.
-
-\subsection{Normalization}
-\label{sec_normalization}
-For various reasons (see section~\ref{sec_training}), it is beneficial to make the neural network's output components $p_m$ sum to one. Considering the discretized normalization integral for $p(\omega)$,
+Note that our definition for $\vec p$ ensures that its components sum to one, as seen from considering the discretized integral,
 \begin{align}
-\int d\omega p(\omega) = 1 \approx \sum_m \Delta\omega p(\Delta\omega m),
+\int d\omega p(\omega) = 1 \approx \sum_m \Delta\omega p(\Delta\omega m).
 \end{align}
-we see that $p_m$ must correspond to $[\vec p]_m = \Delta\omega p(\Delta\omega m)$, as defined in the previous section.
-There is no problem in combining the rescaling $p(\omega)\rightarrow sp_0(s\omega)$ discussed in sections~\ref{sec_dimensionless},~\ref{section_temperature_agnostic} and~\ref{sec_data_rescaling} with the above normalization. We will note it $\vec p \rightarrow \vec p_s$.
+There is also no problem in combining the rescaling $p_0(\omega)= sp(s\omega)$ with the above normalization,
 \begin{align}
-    [\vec p_s]_m = s\Delta\omega p_0(s\Delta\omega m).
+    [\vec p_0]_m = s\Delta\omega p(s\Delta\omega m).
 \end{align}
-Both $\vec p$ and $\vec p_s$ sum to one, because both $p(s)$ and $sp(s\omega)$ integrate to one. Note, however, that the $\omega_m$ values at which those functions are sampled are not the same; respectively $\Delta\omega m$ and $s\Delta\omega m$.
+Both $\vec p$ and $\vec p_0$ sum to one, because both $p(s)$ and $sp(s\omega)$ integrate to one. The difference is that the~$\omega_m$ values at which we sample are not the same; respectively $\Delta\omega m$ and $s\Delta\omega m$. 
 
 
-\subsection{Preparing data}
-
-Training the neural network requires to prepare a dataset. This section enumerate four approaches to do so, and discuss them. In all cases, the idea is to generate a large number of random normalized functions $p_0(\omega)$ and use each of them to obtain one input-target pair, ($\vec \Pi$, $\vec p$).
-
-\paragraph*{Fixing $T$}
-The simplest way is to work at fixed temperature.
-\begin{enumerate}
-    \item \label{fixT}
-    \begin{itemize}
-        \item[$\vec p$:] Sample $p_0(\omega)$ on the frequency grid $\omega_m=\Delta\omega m$ and normalize, $[\vec p]_m = \Delta\omega p_0(\Delta\omega m)$.
-        \item[$\vec \Pi$:] Using $p_0(\omega)$, integrate~\eqref{dimensionless_with_p1} numerically, at chosen temperature $T_{\text{ref}}$.
-    \end{itemize}
-\end{enumerate}
-Note that generating $(\vec\Pi, p_0(\omega))$-pairs at fixed temperature naturally produce multiple scales~$s$. By this, we mean that multiple $p_0(\omega)=sp(s\omega)$ from the dataset could share the same reference $p(\omega)$ but with different values of~$s$.
-Thus, using a single temperature $T_{\text{ref}}$ to generate a dataset is sufficient to cover multiple dimensionless temperature $\mathcal T\propto\frac{T}{s}$. This is why the fixed $T_{\text{ref}}$ scheme can be used to get results at other temperatures as explained in section~\ref{section_temperature_agnostic}. However, we will see below that working this way introduces spurious correlations in the dataset.
-
-\paragraph*{Fixing $s$}
-As we'll see, working at fixed scale $s$ provides more control over the correlations in the dataset. There are two equivalent ways to proceed.
-\begin{enumerate}[resume]
-\item \label{rescaled}
-\begin{itemize}
-    \item[$\vec p$:] Get the reference distribution $p(\omega) = \tfrac{1}{s}p_0(\tfrac{1}{s}\omega)$ as explained in section~\ref{sec_data_rescaling}. Sample it with the frequency grid $\omega_m=\Delta\omega m$, and normalize, $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
-    \item[$\vec \Pi$:] Using the rescaled $p(\omega)$, integrate~\eqref{dimensionless_with_p1} numerically at any desired temperature $T$.
-\end{itemize}
-\item \label{p0rescaled}
-\begin{itemize}
-    \item[$\vec p$:] Sample the original distribution $p_0(\omega)$ on a new frequency grid $\omega_m=\frac{\Delta\omega}{s} m$ with $\frac{1}{s}$~obtained as described in section~\ref{sec_data_rescaling} and normalize, $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
-
-    \item[$\vec \Pi$:] Using the original distribution $p_0(\omega)$, integrate~\eqref{dimensionless_with_p1} at any desired temperature $T/s$.
-\end{itemize}
-\end{enumerate}
-Approaches \ref{rescaled} and \ref{p0rescaled} yield the same $\vec p$ and $\vec \Pi$ because of the degenerancy covered in section~\ref{section_temperature_agnostic}. Namely, approach~\ref{rescaled} uses the distribution $p(\omega)$ at temperature $T$ whereas approach~\ref{p0rescaled} uses the distribution $p_0(\omega)=sp(s\omega)$ at temperature $T/s$. Note that the sampling grid must match the scale $s$ to obtain the same $\vec p$ out of $p(\omega)$ and $p_0(\omega)=sp(s\omega)$.
-
-\paragraph*{Spurious correlations}
-Let us now explain why approaches \ref{rescaled} and \ref{p0rescaled} provide more control. We consider a fourth way of generating data in which we use the rescaled target $\vec p$ but fixed $T_{\text{ref}}$ input $\vec \Pi$, as in ~\ref{fixT}.
-\begin{enumerate}[resume]
-    \item \label{spurious}
-    \begin{itemize}
-        \item[$\vec p$:] Sample the original distribution $p_0(\omega)$ on a new frequency grid $\omega_m=\frac{\Delta\omega}{s} m$ with $\frac{1}{s}$~obtained as described in section~\ref{sec_data_rescaling} and normalize $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
-
-        \item[$\vec \Pi$:] Using the original distribution $p_0(\omega)$, Integrate~\eqref{dimensionless_with_p1} at temperature $T_{\text{ref}}$.
-    \end{itemize}
-\end{enumerate}
-Because of the fixed $T_{\text{ref}}$, approaches~\ref{fixT} and~\ref{spurious} both lead to spurious correlations. Indeed, when all $\vec \Pi$ are computed at the same temperature, a narrow distribution $p_0(\omega)$ leads to a fast-decreasing $\vec \Pi$, and a wide $p_0(\omega)$ leads to slow-decreasing $\vec \Pi$, as expected from the tail relation~\eqref{Pi_moment}.
-In approach~\ref{fixT}, this correlation should manifest directly: fast-decreasing $\vec \Pi$ are paired with narrow $\vec p$ (meaning only the first few components of $\vec p$ are non-negligible) while slow-decreasing $\vec \Pi$ are paired with wide $\vec p$ (most components being non-negligible). This is what we mean by ``spurious correlation'' in that case.
-In approach~\ref{spurious}, the spurious correlations get more subtle. Since targets~$\vec p$ are rescaled to the same width (the rescaling leads to fixed second moment), the correlations between the width of $\vec p$ and decreasing rate of $\vec \Pi$ is removed. However, other spurious correlations might remain depending on the process used to generate $p_0(\omega)$. For example, if this process led to simpler structure (fewer peaks) for narrow $p_0(\omega)$, and more complex structure (many peaks) for wide $p_0(\omega)$ (as in section~\ref{sec_distribution}), then the these correlations between the structure of $p_0(\omega)$ and its width gets transferred through the one between the width of $p_0(\omega)$ and the decreasing rate of $\vec \Pi$. As a result, fast-decreasing $\vec \Pi$ are paired with simpler-structured $\vec p$ and slow-decreasing $\vec \Pi$ are paired with more complex-structured $\vec p$. This is what we mean by ``spurious correlation'' in that case.
-Such spurious correlations may or may not be desirable, but one must be aware they exists.
-
-Approaches~\ref{rescaled} and~\ref{p0rescaled} completely avoid these uncontrolled correlations between the decrease of $\vec \Pi$ and the width or structure of $\vec p$. Approach~\ref{rescaled} do so by rescaling $p_0(\omega)$ and working only with the new function $p(\omega)$ which has fixed width (fixed second moment), and approach~\ref{p0rescaled}, which is equivalent, instead adjusts the temperature $T/s$ and the frequency grid to the second moment of $p_0(\omega)$.
-With these approaches, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate (because all $\vec p(\omega)$ have the same width). In order to get a dataset which cover multiple dimensionless temperature $\mathcal T\propto\frac{T}{s}$, randomly sampled values of $T$ must be used. One can then control spurious correlations, if desired, by varying $T$ as a function of $p_0(\omega)$.
-
-The above considerations clarify the kind of bias which is induced when preparing the dataset. Constraining the output space of analytic continuation by choosing the training domain is the main benefit of using machine-learning for analytic continuation~\cite{Arsenault2017}. This bias in the space of allowed $p(\omega)$ is desirable since it acts as a form of regularization. Similarly, a bias in the way this space changes with temperature (the spurious correlations discussed above) might also be desirable. Indeed, high temperature $\vec \Pi$ don't provide as much information as low temperature $\vec \Pi$ and therefore simpler $p(\omega)$ might be easier to learn at high temperatures. As we just described, by being careful with the dataset generation, it is possible to control these biases.
-
-\subsection{Training details}
-\label{sec_training}
-
-\paragraph*{Neural network} We considered the case where the input and output sizes are respectively $N=128$ and $M=512$. The optimal neural network we found is fully connected, with four hidden layers roughly of dimension $1000$, $1350$, $1700$, and $1700$. We use rectified linear unit (ReLU) activation functions and a Softmax output unit (producing a normalized $\vec p$). The Softmax requires normalized target outputs as explained in section~\ref{sec_normalization}. Weights are initialized using Xavier initialization.
-
-\paragraph*{Standardized inputs} Any data that enters the neural network is standardized as $(\vec \Pi - \vec\mu)/\vec\sigma$, where $\vec \mu = \mathbb{E}[\vec \Pi]$ and $\vec \sigma = \sqrt{\mathbb{E}[\vec \Pi^2] - \mathbb{E}[\vec \Pi]^2}$ are respectively the average and the standard deviation of the training inputs dataset(element-wise), with expectation values taken over the training set only. The random noise added to $\vec \Pi$ to simulate Quantum Monte-Carlo response functions is renewed at every epoch and it is added before standardization.
-
-\paragraph*{Loss functions} As a training objective, we compared the performance of cross-entropy, 
-\begin{align}
-    \text{CE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m p_m \log \hat{p}_m
-\end{align}
-mean-square error, 
-\begin{align}
-    \text{MSE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m \sqrt{(p_m - \hat{p}_m)^2}
-\end{align}
-and mean-absolute error
-\begin{align}
-    \text{MAE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m |p_m - \hat{p}_m|.
-\end{align}
-We found that using the mean-absolute error as the training objective leads to better final performance for all three losses.
-
-\paragraph*{Optimizer} We use the Adam optimizer with learning rate of $\alpha = 8\times10^{-5}$ and a scheduler decreasing the rate as $\alpha \rightarrow 0.216\alpha$ whenever the validation loss doesn't improve for five straight epochs. That decrase stops when the learning rate reach $\alpha\sim10^{-10}$. We also use learning rate warm-up, linearly increasing $\alpha$ from zero to its value of $\alpha = 8\times10^{-5}$ during the first epoch.
-
-\paragraph*{Regularization} Our random search for optimal hyper-parameters revealed that neither L2 regularization, dropout, nor batchnorm improve results. However, using slightly larger input noise at training time than at test time leads to better performance, and training on more complex data (Beta peaks) can lead to better performance on simple data (Gaussian peaks) than training on simple data.
-
-\subsection{Usage details (inference)}
-
-Once the user obtain the estimate $\hat{\vec p}$ with the neural network, the only thing left to do is to find the frequency grid $\Delta\omega$ on which to interpret that estimate. Considering the discretization~\eqref{discretized_continuation_1} for the special case of the tail relation~\eqref{Pi_moment},
-\begin{align}
-    2\pi k_B T \lim_{n\rightarrow \infty}n^2 \Pi_n = \Delta\omega^2 \sum_m m^2 p_m
-\end{align}
-We see that $\vec \Pi$ and $\vec p$ provide a closed relation between the temperature and the frequency spacing. If we assume that the discretization is a good approximation for the integral and that the last component $\Pi_N$ correctly captures the limit $n\rightarrow\infty$, then we can cast this relation as
-\begin{align}
-    \Delta\omega^2 = 
-    \frac{
-        2\pi k_B 
-        % \lim_{n\rightarrow \infty}n^2 \Pi_n
-        N^2 \Pi_N
-    }{
-        \sum_m m^2 p_m
-    }
-    T.
-\label{eq_minimal_user}
-\end{align}
-This is a discrete version of~\eqref{user_s} which can be used to recover $\Delta\omega$ from the user's temperature $T$. In principle, however, the continuous version should be preferred. In particular, a simple way to improve on~\eqref{eq_minimal_user} is to use a better estimate for $\lim_{\omega_n\rightarrow \infty}\omega_n^2 \Pi_n$, than $2\pi k_B T N^2\Pi_N$. Note that if the fixed $T_{\text{ref}}$, this task is considerably simplified, as one can use $T/T_{\text{ref}}$
-
-\section{Generating density functions}
+\subsection{Generting random densities}
 \label{sec_distribution}
-\subsection{Gaussian peaks}
-The first way to generate random distributions is a weighted sum of Gaussian peaks 
+Training neural networks requires training data, more specifically several thousand pairs of inputs $\vec \Pi$ and output targets $p(\omega)$. To create each ($\vec \Pi$, $p(\omega)$) pair, we start by generating arbitrary densities $p_0(\omega)$. 
+In all cases, we will consider that $p_0(\omega)$ is not a reference density in the sense of section~\ref{sec_usage}; it is inherently scaled by an unknown~$s$
 \begin{align}
-p(\omega)
+    p_0(\omega)=sp(s\omega). 
+\end{align}
+Section~\ref{sec_Pi} explains how to prepare $\vec \Pi$ and $p(\omega)$ from that arbitrary density.
+
+\subsubsection{Gaussian peaks}
+The first way to generate random densities is a weighted sum of Gaussian peaks 
+\begin{align}
+p_0(\omega)
 =
 \sum_{j=1}^{N} 
 \frac{\pi A_j}{\sqrt{2\pi} \sigma_j}
@@ -411,13 +272,12 @@ p(\omega)
 \end{align}
 Each peak parametrized by weight $A_j$, center $\omega_j$, and width $\sigma_j$.
 
-Most machine learning papers on analytic continuation were trained on sets of Gaussian peaks as described above~\cite{Arsenault2017, Yoon2018, Xie2019, Fournier2020}. The most influential paper in that respect is arguably that of Arsenault et al~\cite{Arsenault2017}, which correctly identifies the importance of the data as a mean for regulation. Unfortunately, some of the constraints used for their data generation are described qualitatively, which prevents faithful reproduction. The work of Yoon et al.~\cite{Yoon2018} uses a somewhat complicated and arbitrary distribution for the number of peaks. The dataset defined by Fournier et al.\cite{Fournier2020} and re-used in Xie et al.\cite{Xie2019}, are more straigthforward to generate. Note however, that their definition implies that $A_j=\sigma_j$ which favours very rounded distributions.
+Most machine learning attempts on analytic continuation were trained such sets of Gaussian peaks~\cite{Arsenault2017, Yoon2018, Xie2019, Fournier2020}. The most influential paper in that respect is arguably that of Arsenault et al~\cite{Arsenault2017}, which correctly identifies the importance of the data as a mean for regulation. Unfortunately, some of the constraints used for their data generation are described qualitatively, which prevents faithful reproduction. The work of Yoon et al.~\cite{Yoon2018} uses a somewhat complicated and arbitrary distribution for the number of peaks. The dataset defined by Fournier et al.\cite{Fournier2020} and re-used in Xie et al.\cite{Xie2019}, are more straigthforward to generate. Note however, that their definition implies that $A_j=\sigma_j$ which favours very rounded distributions.
 
-
-\subsection{Beta peaks}
-The second way to generate random distributions is a weigthed sum of $\beta$-peaks
+\subsubsection{Beta peaks}
+Another way to generate random distributions, which we introduce here, is a weigthed sum of $\beta$-peaks
 \begin{align}
-p(\omega)
+p_0(\omega)
 =
 \sum_{j=1}^{N} 
 \frac{\pi A_j}{\tilde{\sigma}_j}
@@ -448,40 +308,172 @@ and, since the latter is only non-zero for $0\leq x\leq 1$, the center $\omega_j
 {\alpha_j\beta_j}
 \bigg)^{\frac{1}{2}}.
 \end{align}
-
 Note that for large $\alpha=\beta$, the Beta distribution becomes very similar to the Gaussian distribution. Values of $\alpha=\beta\gtrsim 10$ are sufficient to make them indistinguishable on a plot. However, the tails of the Gaussian extend to infinity, whereas the tails of the Beta distribution are always bounded within $0 \leq \frac{\omega-\tilde{\omega}_j}{\tilde{\sigma}_j} \geq 1$. Nevertheless, we hypothesize that learning with Beta-distribution will easily generalize to Gaussian distributions.
 
-Note also that for disctrete values of $\alpha$ and $\beta$, the beta distribution is identical to Bernstein polynomials
+% Note also that for disctrete values of $\alpha$ and $\beta$, the beta distribution is identical to Bernstein polynomials
+% \begin{align}
+% b_{m,n}(x)
+% &=
+% \binom{m}{n} x^n(1-x)^{m-n}
+% \end{align}
+% where $\binom{m}{n}$ is the binomial coefficient, and $m$ and $n$ are integer parameters. They can be related to the real-valued $\alpha$ and $\beta$ of the Beta distribution by
+% \begin{align}
+% m &= \alpha+\beta-2
+% \\
+% n &= \alpha-1.
+% \end{align}
+% The normalization, mean, and standard deviation of these polynomials are respectively given by
+% \begin{align}
+% a_{m,n}
+% &=
+% \frac{1}{m+1},
+% \\
+% \mu_{m,n}
+% &=
+% \frac{1+n}{2+m},
+% \\
+% \sigma_{m,n}
+% &=
+% \bigg(
+% \frac{(1+n)(2+n)}{(2+m)(3+m)}
+% -
+% \frac{(1+n)^2}{(2+m)^2}
+% \bigg)^{\frac{1}{2}}.
+% \end{align}
+% so it is possible to adjust them to control their center and width as we did for the Beta distribution. It is worth noting that Bernstein polynomials are used to write Bezier curves in polynomial form, and they provide a constructive proof of the Weierstrass approximation theorem.
+
+
+
+
+
+\subsection{Preparing input-ouput pairs}
+\label{sec_Pi}
+Once $p_0(\omega)$ is generated, we must integrate~\eqref{dimensionless_with_p1} to obtain $\vec \Pi$, and we must sample $p_0(\omega)$ on the frequency grid to obtain the input-output ($\vec \Pi$, $\vec p$) pair. Numerical integration can be done using out-of-the-box numerical integrators and will not be covered here.
+What requires care is how to choose the temperature $T$ to use for $\vec\Pi$ and the frequency scale $s$ (or equivalently, the grid $s\Delta\omega$) for sampling $\vec p$. To illustrate the importance of these choices, we will compare four different approaches (numbered). We discuss how they relate to the fixed-$T$ and fixed-$s$ schemes , and how uncontrolled correlations can arise if not careful.
+
+
+\subsubsection{Fixing $T$}
+The simplest way to obtain ($\vec \Pi$, $\vec p$)-pairs is to work with the original $p_0(\omega)$ at fixed reference temperature $T_{\text{ref}}$.
+\begin{enumerate}
+    \item \label{fixT}
+    \begin{itemize}
+        \item[$\vec p$:] Sample and normalize $p_0(\omega)$ as $[\vec p]_m = \Delta\omega p_0(\Delta\omega m)$.
+        \item[$\vec \Pi$:] Integrate~\eqref{dimensionless_with_p1} as $\Pi_n[p_0(\omega)](T_{\text{ref}})$.
+    \end{itemize}
+\end{enumerate}
+Note that generating $(\vec\Pi, p_0(\omega))$-pairs at fixed temperature naturally produce multiple scales~$s$. By this, we mean that multiple $p_0(\omega)=sp(s\omega)$ from the dataset could share the same reference $p(\omega)$ but with different values of~$s$.
+Thus, using a single temperature $T_{\text{ref}}$ to generate a dataset is sufficient to cover multiple dimensionless temperature $\mathcal T\propto\frac{T}{s}$. This is why the fixed $T_{\text{ref}}$ scheme can be used to get results at other temperatures as explained in section~\ref{section_temperature_agnostic}. However, we will see below that working this way introduces uncontrolled correlations in the dataset.
+
+
+\subsubsection{Fixing $s$}
+\label{sec_data_rescaling}
+Here we explain how to rescale all $p_0(\omega) = sp(s\omega)$ from the training dataset to get only reference densities $p(\omega)$. To do so, we make a choice. All reference $p(\omega)$ will be set to have the same second central moment $\mu_2$. Performing the change of variable $\omega \rightarrow s\omega$ in~\eqref{eq_sec_moment}, we get
 \begin{align}
-b_{m,n}(x)
-&=
-\binom{m}{n} x^n(1-x)^{m-n}
+\mu_2&=
+s^2 \int d\omega \omega^2 p_0(\omega),
 \end{align}
-where $\binom{m}{n}$ is the binomial coefficient, and $m$ and $n$ are integer parameters. They can be related to the real-valued $\alpha$ and $\beta$ of the Beta distribution by
+from which we isolate $1/s$ and prepare the reference $p(\omega)$ as
 \begin{align}
-m &= \alpha+\beta-2
-\\
-n &= \alpha-1.
+p(\omega) 
+&=
+\frac{1}{s}p_0\big(\frac{1}{s}\omega\big)
+&\text{where: }
+\frac{1}{s}
+=
+\sqrt{
+\frac{1}{\mu_2}
+\int d\omega \omega^2 p_0(\omega),
+}
 \end{align}
-The normalization, mean, and standard deviation of these polynomials are respectively given by
+Preparing each density like this produces a dataset with only reference $p(\omega)$ as targets, and the chosen value for $\mu_2$ becomes an hyper-parameter of the algorithm.
+
+Fixing $\mu_2$ have two noteworthy advantages. First, all reference distributions will have similar widths in the $\omega$ space; there will be no exessively narrow or wide $p(\omega)$, which is useful when working on predefined frequency grid. Second, fixing $\mu_2$ simplifies the recovery of conductivity using Eqs.~\eqref{user_s} where $\mu_2$ appears explicitly.
+% And third, when the generation process for $p_0(\omega)$ allows one to control the second central moment of the distribution analytically, the correct scale can be enforced without numerical overhead (we did not take advantage of this in the current work).
+
+From there, we have two equivalent ways to proceed:
+\begin{enumerate}[resume]
+\item \label{rescaled}
+\begin{itemize}
+    \item[$\vec p$:] Get the reference distribution $p(\omega) = \tfrac{1}{s}p_0(\tfrac{1}{s}\omega)$ as explained above. Sample it with the frequency grid $\omega_m=\Delta\omega m$, and normalize, $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
+    \item[$\vec \Pi$:] Using the rescaled $p(\omega)$, integrate~\eqref{dimensionless_with_p1} numerically at any desired temperature $T$.
+\end{itemize}
+\item \label{p0rescaled}
+\begin{itemize}
+    \item[$\vec p$:] Sample the original distribution $p_0(\omega)$ on a new frequency grid $\omega_m=\frac{\Delta\omega}{s} m$ with $\frac{1}{s}$~obtained as described in section~\ref{sec_data_rescaling} and normalize, $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
+
+    \item[$\vec \Pi$:] Using the original distribution $p_0(\omega)$, integrate~\eqref{dimensionless_with_p1} at any desired temperature $T/s$.
+\end{itemize}
+\end{enumerate}
+Approaches \ref{rescaled} and \ref{p0rescaled} yield the same $\vec p$ and $\vec \Pi$ because of the degenerancy covered in section~\ref{section_temperature_agnostic}. Namely, approach~\ref{rescaled} uses the distribution $p(\omega)$ at temperature $T$ whereas approach~\ref{p0rescaled} uses the distribution $p_0(\omega)=sp(s\omega)$ at temperature $T/s$. Note that the sampling grid must match the scale $s$ to obtain the same $\vec p$ out of $p(\omega)$ and $p_0(\omega)=sp(s\omega)$.
+
+\subsubsection{Uncontrolled correlations}
+As we'll now see, working at fixed-$s$ (approaches \ref{rescaled} and \ref{p0rescaled}) provides more control over the natural correlations contained in the dataset. Controlling these correlations is important, because it is those correlations that the neural network learns to reproduce.
+
+The root cause for these correlation is that when all $\vec \Pi$ are computed at the same temperature, a narrow distribution $p_0(\omega)$ leads to a fast-decreasing $\vec \Pi$, and a wide $p_0(\omega)$ leads to slow-decreasing $\vec \Pi$, as expected from the tail relation~\eqref{Pi_moment}.
+In approach~\ref{fixT}, this correlation manifests directly: fast-decreasing $\vec \Pi$ are paired with narrow $\vec p$ (meaning only the first few components of $\vec p$ are non-negligible) while slow-decreasing $\vec \Pi$ are paired with wide $\vec p$ (all components non-negligible).
+
+More subtle correlations can persist if not careful. Let us introduce a fourth way of generating data to illustrate.
+\begin{enumerate}[resume]
+    \item \label{spurious}
+    \begin{itemize}
+        \item[$\vec p$:] Sample the original distribution $p_0(\omega)$ on a new frequency grid $\omega_m=\frac{\Delta\omega}{s} m$ with $\frac{1}{s}$~obtained as described in section~\ref{sec_data_rescaling} and normalize $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$.
+
+        \item[$\vec \Pi$:] Using the original distribution $p_0(\omega)$, Integrate~\eqref{dimensionless_with_p1} at temperature $T_{\text{ref}}$.
+    \end{itemize}
+\end{enumerate}
+In this approach, since targets~$\vec p$ are rescaled to the same width (the rescaling leads to fixed second moment), the correlations between the width of $\vec p$ and decreasing rate of $\vec \Pi$ is removed. However, uncontrolled correlations remain due to how $p_0(\omega)$ was generated. For example, if the generation process leads to simpler structure (fewer peaks) for narrower $p_0(\omega)$, and more complex structure (many peaks) for wide $p_0(\omega)$ (as in section~\ref{sec_distribution}), then the these correlations gets transferred through the correlation between the width of $p_0(\omega)$ and the decreasing rate of $\vec \Pi$. Fast-decreasing $\vec \Pi$ get paired with simpler-structured $\vec p$ and slow-decreasing $\vec \Pi$ get paired with more complex-structured $\vec p$.
+Such correlations may or may not be desirable, but one must be aware they exists.
+
+By contrast, approaches~\ref{rescaled} and~\ref{p0rescaled} completely avoid these uncontrolled correlations between the decrease of $\vec \Pi$ and the width or structure of $\vec p$. Approach~\ref{rescaled} do so by rescaling $p_0(\omega)$ and working only with the new function $p(\omega)$ which has fixed width (fixed second moment), and approach~\ref{p0rescaled}, which is equivalent, instead adjusts the temperature $T/s$ and the frequency grid to the second moment of $p_0(\omega)$.
+With these approaches, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate (because all $\vec p(\omega)$ have the same width). In order to get a dataset which cover multiple dimensionless temperature $\mathcal T\propto\frac{T}{s}$, randomly sampled values of $T$ must be used. One can then control spurious correlations, if desired, by varying $T$ as a function of $p_0(\omega)$.
+
+The above considerations clarify the kind of bias which is induced when preparing the dataset. Constraining the output space of analytic continuation by choosing the training domain is the main benefit of using machine-learning for analytic continuation~\cite{Arsenault2017}. This bias in the space of allowed $p(\omega)$ is desirable since it acts as a form of regularization. Similarly, a bias in the way this space changes with temperature (the spurious correlations discussed above) might also be desirable. Indeed, high temperature $\vec \Pi$ don't provide as much information as low temperature $\vec \Pi$ and therefore simpler $p(\omega)$ might be easier to learn at high temperatures. As we just described, by being careful with the dataset generation, it is possible to control these biases.
+
+\subsection{Training details}
+\label{sec_training}
+
+\paragraph*{Neural network} We considered the case where the input and output sizes are respectively $N=128$ and $M=512$. The optimal neural network we found is fully connected, with four hidden layers roughly of dimension $1000$, $1350$, $1700$, and $1700$. We use rectified linear unit (ReLU) activation functions and a Softmax output unit (producing a normalized $\vec p$). The Softmax requires normalized target outputs as explained below. Weights are initialized using Xavier initialization.
+
+\paragraph*{Standardized inputs} Any data that enters the neural network is standardized as $(\vec \Pi - \vec\mu)/\vec\sigma$, where $\vec \mu = \mathbb{E}[\vec \Pi]$ and $\vec \sigma = \sqrt{\mathbb{E}[\vec \Pi^2] - \mathbb{E}[\vec \Pi]^2}$ are respectively the average and the standard deviation of the training inputs dataset(element-wise), with expectation values taken over the training set only. The random noise added to $\vec \Pi$ to simulate Quantum Monte-Carlo response functions is renewed at every epoch and it is added before standardization.
+
+\paragraph*{Loss functions} As a training objective, we compared the performance of cross-entropy, 
 \begin{align}
-a_{m,n}
-&=
-\frac{1}{m+1},
-\\
-\mu_{m,n}
-&=
-\frac{1+n}{2+m},
-\\
-\sigma_{m,n}
-&=
-\bigg(
-\frac{(1+n)(2+n)}{(2+m)(3+m)}
--
-\frac{(1+n)^2}{(2+m)^2}
-\bigg)^{\frac{1}{2}}.
+    \text{CE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m p_m \log \hat{p}_m
 \end{align}
-so it is possible to adjust them to control their center and width as we did for the Beta distribution. It is worth noting that Bernstein polynomials are used to write Bezier curves in polynomial form, and they provide a constructive proof of the Weierstrass approximation theorem.
+mean-square error, 
+\begin{align}
+    \text{MSE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m \sqrt{(p_m - \hat{p}_m)^2}
+\end{align}
+and mean-absolute error
+\begin{align}
+    \text{MAE}(\vec p,\hat{\vec p}) = \frac{1}{M}\sum_m |p_m - \hat{p}_m|.
+\end{align}
+We found that using the mean-absolute error as the training objective leads to better final performance for all three losses.
+
+\paragraph*{Optimizer} We use the Adam optimizer with learning rate of $\alpha = 8\times10^{-5}$ and a scheduler decreasing the rate as $\alpha \rightarrow 0.216\alpha$ whenever the validation loss doesn't improve for five straight epochs. That decrase stops when the learning rate reach $\alpha\sim10^{-10}$. We also use learning rate warm-up, linearly increasing $\alpha$ from zero to its value of $\alpha = 8\times10^{-5}$ during the first epoch.
+
+\paragraph*{Regularization} Our random search for optimal hyper-parameters revealed that neither L2 regularization, dropout, nor batchnorm improve results. However, using slightly larger input noise at training time than at test time leads to better performance, and training on more complex data (Beta peaks) can lead to better performance on simple data (Gaussian peaks) than training on simple data.
+
+\subsection{Usage details}
+
+Once the user obtain the estimate $\hat{\vec p}$ with the neural network, the only thing left to do is to find the frequency grid $\Delta\omega$ on which to interpret that estimate. Considering the discretization~\eqref{discretized_continuation_1} for the special case of the tail relation~\eqref{Pi_moment},
+\begin{align}
+    2\pi k_B T \lim_{n\rightarrow \infty}n^2 \Pi_n = \Delta\omega^2 \sum_m m^2 p_m
+\end{align}
+We see that $\vec \Pi$ and $\vec p$ provide a closed relation between the temperature and the frequency spacing. If we assume that the discretization is a good approximation for the integral and that the last component $\Pi_N$ correctly captures the limit $n\rightarrow\infty$, then we can cast this relation as
+\begin{align}
+    \Delta\omega^2 = 
+    \frac{
+        2\pi k_B 
+        % \lim_{n\rightarrow \infty}n^2 \Pi_n
+        N^2 \Pi_N
+    }{
+        \sum_m m^2 p_m
+    }
+    T.
+\label{eq_minimal_user}
+\end{align}
+This is a discrete version of~\eqref{user_s} which can be used to recover $\Delta\omega$ from the user's temperature $T$. In principle, however, the continuous version should be preferred. In particular, a simple way to improve on~\eqref{eq_minimal_user} is to use a better estimate for $\lim_{\omega_n\rightarrow \infty}\omega_n^2 \Pi_n$, than $2\pi k_B T N^2\Pi_N$. Note that if the fixed $T_{\text{ref}}$, this task is considerably simplified, as one can use $T/T_{\text{ref}}$
 
 
 
