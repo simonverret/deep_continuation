@@ -358,7 +358,7 @@ Note that for large $\alpha=\beta$, the Beta distribution becomes very similar t
 \subsection{Preparing input-ouput pairs}
 \label{sec_Pi}
 Once $p_0(\omega)$ is generated, we must integrate~\eqref{dimensionless_with_p1} to obtain $\vec \Pi$, and we must sample $p_0(\omega)$ on the frequency grid to obtain the input-output ($\vec \Pi$, $\vec p$) pair. Integration can be performed with off-the-shelf numerical integrators and will not be covered here.
-What requires care is how to choose the temperature $T$ at which to obtain $\vec\Pi$ and how to choose the frequency scale $s$ (or equivalently, the grid $s\Delta\omega$) for sampling $\vec p$. To illustrate the importance of these choices, we will compare four strategies, \textcolor{red}{with resulting datasets shown in Fig.~\ref{fig_prep_compare}}. We discuss how they relate to the fixed-$T$ and fixed-$s$ schemes, and how to properly control undesired corrleations when preparing such data.
+What requires care is how to choose the temperature $T$ at which to obtain $\vec\Pi$ and how to choose the frequency scale $s$ (or equivalently, the grid $s\Delta\omega$) for sampling $\vec p$. To illustrate the importance of these choices, we will compare four strategies, \textcolor{red}{with resulting datasets shown in Fig.~\ref{fig_prep_compare}}. We also discuss how to use the fixed-$s$ scheme to control undesired corrleations between $\vec \Pi$ and $\vec p$.
 
 
 \subsubsection{Fixing $T$}
@@ -371,7 +371,7 @@ The simplest way to obtain ($\vec \Pi$, $\vec p$)-pairs is to work with the orig
     \end{itemize}
 \end{enumerate}
 Note that generating $(\vec\Pi, p_0(\omega))$-pairs at fixed temperature naturally produce multiple scales~$s$. By this, we mean that multiple $p_0(\omega)=sp(s\omega)$ from the dataset could share the same reference $p(\omega)$ but with different values of~$s$.
-Thus, using a single temperature $T_{\text{ref}}$ to generate a dataset is sufficient to cover multiple values of $\frac{T_{\text{ref}}}{s}$. For this reason, the data prepared with approach~\ref{fixT}, just described, can be used to get results at other temperatures as explained in section~\ref{section_temperature_agnostic}. However, we will see below that working this way introduces uncontrolled correlations in the dataset.
+Thus, using a single temperature $T_{\text{ref}}$ to generate the dataset is sufficient to cover multiple $T_{\text{ref}}/s$ and enable temperature-agnostic analytic continuation. However, we will see below that working this way introduces uncontrolled correlations in the dataset.
 
 
 \subsubsection{Fixing $s$}
@@ -395,12 +395,12 @@ p(\omega)
 \int d\omega \omega^2 p_0(\omega).
 }
 \end{align}
-Preparing each density like this ensures the dataset contains only reference $p(\omega)$ as targets. The chosen value for $\mu_2$ becomes an hyper-parameter of the analytic continuation solver.
+Preparing each density like this ensures the dataset contains only reference $p(\omega)$ as targets. The chosen value for $\mu_2$ becomes a parameter of the analytic continuation solver.
 
 Fixing $\mu_2$ have two additional advantages. First, all reference distributions will have similar widths in the $\omega$ space; there will be no exessively narrow or wide $p(\omega)$, which is useful when working on predefined frequency grid. Second, it simplifies the recovery of conductivity using Eqs.~\eqref{user_s} in which $\mu_2$ appears explicitly.
 % And third, when the generation process for $p_0(\omega)$ allows one to control the second central moment of the distribution analytically, the correct scale can be enforced without numerical overhead (we did not take advantage of this in the current work).
 
-Once we have the reference $p(\omega)$, we must still sample it on the frequency grid to obtain the ($\vec \Pi$, $\vec p$)-pairs. There two equivalent ways to proceed, which constitute our second and third strategies. We will identify both of them as ``fixed-$s$'', since they essentially produce the same dataset,
+Once we have the reference $p(\omega)$, we must still sample it on the frequency grid to obtain the ($\vec \Pi$, $\vec p$)-pairs. There two equivalent ways to proceed; our second and third strategies. We will identify both of them as ``fixed-$s$'', since they produce the same dataset,
 \begin{enumerate}[resume]
 \item \label{rescaled}
 \begin{itemize}
@@ -409,22 +409,27 @@ Once we have the reference $p(\omega)$, we must still sample it on the frequency
 \end{itemize}
 \item \label{p0rescaled}
 \begin{itemize}
-    \item[$\vec p$:] Sample and normalize $p_0(\omega)$ on an adjusted frequency grid $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$, with $\frac{1}{s}$~specified in~\eqref{eq_prep_ref}.
+    \item[$\vec p$:] Sample and normalize $p_0(\omega)$ on an adjusted frequency grid $[\vec p]_m = \frac{1}{s}\Delta\omega p_0(\frac{1}{s}\Delta\omega m)$, with $1/s$~specified in~\eqref{eq_prep_ref}.
 
-    \item[$\vec \Pi$:] Integrate~\eqref{dimensionless_with_p1} using the original distribution $p_0(\omega)$ and randomly distributed temperature, but adjusted as $T/s$ with $\frac{1}{s}$~specified in~\eqref{eq_prep_ref}.
+    \item[$\vec \Pi$:] Integrate~\eqref{dimensionless_with_p1} using the original distribution $p_0(\omega)$ and randomly distributed temperature, but adjusted as $T/s$ with $1/s$~specified in~\eqref{eq_prep_ref}.
 \end{itemize}
 \end{enumerate}
-Approaches \ref{rescaled} and \ref{p0rescaled} yield the same $\vec p$ and $\vec \Pi$ because of the degenerancy covered in section~\ref{section_temperature_agnostic}, namely, approach~\ref{rescaled} uses the distribution $p(\omega)$ at temperature $T$ whereas approach~\ref{p0rescaled} uses the distribution $p_0(\omega)=sp(s\omega)$ at temperature $T/s$.
-Note also that, since $s$ is fixed, we need to use randombly distributed $T$ in order to cover multiple values of $T/s$. This is clarified below.
+These two approches yield the same $\vec p$ and $\vec \Pi$ because of the degenerancy of section~\ref{section_temperature_agnostic}, namely, approach~\ref{rescaled} uses the distribution $p(\omega)$ at temperature $T$ whereas approach~\ref{p0rescaled} uses the distribution $p_0(\omega)=sp(s\omega)$ at temperature $T/s$.
+Note also that, since $s$ is fixed, we need to use randombly distributed $T$ in order to cover multiple values of $T/s$ and enable temperature-agnostic analytic continuation. This is clarified below.
 
 \subsubsection{Controlling correlations}
-Compared to the fixed-$T$ approach, working at fixed-$s$ (approaches \ref{rescaled} and \ref{p0rescaled}) provides more control over the natural correlations contained in the dataset. Such control is important, because it is those correlations that the neural network learns to reproduce.
+Compared to the fixed-$T$ approach, working at fixed-$s$ (approaches \ref{rescaled} and \ref{p0rescaled}) provides more control over some subtle correlations between the $\vec \Pi$ and $\vec p$ contained in the dataset. Such control is important, because it is those correlations that the neural network learns to reproduce.
 
-The root cause for those correlation is that when all $\vec \Pi$ are computed at the same temperature, a narrow distribution $p_0(\omega)$ leads to a fast-decreasing $\vec \Pi$, and a wide $p_0(\omega)$ leads to slow-decreasing $\vec \Pi$, as expected from the tail relation~\eqref{Pi_moment}.
+The correlations we refer to arise as follows. When all $\vec \Pi$ are computed at the same temperature, a narrow distribution $p_0(\omega)$ leads to a fast-decreasing $\vec \Pi$, and a wide $p_0(\omega)$ leads to slow-decreasing $\vec \Pi$, as expected from the tail relation~\eqref{Pi_moment}.
 In the fixed-$T$ approach, this correlation manifests directly: fast-decreasing $\vec \Pi$ are paired with narrow $\vec p$ (meaning only the first few components of $\vec p$ are non-negligible) while slow-decreasing $\vec \Pi$ are paired with wide $\vec p$ (all components non-negligible).
-By contrast, the fix-$s$ approach completely avoids those correlations because all reference $p(\omega)$ have the same second moment, hence the same width. As a consequence, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate, as expected from the tail relation~\eqref{Pi_moment}. In order for the dataset to cover multiple values of $\frac{T}{s}$, we need an explicit distribution of $T$.
+By contrast, in the fix-$s$ approach, all reference $p(\omega)$ have the same second moment, hence the same width. As a consequence, if a single value of $T$ is used, all $\vec \Pi$ end up with the same decrease rate, as expected from the tail relation~\eqref{Pi_moment}. 
+In order for the dataset to cover multiple decrease rates (multiple values of $T/s$), we need an explicit range for~$T$.
 
-The correlation between decreasing rates described above is not a problem in itself---it is actually required to successfully perform analytic continuation---the real problem is that this pairing leads to other uncontrolled correlations, which depend on how $p_0(\omega)$ is prepared.
+The correlation between decrease rates is not a problem in itself---capturing it is actually required to perform analytic continuation. The real problem is that the manner in which $p_0(\omega)$ is prepared can then lead to other indirect correlations.
+For example, if narrower $p_0(\omega)$ tend to have simpler structure (fewer peaks), and wide $p_0(\omega)$ tend to have more complex structure (many peaks), then fast-decreasing $\vec \Pi$ get paired with simpler-structured $\vec p$ and slow-decreasing $\vec \Pi$ get paired with more complex-structured $\vec p$.
+Such correlations may or may not be desirable, but one must be aware they exists.
+With the fixed-$s$ approach, one has full control over these correlations. Indeed, $p_0(\omega)$ is first recast to the reference scale of $sp(s\omega)$ (and thus a single decrease rate of $\vec \pi$), and one can pick the desired value of $T$ (and thus of the decrease rate of $\vec \Pi$) independently from the structure of $p_0(\omega)$.
+
 To illustrate, let us introduce a fourth strategy for generating ($\vec \Pi$, $\vec p$)-pairs, hybrid betwen the fixed-$s$ and fixed-$T$ approaches, which we will identify ``spurious''
 \begin{enumerate}[resume]
     \item \label{spurious}
@@ -436,11 +441,9 @@ To illustrate, let us introduce a fourth strategy for generating ($\vec \Pi$, $\
 \end{enumerate}
 In this approach, targets~$\vec p$ are all rescaled to the same width (as in the fixed-$s$ approach), so the correlations between the width of $\vec p$ and decreasing rate of $\vec \Pi$ is removed.
 However, inputs $\vec \Pi$ are prepared using $p_0(\omega)$ at fixed temperature (as in the fixed-$T$ approach), so the correlation between the width of $p_0(\omega)$ and the decreasing rate of $\vec \Pi$ remains.
-Therefore, spurious correlations might remain depending on how $p_0(\omega)$ is prepared. For example, if narrower $p_0(\omega)$ tend to have simpler structure (fewer peaks), and wide $p_0(\omega)$ tend to have more complex structure (many peaks), then that correlation is transferred---fast-decreasing $\vec \Pi$ get paired with simpler-structured $\vec p$ and slow-decreasing $\vec \Pi$ get paired with more complex-structured $\vec p$.
-Such correlations may or may not be desirable, but one must be aware they exists.
-Furthermore, with the fixed-$s$ approach, one has full control over these correlations: the distribution of $T$ (and thus of the decrease rate of $\vec \Pi$) can be controlled independently from the structure of $p_0(\omega)$.
+Therefore, spurious correlations between decrease rates and structure will remain.
 
-More importantly, the above considerations clarify the kind of bias which is encoded in the dataset. Such bias is actually the main benefit of using machine-learning for analytic continuation, because it enables an educated form of regularization. The fixed-$s$ scheme detailed here now further provides the ability to control that regularization as a function of temperature. We leave the exploration of that possibility to future work.
+The above considerations clarify the kind of bias which is encoded in the dataset. Such bias is actually the main benefit of using machine-learning for analytic continuation, because it enables an educated form of regularization. The fixed-$s$ scheme detailed throughout the paper provides detailed control of this regularization---one can modulate the values of $T$ according to the complexity of $p_0(\omega)$. We leave that exploration for future work.
 
 \begin{figure}
     \caption{}
