@@ -16,5 +16,7 @@ setup(name='deep_continuation',
             'fire',
             'tqdm',
             'ipykernel',
+            'pytest',
+            'pytest-mock',
         ]
     )
