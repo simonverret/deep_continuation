@@ -21,3 +21,6 @@ docs/*.out
 docs/*.synctex.gz
 docs/*.toc
 docs/*Notes.bib
+
+DMFT data.eml
+dmft_U8.80_b6.25_mu4.4.tar.gz
