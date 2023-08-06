@@ -23,3 +23,6 @@ docs/*.toc
 docs/*Notes.bib
 
 saved_models
+DMFT data.eml
+dmft_U8.80_b6.25_mu4.4.tar.gz
+.DS_store
