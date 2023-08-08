@@ -16,9 +16,9 @@ from deep_continuation.conductivity import sample_on_grid, get_rescaled_sigma, c
 
 
 def get_file_paths(
-    path=os.path.join(DATAPATH, "default"),
+    path=os.path.join(DATAPATH, "unbiased"),
     size=1,
-    seed=55555,
+    seed=0,
     num_std=1,
     num_beta=1,
     Nwn=128,
@@ -28,28 +28,28 @@ def get_file_paths(
     fixstd=False,
 ): 
     if fixstd:
-        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        name = f"{size}x{num_beta}x{num_std}_seed{seed}"
         std_str = f"_std{list_to_str(fixstd)}"
     else:
-        id = f"{size}x{num_beta}x{num_std}_seed{seed}"
+        name = f"{size}x{num_beta}x{num_std}_seed{seed}"
         std_str = ""
     beta_str = f"_beta{list_to_str(beta)}"
 
-    beta_path = os.path.join(path, f"beta_{id}{beta_str}.npy")
-    pi_path = os.path.join(path, f"Pi_{id}_Nwn{Nwn}{beta_str}{std_str}.npy")
-    sigma_path = os.path.join(path, f"sigma_{id}_Nw{Nw}_wmax{wmax}{std_str}.npy")
-    std_path = os.path.join(path, f"std_{id}.npy")
-    fixstd_path = os.path.join(path, f"fixstd_{id}{std_str}.npy")
-    full_id = f"{id}{beta_str}{std_str}_{Nw}x{Nwn}_wmax{wmax}"
+    beta_path = os.path.join(path, f"beta_{name}{beta_str}.npy")
+    pi_path = os.path.join(path, f"Pi_{name}_Nwn{Nwn}{beta_str}{std_str}.npy")
+    sigma_path = os.path.join(path, f"sigma_{name}_Nw{Nw}_wmax{wmax}{std_str}.npy")
+    std_path = os.path.join(path, f"std_{name}.npy")
+    fixstd_path = os.path.join(path, f"fixstd_{name}{std_str}.npy")
+    full_id = f"{name}{beta_str}{std_str}_{Nw}x{Nwn}_wmax{wmax}"
 
     return beta_path, pi_path, sigma_path, std_path, fixstd_path, full_id
 
 
 def get_dataset(
-    name=None,
-    path=os.path.join(DATAPATH, "default"),
+    name="unbiased",
+    path=None,
     size=1,
-    seed=55555,
+    seed=0,
     num_std=1,
     num_beta=1,
     Nwn=128,
@@ -61,7 +61,7 @@ def get_dataset(
     save_plot=None,
 ):
 
-    if name is not None:
+    if path is None:
         path=os.path.join(DATAPATH, name)
         
     # getting filenames

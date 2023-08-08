@@ -23,14 +23,14 @@ You can train an example neural network in the `examples/tutorial.ipynb`. Instal
     jupyter notebook
 
 The notebook lets you generate the datasets, by you can also do it from prompt.
-Generate the validation set (10 000 spectra) with a explicit seed.
+Generate the validation set (10 000 spectra) with an explicit seed.
 
-    python deep_continuation/dataset.py --save 10000 --seed 555
+    python deep_continuation/dataset.py --size 10000 --seed 1
 
-Progress is shown and data is saved under `deep_continuation/data/default/`. 
-Generate the training dataset (100 000 spectra) with the default seed (55555):
+Progress is shown and data is saved under `deep_continuation/data/unbiased/`. 
+Generate the training dataset (100 000 spectra) with the default seed (0):
 
-    python deep_continuation/dataset.py --save 100000
+    python deep_continuation/dataset.py --size 100000
 
 Here are further usage examples for `dataset.py`
 

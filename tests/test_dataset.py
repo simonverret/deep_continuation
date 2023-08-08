@@ -8,8 +8,8 @@ EXPCPATH = os.path.join(HERE,"expected")
 
 from deep_continuation import dataset
 
-TEST_SEEDS = [55555, 555, 1]
-TEST_FIXSTD = [False, 8.86, [5,15]]
+TEST_SEEDS = [0, 1]
+TEST_FIXSTD = [False, 12]
 TEST_BETAS = [30, [0,60]]
 
 

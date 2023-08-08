@@ -75,8 +75,8 @@ def train_mlp(
     noise=0.0, 
     standardize=True, 
     # datafile options
-    name=None,
-    path=os.path.join(dataset.DATAPATH, "default"),
+    name="unbiased",
+    path=None,
     num_std=1,
     num_beta=1,
     Nwn=128,
@@ -100,17 +100,15 @@ def train_mlp(
 ):
     config_dict = locals()
     train_pi_path, train_sigma_path, train_set_id = dataset.get_dataset(
-        size=100000, seed=55555, 
+        size=100000, seed=0, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
         Nwn=Nwn, beta=beta, Nw=Nw, wmax=wmax, fixstd=fixstd,
     )
     valid_pi_path, valid_sigma_path, valid_set_id = dataset.get_dataset(
-        size=10000, seed=555, 
+        size=10000, seed=1, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
         Nwn=Nwn, beta=beta, Nw=Nw, wmax=wmax, fixstd=fixstd,
     )
-
-    config_id = f"n{noise}"
 
     train_set = ContinuationData(
         pi_path=train_pi_path, sigma_path=train_sigma_path, noise=noise,
@@ -202,7 +200,7 @@ def train_mlp(
             if loss_id is not None:
                 os.remove(model_path)
                 os.remove(config_path)
-            loss_id = f"noise{noise}_epoch{best_epoch}_mse{avg_valid_mse}_loss{best_valid_loss}"
+            loss_id = f"noise{noise}_mse{avg_valid_mse}_loss{best_valid_loss}_epoch{best_epoch}"
             model_dir = os.path.join(MODELS_PATH, f"trained_on_{name}_{train_set_id}")
             model_dir = os.path.join(model_dir, f"validated_on_{name}_{valid_set_id}")
             model_path = os.path.join(model_dir, f"model_{loss_id}.pt")
