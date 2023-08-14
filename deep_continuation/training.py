@@ -97,8 +97,16 @@ def train_mlp(
     n_epochs = 200,
     early_stop_limit = 40,
     warmup = True,
+    use_wandb = False,
 ):
     config_dict = locals()
+    if use_wandb:
+        try:
+            import wandb
+            wandb.init(entity="simonverret", project="taac", config=config_dict)
+        except:
+            use_wandb = False
+
     train_pi_path, train_sigma_path, train_set_id = dataset.get_dataset(
         size=100000, seed=0, 
         name=name, path=path, num_std=num_std, num_beta=num_beta,
@@ -187,6 +195,14 @@ def train_mlp(
         avg_valid_loss = avg_valid_loss/len(valid_loader)
         print(f'   valid loss: {avg_valid_loss:.9f}, mse:{avg_valid_mse:.9f}')
         
+        if use_wandb:
+            wandb.log({
+                "train_loss": avg_train_loss,
+                "train_mse": avg_train_mse,
+                "valid_loss": avg_valid_loss,
+                "valid_mse": avg_valid_mse,
+            })
+
         scheduler.step(avg_train_loss)
         
         # saving and 
