@@ -1,0 +1,36 @@
+program: /home/simon/deep_continuation/deep_continuation/training.py
+method: bayes
+early_terminate:
+  type: hyperband
+  min_iter: 200
+  eta: 2
+metric:
+  name: valid_mse
+  goal: minimize
+parameters:
+  use_wandb:
+    value: True
+  n_epochs:
+    value: 1000
+  early_stop_limit:
+    value: 50
+  # dataloader options
+  lr:
+    min: 0.000001
+    max: 0.001
+  batch_size:
+    min: 1500
+    max: 4000
+  layers:
+    values:
+      - [128, 8192, 4096, 2048, 1024, 512]
+      - [128, 2048, 2048, 2048, 2048, 512]
+      - [128, 512, 512, 512, 512, 512, 512, 512]
+  factor:
+    min: 0.1
+    max: 1.0
+  patience:
+    min: 1
+    max: 50
+  min_lr:
+    value: 0.000000001

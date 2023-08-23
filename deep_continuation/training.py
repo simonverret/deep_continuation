@@ -194,6 +194,7 @@ def train_mlp(
 
         avg_valid_loss = avg_valid_loss/len(valid_loader)
         print(f'   valid loss: {avg_valid_loss:.9f}, mse:{avg_valid_mse:.9f}')
+        scheduler.step(avg_train_loss)
         
         if use_wandb:
             wandb.log({
@@ -202,35 +203,33 @@ def train_mlp(
                 "valid_loss": avg_valid_loss,
                 "valid_mse": avg_valid_mse,
             })
+        else:        
+            # saving and 
+            early_stop_count -= 1
+            if avg_valid_loss < best_valid_loss:
+                early_stop_count = early_stop_limit
+                best_valid_loss = avg_valid_loss
+                best_epoch = epoch
+                best_model = deepcopy(model)
+                
+                if loss_id is not None:
+                    os.remove(model_path)
+                    os.remove(config_path)
+                loss_id = f"noise{noise}_mse{avg_valid_mse}_loss{best_valid_loss}_epoch{best_epoch}"
+                model_dir = os.path.join(MODELS_PATH, f"trained_on_{name}_{train_set_id}")
+                model_dir = os.path.join(model_dir, f"validated_on_{name}_{valid_set_id}")
+                model_path = os.path.join(model_dir, f"model_{loss_id}.pt")
+                config_path = os.path.join(model_dir, f"config_{loss_id}.json")
 
-        scheduler.step(avg_train_loss)
-        
-        # saving and 
-        early_stop_count -= 1
-        if avg_valid_loss < best_valid_loss:
-            early_stop_count = early_stop_limit
-            best_valid_loss = avg_valid_loss
-            best_epoch = epoch
-            best_model = deepcopy(model)
+                os.makedirs(model_dir, exist_ok=True)
+                torch.save(best_model.state_dict(), model_path)
+                with open(config_path, 'w') as fp:
+                    json.dump(config_dict, fp, indent=4) 
             
-            if loss_id is not None:
-                os.remove(model_path)
-                os.remove(config_path)
-            loss_id = f"noise{noise}_mse{avg_valid_mse}_loss{best_valid_loss}_epoch{best_epoch}"
-            model_dir = os.path.join(MODELS_PATH, f"trained_on_{name}_{train_set_id}")
-            model_dir = os.path.join(model_dir, f"validated_on_{name}_{valid_set_id}")
-            model_path = os.path.join(model_dir, f"model_{loss_id}.pt")
-            config_path = os.path.join(model_dir, f"config_{loss_id}.json")
-
-            os.makedirs(model_dir, exist_ok=True)
-            torch.save(best_model.state_dict(), model_path)
-            with open(config_path, 'w') as fp:
-                json.dump(config_dict, fp, indent=4) 
-        
-        if early_stop_count == 0:
-            print('early stopping limit reached!!')
-            print(f'best epoch was {best_epoch}')
-            break
+            if early_stop_count == 0:
+                print('early stopping limit reached!!')
+                print(f'best epoch was {best_epoch}')
+                break
 
 
 if __name__ == "__main__":
